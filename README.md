@@ -85,7 +85,7 @@ curl -X POST http://localhost:3000/send-message \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "session1",
-    "number": "1234567890",
+    "number": "628581234567890",
     "message": "Hello, this is a test message!"
   }'
 ```
@@ -99,7 +99,7 @@ curl -X POST http://localhost:3000/send-message \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "session1",
-    "number": "1234567890",
+    "number": "628581234567890",
     "message": "Check out this image!",
     "imagePath": "/path/to/your/image.jpg"
   }'

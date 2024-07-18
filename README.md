@@ -1,4 +1,4 @@
-# Super Simple Web WhatsApp Gateway using Baileys Library
+# Super Simple NodeJS Web Server WhatsApp Gateway API using Baileys Library
 
 This project implements a simple WhatsApp gateway using the `@whiskeysockets/baileys` library. It allows you to generate QR codes for WhatsApp Web authentication and send messages (including images) through WhatsApp.
 

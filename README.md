@@ -22,6 +22,8 @@ This project implements a simple WhatsApp gateway using the `@whiskeysockets/bai
 - Send text messages
 - Send images with captions
 - Support for multiple sessions
+- Support Multisession Device
+- Super Fast Sending Message
 
 ## Prerequisites
 

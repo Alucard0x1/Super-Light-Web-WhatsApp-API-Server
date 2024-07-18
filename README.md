@@ -119,8 +119,8 @@ Note: Make sure to replace `/path/to/your/image.jpg` with the actual path to the
 
 ## Contributions
 
-Contributions, issues, and feature requests are welcome. Feel free to check [issues page](https://github.com/Alucard0x1/super-simple-web-whatsapp-gateway/issues) if you want to contribute.
+Contributions, issues, and feature requests are welcome.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.

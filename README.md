@@ -52,7 +52,7 @@ This project implements a simple WhatsApp gateway using the `@whiskeysockets/bai
 To start the server, run:
 
 ```
-node server.js
+node index.js
 ```
 
 The server will start running on `http://localhost:3000` (or the port specified in your environment variables).

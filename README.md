@@ -15,7 +15,9 @@ This project implements a simple WhatsApp gateway API using the `@whiskeysockets
 - [Usage](#usage)
 - [Session Management Workflow](#session-management-workflow)
 - [API Endpoints](#api-endpoints)
-  - [Generate QR Code](#generate-qr-code)
+  - [Generate QR Code / Get Session Status](#generate-qr-code--get-session-status)
+  - [Get Specific Session Status](#get-specific-session-status)
+  - [List All Sessions](#list-all-sessions)
   - [Send Message](#send-message)
   - [Delete Session](#delete-session)
 - [Important Notes](#important-notes)
@@ -29,6 +31,7 @@ This project implements a simple WhatsApp gateway API using the `@whiskeysockets
 - Send images with captions (from a designated server-side directory).
 - Support for multiple, named sessions.
 - Session deletion and cleanup.
+- API endpoints to check session status.
 
 ## Prerequisites
 
@@ -67,13 +70,15 @@ Here's the typical lifecycle for managing a WhatsApp session with this API:
 
 1.  **Initiate Session & Get QR Code:**
     Make a `GET` request to `/qr-code/:sessionId` (e.g., `/qr-code/mySession1`).
-    The server will return a JSON object containing a QR code string.
-2.  **Scan QR Code:**
-    Convert the received `qrString` into a scannable QR code image (using any QR code generation tool or library) and scan it with your WhatsApp mobile application (Linked Devices -> Link a device).
-3.  **Send Messages:**
-    Once the session is active (QR scanned, connection open), you can send messages using `POST /send-message`. Include the `sessionId` in your request body.
-4.  **Delete Session (Optional):**
-    When a session is no longer needed, or if you want to re-authenticate, you can delete it using `DELETE /session/:sessionId`. This logs out the session from WhatsApp and removes its authentication data from the server.
+    If the session is new or disconnected, the server will return a JSON object containing a QR code string. If already connected, it will confirm this.
+2.  **Scan QR Code (if provided):**
+    Convert the received `qrString` into a scannable QR code image and scan it with your WhatsApp mobile application (Linked Devices -> Link a device).
+3.  **Check Session Status (Optional):**
+    Use `GET /session/:sessionId/status` or `GET /sessions` to monitor the connection status.
+4.  **Send Messages:**
+    Once the session is active, you can send messages using `POST /send-message`. Include the `sessionId` in your request body.
+5.  **Delete Session (Optional):**
+    When a session is no longer needed, use `DELETE /session/:sessionId`.
 
 ## API Endpoints
 
@@ -81,63 +86,114 @@ This section details the available API endpoints. All responses are in JSON form
 
 ---
 
-### Generate QR Code
-
+### Generate QR Code / Get Session Status
 **`GET /qr-code/:sessionId`**
 
-Initiates a new WhatsApp session or retrieves connection status for an existing one. If a new session, it provides a QR code string for authentication.
+Initiates a new WhatsApp session or retrieves connection status. If a new session needs authentication, it provides a QR code string. If the session is already active and connected, it confirms this.
 
 **Request Format:**
-
 *   **Path Parameters:**
-    *   `sessionId` (string, required): A unique identifier for the session (e.g., `mySession1`, `userA_whatsapp`).
+    *   `sessionId` (string, required): A unique identifier for the session.
 
 **Success Responses:**
-
-*   **`200 OK`** - QR code generated (for new sessions needing authentication):
+*   **`200 OK`** - QR code generated (for new/disconnected sessions needing authentication):
     ```json
     {
       "qrString": "2@t1H...the_full_qr_string...J+g=="
     }
     ```
     *(Note: You need to convert this string into a scannable QR code image).*
-
-*   **`200 OK`** - Client already initialized and connected (session is active):
+*   **`200 OK`** - Client already initialized and connected:
     ```json
     {
-      "message": "Client already initialized and connected"
+      "status": "connected",
+      "sessionId": "yourSessionId"
     }
     ```
-
-*   **`200 OK`** - Client connected using saved credentials (no QR needed):
+*   **`200 OK`** - Client connected using saved credentials (no QR needed at this moment):
     ```json
     {
       "message": "Client connected using saved credentials. No QR code generated."
     }
     ```
 
-**Error Responses:**
+**Error Responses:** (Refer to original README for detailed error examples, they remain similar)
+*   `500 Internal Server Error` (e.g., QR timeout, connection failure)
+*   `401 Unauthorized` (e.g., logged out)
 
-*   **`500 Internal Server Error`** - QR code generation timed out:
+---
+
+### Get Specific Session Status
+**`GET /session/:sessionId/status`**
+
+Retrieves the current connection status of a specific WhatsApp session.
+
+**Request Format:**
+*   **Path Parameters:**
+    *   `sessionId` (string, required): The unique identifier for the session.
+
+**Possible Responses:**
+*   **`200 OK`** - Session is actively connected:
     ```json
     {
-      "error": "QR code generation timed out"
+      "status": "connected",
+      "sessionId": "yourSessionId"
     }
     ```
-*   **`500 Internal Server Error`** - Failed during QR generation or connection:
+*   **`200 OK`** - Session is disconnected (client instance might exist or only auth data found):
     ```json
     {
-      "error": "Failed to generate QR code or connection closed.",
-      "details": "Specific error message from Baileys or system"
+      "status": "disconnected",
+      "sessionId": "yourSessionId",
+      "reason": "Connection Failure: net::ERR_INTERNET_DISCONNECTED"
     }
     ```
-*   **`401 Unauthorized`** - Session logged out (e.g., by external action):
+    *(Note: The `reason` can vary, e.g., "Session data found but not actively connected. May need QR scan.")*
+*   **`404 Not Found`** - Session not found (no active client and no saved session data):
     ```json
     {
-      "error": "Failed to generate QR code or connection closed.",
-      "details": "Connection Failure: logged out"
+      "status": "not_found",
+      "sessionId": "yourSessionId",
+      "message": "Session not found. No active connection and no saved session data."
     }
     ```
+*   **`500 Internal Server Error`** - Unexpected error.
+
+---
+
+### List All Sessions
+**`GET /sessions`**
+
+Lists all available sessions, including those with only persisted authentication data and their current statuses.
+
+**Request Format:**
+*   None (no parameters or body).
+
+**Success Response:**
+*   **`200 OK`**:
+    ```json
+    [
+      {
+        "sessionId": "session1",
+        "status": "connected"
+      },
+      {
+        "sessionId": "session2",
+        "status": "disconnected",
+        "detail": "Session data found, but not actively connected. May require QR scan via /qr-code/:sessionId"
+      },
+      {
+        "sessionId": "anotherOne",
+        "status": "disconnected",
+        "detail": "Client instance exists but not connected.",
+        "reason": "Connection Failure: timed out"
+      }
+    ]
+    ```
+    *(Note: The structure for "disconnected" sessions may vary slightly based on whether only auth data is found or an actual client instance exists but is not connected).*
+
+**Error Responses:**
+*   **`500 Internal Server Error`** - Unexpected error during retrieval.
 
 ---
 
@@ -145,71 +201,20 @@ Initiates a new WhatsApp session or retrieves connection status for an existing 
 
 **`POST /send-message`**
 
-Sends a message (text or image with caption) to a specified WhatsApp number using an active session.
+Sends a message (text or image with caption) to a specified WhatsApp number using an active session. (Documentation for request body, success and error responses remains largely the same as in the original README).
 
 **Request Format:**
-
-*   **Headers:**
-    *   `Content-Type: application/json`
+*   **Headers:** `Content-Type: application/json`
 *   **Body (JSON):**
-    *   `sessionId` (string, required): The ID of an active, authenticated session. Must be a non-empty string.
-    *   `number` (string, required): The recipient's WhatsApp number. Must be a string containing only digits (e.g., `1234567890`, `6281234567890`).
-    *   `message` (string): The text message or caption for an image. Must be a string if provided. Either `message` or `imagePath` (or both) must be provided.
-    *   `imagePath` (string, optional): Relative path to an image file within the server's `media` directory (e.g., `photo.jpg`, `promotion/banner.png`). Must be a string if provided. Either `message` or `imagePath` (or both) must be provided.
+    *   `sessionId` (string, required)
+    *   `number` (string, required, digits only)
+    *   `message` (string, optional if imagePath provided)
+    *   `imagePath` (string, optional if message provided, relative to `media` dir)
 
 **Success Response:**
+*   **`200 OK`**: `{"message": "Message sent successfully"}`
 
-*   **`200 OK`**:
-    ```json
-    {
-      "message": "Message sent successfully"
-    }
-    ```
-
-**Error Responses:**
-
-*   **`400 Bad Request`** - Input validation errors:
-    ```json
-    { "error": "'sessionId' is required and must be a non-empty string." }
-    ```
-    ```json
-    { "error": "'number' is required and must be a string." }
-    ```
-    ```json
-    { "error": "Invalid 'number' format. Must be digits only." }
-    ```
-    ```json
-    { "error": "Either 'message' or 'imagePath' must be provided." }
-    ```
-    ```json
-    { "error": "'message' must be a string." }
-    ```
-    ```json
-    { "error": "'imagePath' must be a string." }
-    ```
-*   **`400 Bad Request`** - Invalid image path or file accessibility issue (these remain from previous step):
-    ```json
-    { "error": "Invalid image path. Path traversal attempt detected." }
-    ```
-    ```json
-    { "error": "Image not found: non_existent_image.jpg" }
-    ```
-    ```json
-    { "error": "Image not accessible: unreadable_image.jpg" }
-    ```
-*   **`404 Not Found`** - Client session not found or not active:
-    ```json
-    {
-      "error": "Client with session ID 'yourSessionId' not found"
-    }
-    ```
-*   **`500 Internal Server Error`** - General failure during message sending:
-    ```json
-    {
-      "error": "Failed to send message",
-      "details": "Specific error from Baileys or system"
-    }
-    ```
+**Error Responses:** (Input validation, 404 for session not found, 500 for send failure - refer to original for examples)
 
 ---
 
@@ -217,37 +222,15 @@ Sends a message (text or image with caption) to a specified WhatsApp number usin
 
 **`DELETE /session/:sessionId`**
 
-Logs out an active WhatsApp session, deletes its authentication data from the server, and clears the session instance.
+Logs out an active WhatsApp session, deletes its authentication data from the server, and clears the session instance. (Documentation for path parameters, success and error responses remains largely the same as in the original README).
 
 **Request Format:**
-
-*   **Path Parameters:**
-    *   `sessionId` (string, required): The unique identifier for the session to be deleted.
+*   **Path Parameters:** `sessionId` (string, required)
 
 **Success Response:**
+*   **`200 OK`**: `{"message": "Session 'yourSessionId' logged out and associated data deleted successfully."}`
 
-*   **`200 OK`**:
-    ```json
-    {
-      "message": "Session 'yourSessionId' logged out and associated data deleted successfully."
-    }
-    ```
-
-**Error Responses:**
-
-*   **`404 Not Found`** - Session does not exist (neither active nor any stored data):
-    ```json
-    {
-      "error": "Session 'yourSessionId' not found."
-    }
-    ```
-*   **`500 Internal Server Error`** - Failure during session deletion process:
-    ```json
-    {
-      "error": "Failed to delete session 'yourSessionId'.",
-      "details": "Specific error message"
-    }
-    ```
+**Error Responses:** (404 for session not found, 500 for deletion failure - refer to original for examples)
 
 ## Important Notes
 

@@ -59,7 +59,7 @@ app.get('/qr-code/:sessionId', async (req, res) => {
   let responseSent = false;
 
   if (clients[sessionId] && clients[sessionId].ws && clients[sessionId].ws.socket && clients[sessionId].ws.socket.readyState === 1) { // 1 for WebSocket.OPEN
-    return res.status(200).json({ message: 'Client already initialized and connected' });
+    return res.status(200).json({ status: "connected", sessionId: sessionId });
   }
 
   const qrTimeout = setTimeout(() => {
@@ -139,6 +139,88 @@ app.get('/qr-code/:sessionId', async (req, res) => {
       console.error('Error in /qr-code endpoint:', error);
       res.status(500).json({ error: 'Internal server error during QR generation.', details: error.message });
     }
+  }
+});
+
+// Endpoint to list all sessions and their statuses
+app.get('/sessions', async (req, res) => {
+  let sessionStatuses = [];
+  const processedSessionIds = new Set(); // To keep track of sessions already added
+
+  try {
+    const entries = fs.readdirSync('.', { withFileTypes: true });
+    const authFoldersList = entries // Renamed to avoid conflict with the global 'authFolders' object
+      .filter(dirent => dirent.isDirectory() && dirent.name.startsWith('auth_info_'))
+      .map(dirent => dirent.name);
+
+    for (const folderName of authFoldersList) {
+      const sessionId = folderName.substring('auth_info_'.length);
+      if (sessionId) {
+        const sock = clients[sessionId];
+        if (sock && sock.ws && sock.ws.socket && sock.ws.socket.readyState === 1) {
+          sessionStatuses.push({ sessionId: sessionId, status: "connected" });
+        } else {
+          sessionStatuses.push({
+            sessionId: sessionId,
+            status: "disconnected",
+            detail: "Session data found, but not actively connected. May require QR scan via /qr-code/:sessionId"
+          });
+        }
+        processedSessionIds.add(sessionId);
+      }
+    }
+
+    // Check for any active clients that might not have had an auth folder listed
+    // (e.g., if auth folder was deleted but client is still in memory)
+    for (const sessionId in clients) {
+      if (!processedSessionIds.has(sessionId)) {
+        const sock = clients[sessionId];
+        if (sock && sock.ws && sock.ws.socket && sock.ws.socket.readyState === 1) {
+          sessionStatuses.push({ sessionId: sessionId, status: "connected" });
+        } else if (sock) { // Client exists but not fully connected
+          sessionStatuses.push({
+            sessionId: sessionId,
+            status: "disconnected",
+            detail: "Client instance exists but not connected.",
+            reason: sock.lastDisconnect?.error?.message || "Unknown"
+          });
+        }
+      }
+    }
+
+    res.status(200).json(sessionStatuses);
+  } catch (error) {
+    console.error('Error in /sessions endpoint:', error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
+  }
+});
+
+// Endpoint to get session status
+app.get('/session/:sessionId/status', async (req, res) => {
+  const { sessionId } = req.params;
+  const sock = clients[sessionId];
+  const authFolderPath = authFolders[sessionId] || `./auth_info_${sessionId}`; // Consistent with delete endpoint
+
+  try {
+    if (sock && sock.ws && sock.ws.socket && sock.ws.socket.readyState === 1) { // WebSocket.OPEN
+      return res.status(200).json({ status: "connected", sessionId: sessionId });
+    } else if (sock) { // Client exists but not in ready state 1
+      // Attempt to get more specific disconnect information
+      // The 'lastDisconnect' property is typically on the main 'sock' object, not deep within 'ws.socket'
+      // and is updated by the 'connection.update' event handler.
+      const reason = sock.lastDisconnect?.error?.message || "Unknown (client exists but not connected)";
+      return res.status(200).json({ status: "disconnected", sessionId: sessionId, reason: reason });
+    } else {
+      // No active client, check for persisted auth folder
+      if (fs.existsSync(authFolderPath)) {
+        return res.status(200).json({ status: "disconnected", sessionId: sessionId, reason: "Session data found but not actively connected. May need QR scan." });
+      } else {
+        return res.status(404).json({ status: "not_found", sessionId: sessionId, message: "Session not found. No active connection and no saved session data." });
+      }
+    }
+  } catch (error) {
+    console.error(`Error in /session/${sessionId}/status endpoint:`, error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 

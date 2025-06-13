@@ -38,4 +38,4 @@ var DisconnectReason;
     DisconnectReason[DisconnectReason["multideviceMismatch"] = 411] = "multideviceMismatch";
     DisconnectReason[DisconnectReason["forbidden"] = 403] = "forbidden";
     DisconnectReason[DisconnectReason["unavailableService"] = 503] = "unavailableService";
-})(DisconnectReason = exports.DisconnectReason || (exports.DisconnectReason = {}));
+})(DisconnectReason || (exports.DisconnectReason = DisconnectReason = {}));

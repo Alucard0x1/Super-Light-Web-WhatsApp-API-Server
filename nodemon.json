@@ -1,0 +1,6 @@
+{
+  "watch": ["*.js"],
+  "ext": "js,json",
+  "ignore": ["auth_info_baileys/*"],
+  "exec": "node index.js"
+} 

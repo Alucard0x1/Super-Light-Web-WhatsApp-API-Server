@@ -1,21 +1,26 @@
 {
   "name": "whatsapp-gateway",
   "version": "1.0.0",
-  "description": "",
+  "description": "WhatsApp API gateway",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "nodemon",
+    "test": "jest --forceExit"
   },
   "keywords": [],
-  "author": "",
+  "author": "Your Name",
   "license": "ISC",
   "dependencies": {
-    "@adiwajshing/baileys": "^3.5.3",
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^6.7.5",
-    "baileys": "^6.7.5",
+    "@whiskeysockets/baileys": "latest",
     "body-parser": "^1.20.2",
     "express": "^4.19.2",
     "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "jest": "^30.0.0",
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.1"
   }
 }

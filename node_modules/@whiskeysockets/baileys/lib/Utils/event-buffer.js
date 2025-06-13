@@ -138,7 +138,9 @@ const makeBufferData = () => {
         groupUpdates: {}
     };
 };
-function append(data, historyCache, event, eventData, logger) {
+function append(data, historyCache, event, 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+eventData, logger) {
     var _a, _b, _c;
     switch (event) {
         case 'messaging-history.set':
@@ -176,6 +178,9 @@ function append(data, historyCache, event, eventData, logger) {
                 }
             }
             data.historySets.empty = false;
+            data.historySets.syncType = eventData.syncType;
+            data.historySets.progress = eventData.progress;
+            data.historySets.peerDataRequestSessionId = eventData.peerDataRequestSessionId;
             data.historySets.isLatest = eventData.isLatest || data.historySets.isLatest;
             break;
         case 'chats.upsert':
@@ -442,7 +447,10 @@ function consolidateEvents(data) {
             chats: Object.values(data.historySets.chats),
             messages: Object.values(data.historySets.messages),
             contacts: Object.values(data.historySets.contacts),
-            isLatest: data.historySets.isLatest
+            syncType: data.historySets.syncType,
+            progress: data.historySets.progress,
+            isLatest: data.historySets.isLatest,
+            peerDataRequestSessionId: data.historySets.peerDataRequestSessionId
         };
     }
     const chatUpsertList = Object.values(data.chatUpserts);
@@ -496,12 +504,10 @@ function consolidateEvents(data) {
     return map;
 }
 function concatChats(a, b) {
-    if (b.unreadCount === null) {
-        // neutralize unread counter
-        if (a.unreadCount < 0) {
-            a.unreadCount = undefined;
-            b.unreadCount = undefined;
-        }
+    if (b.unreadCount === null && // neutralize unread counter
+        a.unreadCount < 0) {
+        a.unreadCount = undefined;
+        b.unreadCount = undefined;
     }
     if (typeof a.unreadCount === 'number' && typeof b.unreadCount === 'number') {
         b = { ...b };

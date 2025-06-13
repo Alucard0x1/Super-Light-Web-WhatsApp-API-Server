@@ -15,22 +15,43 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.derivePairingCodeKey = exports.hkdf = exports.md5 = exports.sha256 = exports.hmacSign = exports.aesEncrypWithIV = exports.aesEncrypt = exports.aesDecryptWithIV = exports.aesDecrypt = exports.aesDecryptCTR = exports.aesEncryptCTR = exports.aesDecryptGCM = exports.aesEncryptGCM = exports.signedKeyPair = exports.Curve = exports.generateSignalPubKey = void 0;
+exports.signedKeyPair = exports.Curve = exports.generateSignalPubKey = void 0;
+exports.aesEncryptGCM = aesEncryptGCM;
+exports.aesDecryptGCM = aesDecryptGCM;
+exports.aesEncryptCTR = aesEncryptCTR;
+exports.aesDecryptCTR = aesDecryptCTR;
+exports.aesDecrypt = aesDecrypt;
+exports.aesDecryptWithIV = aesDecryptWithIV;
+exports.aesEncrypt = aesEncrypt;
+exports.aesEncrypWithIV = aesEncrypWithIV;
+exports.hmacSign = hmacSign;
+exports.sha256 = sha256;
+exports.md5 = md5;
+exports.hkdf = hkdf;
+exports.derivePairingCodeKey = derivePairingCodeKey;
 const crypto_1 = require("crypto");
-const futoin_hkdf_1 = __importDefault(require("futoin-hkdf"));
 const libsignal = __importStar(require("libsignal"));
 const Defaults_1 = require("../Defaults");
+// insure browser & node compatibility
+const { subtle } = globalThis.crypto;
 /** prefix version byte to the pub keys, required for some curve crypto functions */
 const generateSignalPubKey = (pubKey) => (pubKey.length === 33
     ? pubKey
@@ -77,7 +98,6 @@ function aesEncryptGCM(plaintext, key, iv, additionalData) {
     cipher.setAAD(additionalData);
     return Buffer.concat([cipher.update(plaintext), cipher.final(), cipher.getAuthTag()]);
 }
-exports.aesEncryptGCM = aesEncryptGCM;
 /**
  * decrypt AES 256 GCM;
  * where the auth tag is suffixed to the ciphertext
@@ -92,60 +112,82 @@ function aesDecryptGCM(ciphertext, key, iv, additionalData) {
     decipher.setAuthTag(tag);
     return Buffer.concat([decipher.update(enc), decipher.final()]);
 }
-exports.aesDecryptGCM = aesDecryptGCM;
 function aesEncryptCTR(plaintext, key, iv) {
     const cipher = (0, crypto_1.createCipheriv)('aes-256-ctr', key, iv);
     return Buffer.concat([cipher.update(plaintext), cipher.final()]);
 }
-exports.aesEncryptCTR = aesEncryptCTR;
 function aesDecryptCTR(ciphertext, key, iv) {
     const decipher = (0, crypto_1.createDecipheriv)('aes-256-ctr', key, iv);
     return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 }
-exports.aesDecryptCTR = aesDecryptCTR;
 /** decrypt AES 256 CBC; where the IV is prefixed to the buffer */
 function aesDecrypt(buffer, key) {
     return aesDecryptWithIV(buffer.slice(16, buffer.length), key, buffer.slice(0, 16));
 }
-exports.aesDecrypt = aesDecrypt;
 /** decrypt AES 256 CBC */
 function aesDecryptWithIV(buffer, key, IV) {
     const aes = (0, crypto_1.createDecipheriv)('aes-256-cbc', key, IV);
     return Buffer.concat([aes.update(buffer), aes.final()]);
 }
-exports.aesDecryptWithIV = aesDecryptWithIV;
 // encrypt AES 256 CBC; where a random IV is prefixed to the buffer
 function aesEncrypt(buffer, key) {
     const IV = (0, crypto_1.randomBytes)(16);
     const aes = (0, crypto_1.createCipheriv)('aes-256-cbc', key, IV);
     return Buffer.concat([IV, aes.update(buffer), aes.final()]); // prefix IV to the buffer
 }
-exports.aesEncrypt = aesEncrypt;
 // encrypt AES 256 CBC with a given IV
 function aesEncrypWithIV(buffer, key, IV) {
     const aes = (0, crypto_1.createCipheriv)('aes-256-cbc', key, IV);
     return Buffer.concat([aes.update(buffer), aes.final()]); // prefix IV to the buffer
 }
-exports.aesEncrypWithIV = aesEncrypWithIV;
 // sign HMAC using SHA 256
 function hmacSign(buffer, key, variant = 'sha256') {
     return (0, crypto_1.createHmac)(variant, key).update(buffer).digest();
 }
-exports.hmacSign = hmacSign;
 function sha256(buffer) {
     return (0, crypto_1.createHash)('sha256').update(buffer).digest();
 }
-exports.sha256 = sha256;
 function md5(buffer) {
     return (0, crypto_1.createHash)('md5').update(buffer).digest();
 }
-exports.md5 = md5;
 // HKDF key expansion
-function hkdf(buffer, expandedLength, info) {
-    return (0, futoin_hkdf_1.default)(!Buffer.isBuffer(buffer) ? Buffer.from(buffer) : buffer, expandedLength, info);
+async function hkdf(buffer, expandedLength, info) {
+    // Ensure we have a Uint8Array for the key material
+    const inputKeyMaterial = buffer instanceof Uint8Array
+        ? buffer
+        : new Uint8Array(buffer);
+    // Set default values if not provided
+    const salt = info.salt ? new Uint8Array(info.salt) : new Uint8Array(0);
+    const infoBytes = info.info
+        ? new TextEncoder().encode(info.info)
+        : new Uint8Array(0);
+    // Import the input key material
+    const importedKey = await subtle.importKey('raw', inputKeyMaterial, { name: 'HKDF' }, false, ['deriveBits']);
+    // Derive bits using HKDF
+    const derivedBits = await subtle.deriveBits({
+        name: 'HKDF',
+        hash: 'SHA-256',
+        salt: salt,
+        info: infoBytes
+    }, importedKey, expandedLength * 8 // Convert bytes to bits
+    );
+    return Buffer.from(derivedBits);
 }
-exports.hkdf = hkdf;
-function derivePairingCodeKey(pairingCode, salt) {
-    return (0, crypto_1.pbkdf2Sync)(pairingCode, salt, 2 << 16, 32, 'sha256');
+async function derivePairingCodeKey(pairingCode, salt) {
+    // Convert inputs to formats Web Crypto API can work with
+    const encoder = new TextEncoder();
+    const pairingCodeBuffer = encoder.encode(pairingCode);
+    const saltBuffer = salt instanceof Uint8Array ? salt : new Uint8Array(salt);
+    // Import the pairing code as key material
+    const keyMaterial = await subtle.importKey('raw', pairingCodeBuffer, { name: 'PBKDF2' }, false, ['deriveBits']);
+    // Derive bits using PBKDF2 with the same parameters
+    // 2 << 16 = 131,072 iterations
+    const derivedBits = await subtle.deriveBits({
+        name: 'PBKDF2',
+        salt: saltBuffer,
+        iterations: 2 << 16,
+        hash: 'SHA-256'
+    }, keyMaterial, 32 * 8 // 32 bytes * 8 = 256 bits
+    );
+    return Buffer.from(derivedBits);
 }
-exports.derivePairingCodeKey = derivePairingCodeKey;

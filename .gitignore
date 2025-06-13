@@ -2,3 +2,8 @@ auth_info_ABC
 auth_info_putra
 auth_info_test123123
 node_modules
+npm-debug.log
+*.log
+auth_info_baileys/
+.DS_Store
+tests/

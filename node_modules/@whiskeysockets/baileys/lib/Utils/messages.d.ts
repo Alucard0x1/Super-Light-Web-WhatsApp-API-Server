@@ -1,9 +1,7 @@
-/// <reference types="node" />
-/// <reference types="node" />
-import { Logger } from 'pino';
 import { type Transform } from 'stream';
 import { proto } from '../../WAProto';
 import { AnyMediaMessageContent, AnyMessageContent, MediaGenerationOptions, MessageContentGenerationOptions, MessageGenerationOptions, MessageGenerationOptionsFromContent, MessageUserReceipt, WAMessage, WAMessageContent, WAProto } from '../Types';
+import { ILogger } from './logger';
 import { MediaDownloadOptions } from './messages-media';
 /**
  * Uses a regex to test whether the string contains a URL, and returns the URL if it does.
@@ -11,7 +9,7 @@ import { MediaDownloadOptions } from './messages-media';
  * @returns the URL, eg. https://google.com
  */
 export declare const extractUrlFromText: (text: string) => string | undefined;
-export declare const generateLinkPreviewIfRequired: (text: string, getUrlInfo: MessageGenerationOptions['getUrlInfo'], logger: MessageGenerationOptions['logger']) => Promise<import("../Types").WAUrlInfo | undefined>;
+export declare const generateLinkPreviewIfRequired: (text: string, getUrlInfo: MessageGenerationOptions["getUrlInfo"], logger: MessageGenerationOptions["logger"]) => Promise<import("../Types").WAUrlInfo | undefined>;
 export declare const prepareWAMessageMedia: (message: AnyMediaMessageContent, options: MediaGenerationOptions) => Promise<proto.Message>;
 export declare const prepareDisappearingMessageSettingContent: (ephemeralExpiration?: number) => proto.Message;
 /**
@@ -42,11 +40,11 @@ export declare const extractMessageContent: (content: WAMessageContent | undefin
  */
 export declare const getDevice: (id: string) => "android" | "unknown" | "web" | "ios" | "desktop";
 /** Upserts a receipt in the message */
-export declare const updateMessageWithReceipt: (msg: Pick<WAMessage, 'userReceipt'>, receipt: MessageUserReceipt) => void;
+export declare const updateMessageWithReceipt: (msg: Pick<WAMessage, "userReceipt">, receipt: MessageUserReceipt) => void;
 /** Update the message with a new reaction */
-export declare const updateMessageWithReaction: (msg: Pick<WAMessage, 'reactions'>, reaction: proto.IReaction) => void;
+export declare const updateMessageWithReaction: (msg: Pick<WAMessage, "reactions">, reaction: proto.IReaction) => void;
 /** Update the message with a new poll update */
-export declare const updateMessageWithPollUpdate: (msg: Pick<WAMessage, 'pollUpdates'>, update: proto.IPollUpdate) => void;
+export declare const updateMessageWithPollUpdate: (msg: Pick<WAMessage, "pollUpdates">, update: proto.IPollUpdate) => void;
 type VoteAggregation = {
     name: string;
     voters: string[];
@@ -66,12 +64,12 @@ export declare const aggregateMessageKeysNotFromMe: (keys: proto.IMessageKey[]) 
 }[];
 type DownloadMediaMessageContext = {
     reuploadRequest: (msg: WAMessage) => Promise<WAMessage>;
-    logger: Logger;
+    logger: ILogger;
 };
 /**
  * Downloads the given message. Throws an error if it's not a media message
  */
-export declare const downloadMediaMessage: <Type extends "stream" | "buffer">(message: WAMessage, type: Type, options: MediaDownloadOptions, ctx?: DownloadMediaMessageContext) => Promise<Type extends "buffer" ? Buffer : Transform>;
+export declare const downloadMediaMessage: <Type extends "buffer" | "stream">(message: WAMessage, type: Type, options: MediaDownloadOptions, ctx?: DownloadMediaMessageContext) => Promise<Type extends "buffer" ? Buffer<ArrayBufferLike> : Transform>;
 /** Checks whether the given message is a media message; if it is returns the inner content */
 export declare const assertMediaContent: (content: proto.IMessage | null | undefined) => proto.Message.IVideoMessage | proto.Message.IImageMessage | proto.Message.IAudioMessage | proto.Message.IDocumentMessage | proto.Message.IStickerMessage;
 export {};

@@ -1,13 +1,17 @@
 import type { proto } from '../../WAProto';
 import type { AccountSettings } from './Auth';
 import type { BufferedEventData } from './Events';
+import type { LabelActionBody } from './Label';
 import type { ChatLabelAssociationActionBody } from './LabelAssociation';
 import type { MessageLabelAssociationActionBody } from './LabelAssociation';
-import type { MinimalMessage } from './Message';
+import type { MinimalMessage, WAMessageKey } from './Message';
 /** privacy settings in WhatsApp Web */
 export type WAPrivacyValue = 'all' | 'contacts' | 'contact_blacklist' | 'none';
 export type WAPrivacyOnlineValue = 'all' | 'match_last_seen';
+export type WAPrivacyGroupAddValue = 'all' | 'contacts' | 'contact_blacklist';
 export type WAReadReceiptsValue = 'all' | 'none';
+export type WAPrivacyCallValue = 'all' | 'known';
+export type WAPrivacyMessagesValue = 'all' | 'contacts';
 /** set of statuses visible to other people; see updatePresence() in WhatsAppWeb.Send */
 export type WAPresence = 'unavailable' | 'available' | 'composing' | 'recording' | 'paused';
 export declare const ALL_WA_PATCH_NAMES: readonly ["critical_block", "critical_unblock_low", "regular_high", "regular_low", "regular"];
@@ -16,6 +20,10 @@ export interface PresenceData {
     lastKnownPresence: WAPresence;
     lastSeen?: number;
 }
+export type BotListInfo = {
+    jid: string;
+    personaId: string;
+};
 export type ChatMutation = {
     syncAction: proto.ISyncActionData;
     index: string[];
@@ -59,12 +67,12 @@ export type ChatModification = {
     /** mute for duration, or provide timestamp of mute to remove*/
     mute: number | null;
 } | {
-    clear: 'all' | {
-        messages: {
-            id: string;
-            fromMe?: boolean;
-            timestamp: number;
-        }[];
+    clear: boolean;
+} | {
+    deleteForMe: {
+        deleteMedia: boolean;
+        key: WAMessageKey;
+        timestamp: number;
     };
 } | {
     star: {
@@ -80,6 +88,8 @@ export type ChatModification = {
 } | {
     delete: true;
     lastMessages: LastMessageList;
+} | {
+    addLabel: LabelActionBody;
 } | {
     addChatLabel: ChatLabelAssociationActionBody;
 } | {

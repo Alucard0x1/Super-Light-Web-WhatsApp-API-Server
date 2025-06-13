@@ -28,11 +28,12 @@ type EventByName<T extends Event['name']> = Extract<Event, {
 export type EventInputType = {
     [key in Event['name']]: {
         props: {
-            [k in keyof EventByName<key>['props']]: any;
+            [k in keyof EventByName<key>['props']]: Value;
         };
         globals: {
-            [x: string]: any;
+            [x: string]: Value;
         };
     };
 } & {};
+export type Value = number | null | string;
 export {};

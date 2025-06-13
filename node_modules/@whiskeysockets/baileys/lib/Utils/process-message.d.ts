@@ -1,14 +1,14 @@
 import { AxiosRequestConfig } from 'axios';
-import type { Logger } from 'pino';
 import { proto } from '../../WAProto';
-import { AuthenticationCreds, BaileysEventEmitter, SignalKeyStoreWithTransaction, SocketConfig } from '../Types';
+import { AuthenticationCreds, BaileysEventEmitter, CacheStore, SignalKeyStoreWithTransaction } from '../Types';
+import { ILogger } from './logger';
 type ProcessMessageContext = {
     shouldProcessHistoryMsg: boolean;
+    placeholderResendCache?: CacheStore;
     creds: AuthenticationCreds;
     keyStore: SignalKeyStoreWithTransaction;
     ev: BaileysEventEmitter;
-    getMessage: SocketConfig['getMessage'];
-    logger?: Logger;
+    logger?: ILogger;
     options: AxiosRequestConfig<{}>;
 };
 /** Cleans a received message to further processing */
@@ -37,5 +37,5 @@ type PollContext = {
  * @returns list of SHA256 options
  */
 export declare function decryptPollVote({ encPayload, encIv }: proto.Message.IPollEncValue, { pollCreatorJid, pollMsgId, pollEncKey, voterJid, }: PollContext): proto.Message.PollVoteMessage;
-declare const processMessage: (message: proto.IWebMessageInfo, { shouldProcessHistoryMsg, ev, creds, keyStore, logger, options, getMessage }: ProcessMessageContext) => Promise<void>;
+declare const processMessage: (message: proto.IWebMessageInfo, { shouldProcessHistoryMsg, placeholderResendCache, ev, creds, keyStore, logger, options }: ProcessMessageContext) => Promise<void>;
 export default processMessage;

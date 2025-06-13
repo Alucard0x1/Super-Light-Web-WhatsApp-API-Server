@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 
@@ -307,4 +308,312 @@
     </script>
 </body>
 
+=======
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    #qrCodeContainer img { max-width: 100%; height: auto; }
+    .session-item { display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">WhatsApp Gateway Dashboard</a>
+      <button id="logoutButton" class="btn btn-outline-light ms-auto">Logout</button>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h2>Session Management</h2>
+    <button id="refreshSessions" class="btn btn-primary mb-3">Refresh Sessions</button>
+    <div id="sessionsList" class="list-group mb-4">
+      <!-- Session items will be populated here by JavaScript -->
+    </div>
+    <div id="sessionActionStatus" class="mt-2"></div>
+  </div>
+
+  <!-- Modal for QR Code -->
+  <div class="modal fade" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="qrCodeModalLabel">Scan QR Code for Session: <span id="qrSessionId"></span></h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <div id="qrCodeContainer" class="mb-3"></div>
+          <p id="qrMessage"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container mt-4">
+    <h2>Send Message</h2>
+    <form id="sendMessageForm">
+      <div class="mb-3">
+        <label for="sessionSelect" class="form-label">Select Session (must be connected)</label>
+        <select id="sessionSelect" class="form-select" required>
+          <!-- Active sessions will be populated here -->
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="whatsappNumber" class="form-label">WhatsApp Number (e.g., 1234567890)</label>
+        <input type="text" class="form-control" id="whatsappNumber" pattern="\d+" title="Please enter digits only." required>
+      </div>
+      <div class="mb-3">
+        <label for="messageText" class="form-label">Message</label>
+        <textarea class="form-control" id="messageText" rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn-success">Send Message</button>
+      <div id="sendMessageStatus" class="mt-2"></div>
+    </form>
+  </div>
+
+  <div class="container mt-4 mb-5">
+    <h2>Connected Phone Numbers</h2>
+    <button id="refreshConnectedPhones" class="btn btn-info mb-2">Refresh List</button>
+    <div id="connectedPhonesList" class="list-group">
+      <!-- Connected phone numbers will be populated here -->
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const sessionsListDiv = document.getElementById('sessionsList');
+    const sessionSelect = document.getElementById('sessionSelect');
+    const refreshSessionsButton = document.getElementById('refreshSessions');
+    const sendMessageForm = document.getElementById('sendMessageForm');
+    const qrCodeModalElement = document.getElementById('qrCodeModal');
+    const qrCodeModal = new bootstrap.Modal(qrCodeModalElement);
+    const qrSessionIdSpan = document.getElementById('qrSessionId');
+    const qrCodeContainer = document.getElementById('qrCodeContainer');
+    const qrMessageP = document.getElementById('qrMessage');
+    const sessionActionStatusDiv = document.getElementById('sessionActionStatus');
+    const sendMessageStatusDiv = document.getElementById('sendMessageStatus');
+    const connectedPhonesListDiv = document.getElementById('connectedPhonesList'); // Added
+    const refreshConnectedPhonesButton = document.getElementById('refreshConnectedPhones'); // Added
+
+    async function fetchSessions() {
+      sessionActionStatusDiv.textContent = '';
+      try {
+        const response = await fetch('/sessions');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const sessions = await response.json();
+
+        sessionsListDiv.innerHTML = ''; // Clear existing list
+        sessionSelect.innerHTML = '<option value="">-- Select a Session --</option>'; // Clear and add default
+
+        if (sessions.length === 0) {
+          sessionsListDiv.innerHTML = '<p class="text-muted">No active or saved sessions found.</p>';
+        }
+
+        sessions.forEach(session => {
+          const sessionDiv = document.createElement('div');
+          sessionDiv.className = 'list-group-item session-item';
+
+          let statusBadge = `<span class="badge bg-secondary">${session.status}</span>`;
+          if (session.status === 'connected') {
+            statusBadge = `<span class="badge bg-success">Connected</span>`;
+            const option = document.createElement('option');
+            option.value = session.sessionId;
+            option.textContent = session.sessionId;
+            sessionSelect.appendChild(option);
+          } else if (session.status === 'disconnected') {
+            statusBadge = `<span class="badge bg-warning text-dark">Disconnected</span>`;
+          }
+
+          sessionDiv.innerHTML = `
+            <div>
+              <strong>${session.sessionId}</strong> ${statusBadge}
+              ${session.detail ? '<small class="d-block text-muted">' + session.detail + '</small>' : ''}
+              ${session.reason ? '<small class="d-block text-danger">Reason: ' + session.reason + '</small>' : ''}
+            </div>
+            <div>
+              ${session.status !== 'connected' ? `<button class="btn btn-sm btn-info me-2 get-qr-btn" data-session-id="${session.sessionId}">Get QR</button>` : ''}
+              <button class="btn btn-sm btn-danger delete-session-btn" data-session-id="${session.sessionId}">Delete</button>
+            </div>
+          `;
+          sessionsListDiv.appendChild(sessionDiv);
+        });
+
+      } catch (error) {
+        console.error('Error fetching sessions:', error);
+        sessionsListDiv.innerHTML = '<p class="text-danger">Error fetching sessions. Check console.</p>';
+        sessionActionStatusDiv.textContent = 'Error fetching sessions.';
+        sessionActionStatusDiv.className = 'alert alert-danger';
+      }
+    }
+
+    sessionsListDiv.addEventListener('click', async function(event) {
+      const target = event.target;
+      const sessionId = target.dataset.sessionId;
+
+      if (target.classList.contains('get-qr-btn')) {
+        qrSessionIdSpan.textContent = sessionId;
+        qrCodeContainer.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+        qrMessageP.textContent = '';
+        qrCodeModal.show();
+
+        try {
+          const response = await fetch(`/qr-code/${sessionId}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            if (data.qrString) {
+              qrCodeContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qrString)}" alt="QR Code">`;
+              qrMessageP.textContent = 'Scan this QR code with your WhatsApp linked devices.';
+            } else if (data.status === 'connected') {
+              qrCodeContainer.innerHTML = '';
+              qrMessageP.textContent = data.message || 'Session is already connected.';
+               fetchSessions(); // Refresh list as status might have changed
+            } else {
+              qrCodeContainer.innerHTML = '';
+              qrMessageP.textContent = data.message || data.error || 'Could not get QR code. Session may be in an unexpected state.';
+            }
+          } else {
+             qrCodeContainer.innerHTML = '';
+             qrMessageP.textContent = `Error: ${data.error || response.statusText}`;
+          }
+        } catch (error) {
+          console.error('Error getting QR code:', error);
+          qrCodeContainer.innerHTML = '';
+          qrMessageP.textContent = 'Failed to fetch QR code. See console for details.';
+        }
+      }
+
+      if (target.classList.contains('delete-session-btn')) {
+        if (!confirm(`Are you sure you want to delete session ${sessionId}?`)) return;
+
+        sessionActionStatusDiv.className = 'alert'; // Reset classes
+        sessionActionStatusDiv.textContent = `Deleting session ${sessionId}...`;
+
+        try {
+          const response = await fetch(`/session/${sessionId}`, { method: 'DELETE' });
+          const data = await response.json();
+
+          if (response.ok) {
+            sessionActionStatusDiv.textContent = data.message || `Session ${sessionId} deleted successfully.`;
+            sessionActionStatusDiv.className = 'alert alert-success';
+          } else {
+            sessionActionStatusDiv.textContent = `Error deleting session: ${data.error || response.statusText}`;
+            sessionActionStatusDiv.className = 'alert alert-danger';
+          }
+        } catch (error) {
+          console.error('Error deleting session:', error);
+          sessionActionStatusDiv.textContent = 'Failed to delete session. See console for details.';
+          sessionActionStatusDiv.className = 'alert alert-danger';
+        } finally {
+          fetchSessions(); // Refresh the list
+        }
+      }
+    });
+
+    sendMessageForm.addEventListener('submit', async function(event) {
+      event.preventDefault();
+      sendMessageStatusDiv.className = 'alert'; // Reset classes
+      sendMessageStatusDiv.textContent = '';
+
+      const sessionId = document.getElementById('sessionSelect').value;
+      const number = document.getElementById('whatsappNumber').value;
+      const message = document.getElementById('messageText').value;
+
+      if (!sessionId) {
+        sendMessageStatusDiv.textContent = 'Please select a session.';
+        sendMessageStatusDiv.className = 'alert alert-warning';
+        return;
+      }
+      if (!number || !/^\d+$/.test(number)) {
+        sendMessageStatusDiv.textContent = 'Please enter a valid WhatsApp number (digits only).';
+        sendMessageStatusDiv.className = 'alert alert-warning';
+        return;
+      }
+      if (!message) {
+        sendMessageStatusDiv.textContent = 'Message cannot be empty.';
+        sendMessageStatusDiv.className = 'alert alert-warning';
+        return;
+      }
+
+      sendMessageStatusDiv.textContent = 'Sending message...';
+      sendMessageStatusDiv.className = 'alert alert-info';
+
+      try {
+        const response = await fetch('/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, number, message })
+        });
+        const data = await response.json();
+
+        if (response.ok) {
+          sendMessageStatusDiv.textContent = data.message || 'Message sent successfully!';
+          sendMessageStatusDiv.className = 'alert alert-success';
+          document.getElementById('whatsappNumber').value = ''; // Clear number and message on success
+          document.getElementById('messageText').value = '';
+        } else {
+          sendMessageStatusDiv.textContent = `Error: ${data.error || data.details || response.statusText}`;
+          sendMessageStatusDiv.className = 'alert alert-danger';
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        sendMessageStatusDiv.textContent = 'Failed to send message. See console for details.';
+        sendMessageStatusDiv.className = 'alert alert-danger';
+      }
+    });
+
+    refreshSessionsButton.addEventListener('click', fetchSessions);
+    refreshConnectedPhonesButton.addEventListener('click', fetchConnectedPhones); // Added
+
+    // Function to fetch and display connected phone numbers
+    async function fetchConnectedPhones() {
+      connectedPhonesListDiv.innerHTML = '<li class="list-group-item">Loading...</li>';
+      try {
+        const response = await fetch('/sessions/connected-phones');
+        connectedPhonesListDiv.innerHTML = '';
+
+        if (!response.ok) {
+          connectedPhonesListDiv.innerHTML = `<li class="list-group-item list-group-item-danger">Error fetching connected phones: ${response.statusText}</li>`;
+          return;
+        }
+
+        const phones = await response.json();
+        if (phones.length === 0) {
+          connectedPhonesListDiv.innerHTML = '<li class="list-group-item text-muted">No active sessions with connected phone numbers found.</li>';
+        } else {
+          phones.forEach(phoneInfo => {
+            const listItem = document.createElement('li');
+            listItem.className = 'list-group-item';
+            listItem.textContent = `Session ID: ${phoneInfo.sessionId} - Phone: ${phoneInfo.phoneNumber}`;
+            connectedPhonesListDiv.appendChild(listItem);
+          });
+        }
+      } catch (error) {
+          console.error('Error fetching connected phones:', error);
+          connectedPhonesListDiv.innerHTML = '<li class="list-group-item list-group-item-danger">Error fetching connected phones. Check console.</li>';
+      }
+    }
+
+    // Initial fetch of sessions on page load
+    fetchSessions();
+    fetchConnectedPhones(); // Added
+
+    // Logout functionality
+    const logoutButton = document.getElementById('logoutButton');
+    if (logoutButton) {
+      logoutButton.addEventListener('click', function() {
+        // Simple redirect, no server-side session to clear for this demo auth
+        window.location.href = 'index.html';
+      });
+    }
+  </script>
+</body>
+>>>>>>> 7f4b77d91ddc8cb8fb1e08f893f7ece365454b61
 </html>

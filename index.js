@@ -14,6 +14,9 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
+const { initializeApi, apiToken, getWebhookUrl } = require('./api_v1');
+const { initializeLegacyApi } = require('./legacy_api');
 
 const sessions = new Map();
 const app = express();
@@ -22,9 +25,21 @@ const wss = new WebSocketServer({ server });
 
 const logger = pino({ level: 'debug' });
 
+// Ensure media directory exists
+const mediaDir = path.join(__dirname, 'media');
+if (!fs.existsSync(mediaDir)) {
+    fs.mkdirSync(mediaDir);
+}
+
 app.use(express.json());
 app.use(bodyParser.json());
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
+app.use('/media', express.static(mediaDir)); // Serve uploaded media
+
+const apiV1Router = initializeApi(sessions);
+const legacyRouter = initializeLegacyApi(sessions);
+app.use('/api/v1', apiV1Router);
+app.use('/api', legacyRouter); // Mount legacy routes at /api
 
 
 function broadcast(data) {
@@ -45,11 +60,32 @@ function log(message, sessionId = 'SYSTEM') {
     });
 }
 
+async function postToWebhook(data) {
+    const webhookUrl = getWebhookUrl();
+    if (!webhookUrl) return;
+
+    try {
+        await axios.post(webhookUrl, data, {
+            headers: { 'Content-Type': 'application/json' }
+        });
+        log(`Successfully posted to webhook: ${webhookUrl}`);
+    } catch (error) {
+        log(`Failed to post to webhook: ${error.message}`);
+    }
+}
+
 function updateSessionStatus(sessionId, status, detail = '', qr = '', reason = '') {
     let session = sessions.get(sessionId) || { sessionId };
     session = { ...session, status, detail, qr, reason };
     sessions.set(sessionId, session);
     broadcast({ type: 'session-update', data: getSessions() });
+    postToWebhook({
+        event: 'session-status',
+        sessionId,
+        status,
+        detail,
+        reason
+    });
 }
 
 async function createWhatsAppSession(sessionId) {
@@ -85,6 +121,23 @@ async function createWhatsAppSession(sessionId) {
     sessions.set(sessionId, { sock, status: 'CONNECTING', detail: 'Socket created' });
 
     sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('messages.upsert', async (m) => {
+        const msg = m.messages[0];
+        if (!msg.key.fromMe) {
+            log(`Received new message from ${msg.key.remoteJid}`, sessionId);
+            
+            const messageData = {
+                event: 'new-message',
+                sessionId,
+                from: msg.key.remoteJid,
+                messageId: msg.key.id,
+                timestamp: msg.messageTimestamp,
+                data: msg
+            };
+            await postToWebhook(messageData);
+        }
+    });
 
     sock.ev.on('connection.update', (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -209,7 +262,25 @@ app.delete('/sessions/:sessionId', async (req, res) => {
 
 
 const PORT = process.env.PORT || 3000;
+
+function initializeExistingSessions() {
+    const sessionsDir = path.join(__dirname, 'auth_info_baileys');
+    if (fs.existsSync(sessionsDir)) {
+        const sessionFolders = fs.readdirSync(sessionsDir);
+        log(`Found ${sessionFolders.length} existing session(s). Initializing...`);
+        for (const sessionId of sessionFolders) {
+            const sessionPath = path.join(sessionsDir, sessionId);
+            if (fs.statSync(sessionPath).isDirectory()) {
+                log(`Re-initializing session: ${sessionId}`);
+                createWhatsAppSession(sessionId);
+            }
+        }
+    }
+}
+
 server.listen(PORT, () => {
     log(`Server is running on port ${PORT}`);
     log('Admin dashboard available at http://localhost:3000/admin/dashboard.html');
+    log(`API v1 is active. Use the following token for authentication: Bearer ${apiToken}`);
+    initializeExistingSessions();
 });

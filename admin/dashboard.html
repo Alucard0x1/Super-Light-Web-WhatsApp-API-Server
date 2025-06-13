@@ -140,6 +140,7 @@
             statusElement.textContent = statusText;
 
             if (session.qr) {
+                qrElement.style.display = 'flex'; // Make sure it's visible
                 qrElement.innerHTML = ''; // Clear previous code
                 new QRCode(qrElement, {
                     text: session.qr,
@@ -147,12 +148,15 @@
                     height: 250
                 });
                 qrInfo.textContent = 'Scan the QR code with your phone.';
-            } else if (session.status !== 'CONNECTED') {
+            } else if (session.status === 'CONNECTED') {
+                qrElement.style.display = 'none'; // Hide the QR box
+                qrElement.innerHTML = '';
+                qrInfo.textContent = `Connected! (${session.detail || ''})`;
+            }
+             else {
+                qrElement.style.display = 'flex'; // Show for other statuses
                 qrElement.innerHTML = '';
                 qrInfo.textContent = session.detail || `Click 'Get QR' to generate a new code.`;
-            } else {
-                qrElement.innerHTML = '';
-                qrInfo.textContent = `Connected!`;
             }
 
         }

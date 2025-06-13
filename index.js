@@ -62,7 +62,7 @@ app.use('/admin', express.static(path.join(__dirname, 'admin')));
 app.use('/media', express.static(mediaDir)); // Serve uploaded media
 app.use(express.urlencoded({ extended: true }));
 
-const v1ApiRouter = initializeApi(sessions, sessionTokens);
+const v1ApiRouter = initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession);
 const legacyApiRouter = initializeLegacyApi(sessions);
 app.use('/api/v1', v1ApiRouter);
 app.use('/api', legacyApiRouter); // Mount legacy routes at /api
@@ -211,8 +211,8 @@ function getSessionsDetails() {
     return Array.from(sessions.values()).map(s => ({
         sessionId: s.sessionId,
         status: s.status,
-        qr: s.qr,
         detail: s.detail,
+        qr: s.qr,
         token: sessionTokens.get(s.sessionId) || null
     }));
 }
@@ -224,32 +224,17 @@ app.get('/sessions', (req, res) => {
 
 async function createSession(sessionId) {
     if (sessions.has(sessionId)) {
-        // If session exists, just try to connect it.
-        // This can happen on server restart for existing sessions.
-        await connectToWhatsApp(sessionId);
-        return { success: true, message: `Re-initiating connection for session ${sessionId}.` };
+        throw new Error('Session already exists');
     }
-
-    const session = {
-        sessionId,
-        status: 'DISCONNECTED',
-        sock: null,
-        qr: null,
-        detail: 'Session created. Please get QR code.'
-    };
-    sessions.set(sessionId, session);
+    const token = randomUUID();
+    sessionTokens.set(sessionId, token);
+    saveTokens();
     
-    if (!sessionTokens.has(sessionId)) {
-        sessionTokens.set(sessionId, randomUUID());
-        saveTokens();
-    }
-
-    log(`Session created: ${sessionId}`);
-    broadcast({ type: 'session-update', data: getSessionsDetails() });
+    // Set a placeholder before async connection
+    sessions.set(sessionId, { sessionId: sessionId, status: 'CREATING', detail: 'Session is being created.' });
     
-    await connectToWhatsApp(sessionId);
-
-    return { success: true, message: `Session ${sessionId} created.` };
+    connectToWhatsApp(sessionId);
+    return { status: 'success', message: `Session ${sessionId} created.`, token };
 }
 
 app.get('/sessions/:sessionId/qr', async (req, res) => {
@@ -266,29 +251,18 @@ app.get('/sessions/:sessionId/qr', async (req, res) => {
 
 async function deleteSession(sessionId) {
     const session = sessions.get(sessionId);
-    if (!session) return;
-
-    if (session.sock) {
-        try {
-            await session.sock.logout();
-        } catch (e) {
-            console.error(`Error logging out session ${sessionId}:`, e);
-        }
+    if (session && session.sock) {
+        session.sock.logout();
     }
-
     sessions.delete(sessionId);
     sessionTokens.delete(sessionId);
     saveTokens();
-
-    const authDir = path.join(__dirname, 'auth_info_baileys', `auth_info_${sessionId}`);
-    if (fs.existsSync(authDir)) {
-        fs.rmSync(authDir, { recursive: true, force: true });
+    const sessionDir = path.join(__dirname, 'auth_info_baileys', sessionId);
+    if (fs.existsSync(sessionDir)) {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
     }
-    
-    log(`Session ${sessionId} deleted successfully.`, sessionId);
+    log(`Session ${sessionId} deleted and data cleared.`, 'SYSTEM');
     broadcast({ type: 'session-update', data: getSessionsDetails() });
-
-    return { success: true, message: `Session ${sessionId} deleted.` };
 }
 
 app.get('/admin', (req, res) => {

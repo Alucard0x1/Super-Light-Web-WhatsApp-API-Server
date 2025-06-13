@@ -24,7 +24,7 @@ const upload = multer({ storage });
 
 const getWebhookUrl = () => webhookUrl;
 
-function initializeApi(sessions, sessionTokens) {
+function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession) {
     const validateToken = (req, res, next) => {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
@@ -33,8 +33,7 @@ function initializeApi(sessions, sessionTokens) {
             return res.status(401).json({ status: 'error', message: 'No token provided' });
         }
         
-        // For session-specific routes, check the token against the session
-        const sessionId = req.query.sessionId || req.body.sessionId;
+        const sessionId = req.query.sessionId || req.body.sessionId || req.params.sessionId;
         if (sessionId) {
             const expectedToken = sessionTokens.get(sessionId);
             if (expectedToken && token === expectedToken) {
@@ -42,11 +41,8 @@ function initializeApi(sessions, sessionTokens) {
             }
         }
         
-        // For global routes (webhook, media), check if it's any valid token
-        // Or for requests where sessionId is not easily available in middleware
         const isAnyTokenValid = Array.from(sessionTokens.values()).includes(token);
         if (isAnyTokenValid) {
-            // Re-check for session routes to give a more specific error
             if (sessionId) {
                  return res.status(403).json({ status: 'error', message: `Invalid token for session ${sessionId}` });
             }
@@ -56,7 +52,37 @@ function initializeApi(sessions, sessionTokens) {
         return res.status(403).json({ status: 'error', message: 'Invalid token' });
     };
 
+    // Unprotected routes
+    router.post('/sessions', async (req, res) => {
+        const { sessionId } = req.body;
+        if (!sessionId) {
+            return res.status(400).json({ status: 'error', message: 'sessionId is required' });
+        }
+        try {
+            await createSession(sessionId);
+            const token = sessionTokens.get(sessionId);
+            res.status(201).json({ status: 'success', message: `Session ${sessionId} created.`, token: token });
+        } catch (error) {
+            res.status(500).json({ status: 'error', message: `Failed to create session: ${error.message}` });
+        }
+    });
+
+    router.get('/sessions', (req, res) => {
+        res.status(200).json(getSessionsDetails());
+    });
+
+    // All routes below this are protected by token
     router.use(validateToken);
+
+    router.delete('/sessions/:sessionId', async (req, res) => {
+        const { sessionId } = req.params;
+        try {
+            await deleteSession(sessionId);
+            res.status(200).json({ status: 'success', message: `Session ${sessionId} deleted.` });
+        } catch (error) {
+            res.status(500).json({ status: 'error', message: `Failed to delete session: ${error.message}` });
+        }
+    });
 
     async function sendMessage(sock, to, message) {
         try {

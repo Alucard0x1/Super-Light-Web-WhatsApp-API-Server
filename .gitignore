@@ -4,3 +4,6 @@ node_modules/
 npm-debug.log
 .idea/
 .vscode/
+auth_info_baileys/
+session_tokens.json
+*.bak

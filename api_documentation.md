@@ -1,26 +1,39 @@
 # WhatsApp Gateway API Documentation
 
-This document provides instructions for using the API of the WhatsApp Gateway.
+This document provides detailed, developer-focused instructions for using the API. For interactive testing, we recommend using the **API Control Center** on the Admin Dashboard.
+
+## Making API Requests
+
+### Base URLs
+- **V1 API:** `http://<your_server_address>:<port>/api/v1`
+- **Legacy API:** `http://<your_server_address>:<port>/api`
+
+### Content-Type
+For most endpoints, you will be sending data in JSON format. Ensure your requests include the `Content-Type: application/json` header. For file uploads, the API expects `multipart/form-data`.
+
+---
 
 ## Authentication
 
-All API requests to the `/api/v1/*` endpoints must be authenticated using a Bearer Token. The token must be included in the `Authorization` header of your request.
+All API requests to the `/api/v1/*` endpoints **must** be authenticated using a Bearer Token. The token is printed to the server console on startup.
 
-**Header Format:**
-`Authorization: Bearer <your_api_token>`
+**Header Format:** `Authorization: Bearer <your_api_token>`
 
-Your API token is displayed in the console when the server starts. *Legacy endpoints do not require this token.*
+*Legacy endpoints do not require this token.*
+
+**cURL Example (for any V1 request):**
+```bash
+curl ... -H "Authorization: Bearer your_api_token"
+```
 
 ---
 
 ## V1 API Endpoints
 
-The base URL for all v1 endpoints is: `http://<your_server_address>:<port>/api/v1`
-
 ### **Webhook Management**
 
 #### Set Webhook URL
-Configures the URL where the server will send events (like new messages or session status changes).
+Configures or updates the URL where the server will send event notifications (e.g., new messages, session status changes).
 
 **`POST /webhook`**
 
@@ -31,17 +44,27 @@ Configures the URL where the server will send events (like new messages or sessi
 }
 ```
 
+**cURL Example:**
+```bash
+curl -X POST 'http://localhost:3000/api/v1/webhook' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "url": "https://your-webhook-receiver.com/events"
+}'
+```
+
 ---
 
 ### **Media Management**
 
 #### Upload Media
-Uploads an image or document to the server's `media` directory. The server returns a `mediaId` which can be used to send the file later.
+Uploads an image or document to the server's `media` directory. The server returns a `mediaId` which can be used to send the file in a subsequent API call.
 
 **`POST /media`**
 
 **Request Body (form-data):**
-- `file`: The media file to upload.
+- `file`: The media file to upload (e.g., image.jpg, document.pdf).
 
 **Success Response (JSON):**
 ```json
@@ -53,71 +76,82 @@ Uploads an image or document to the server's `media` directory. The server retur
 }
 ```
 
+**cURL Example:**
+```bash
+# Replace /path/to/your/file.jpg with the actual file path
+curl -X POST 'http://localhost:3000/api/v1/media' \
+-H 'Authorization: Bearer your_api_token' \
+-F 'file=@/path/to/your/file.jpg'
+```
 ---
 
 ### **Message Management**
 
 #### Send Messages
-A flexible endpoint to send various types of messages. You can send a single message (as a JSON object) or multiple messages in a batch (as a JSON array).
+A powerful and flexible endpoint to send various types of messages. You must specify the `sessionId` as a query parameter. You can send a single message (as a JSON object) or multiple messages in a batch (as a JSON array).
 
 **`POST /messages?sessionId=<your_session_id>`**
 
 **Common Body Fields (JSON):**
-
 - `recipient_type` (string, required): `individual` or `group`.
-- `to` (string, required): The phone number or group ID.
+- `to` (string, required): The phone number (e.g., `628123...`) or group ID (e.g., `12036..._us`).
 - `type` (string, required): `text`, `image`, or `document`.
 
 **Type-Specific Fields:**
-
 - **If `type` is `text`:**
   - `text` (object):
     - `body` (string, required): The message content.
 - **If `type` is `image`:**
   - `image` (object):
-    - `link` (string): URL of the image to send.
+    - `link` (string): HTTP/HTTPS URL of the image to send.
     - **OR** `id` (string): The `mediaId` of a previously uploaded image.
     - `caption` (string, optional): The image caption.
 - **If `type` is `document`:**
   - `document` (object):
-    - `link` (string): URL of the document.
+    - `link` (string): HTTP/HTTPS URL of the document.
     - **OR** `id` (string): The `mediaId` of a previously uploaded document.
     - `mimetype` (string, required): The MIME type of the document (e.g., `application/pdf`).
-    - `filename` (string, optional): The name of the file.
+    - `filename` (string, optional): The name of the file to be displayed.
 
-**Example: Sending a Bulk Message with Mixed Types**
-```json
-[
+**cURL Example (Single Text Message):**
+```bash
+curl -X POST 'http://localhost:3000/api/v1/messages?sessionId=mySession' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "recipient_type": "individual",
+    "to": "6281234567890",
+    "type": "text",
+    "text": { "body": "Hello from the API!" }
+}'
+```
+
+**cURL Example (Bulk Mixed Messages):**
+```bash
+curl -X POST 'http://localhost:3000/api/v1/messages?sessionId=mySession' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '[
     {
         "recipient_type": "individual",
         "to": "6281234567890",
         "type": "text",
-        "text": { "body": "Hello from the API!" }
-    },
-    {
-        "recipient_type": "group",
-        "to": "120363041234567890@g.us",
-        "type": "image",
-        "image": {
-            "link": "https://example.com/image.jpg",
-            "caption": "Check out this image!"
-        }
+        "text": { "body": "First message" }
     },
     {
         "recipient_type": "individual",
         "to": "6289876543210",
-        "type": "document",
-        "document": {
-            "id": "f7e3e7a0-5e7a-4b0f-8b9a-9e7d6e6e2c3d.pdf",
-            "mimetype": "application/pdf",
-            "filename": "MyReport.pdf"
+        "type": "image",
+        "image": {
+            "link": "https://picsum.photos/200",
+            "caption": "This is a test image."
         }
     }
-]
+]'
 ```
 
 #### Delete Message
-Deletes a message that you have previously sent.
+Deletes a message that you have previously sent. You must provide the session ID, the recipient's JID, and the ID of the message to be deleted.
 
 **`DELETE /message`**
 
@@ -130,11 +164,23 @@ Deletes a message that you have previously sent.
 }
 ```
 
+**cURL Example:**
+```bash
+curl -X DELETE 'http://localhost:3000/api/v1/message' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "sessionId": "mySession",
+    "remoteJid": "6281234567890@s.whatsapp.net",
+    "messageId": "3EB0D8E8D8F9A7B6"
+}'
+```
+
 ---
 
 ## Legacy API Endpoints
 
-These endpoints are provided for backward compatibility. They are simpler but less flexible.
+These endpoints are provided for backward compatibility. They are simpler but less flexible and do **not** require token authentication.
 
 **Base URL:** `http://<your_server_address>:<port>/api`
 
@@ -151,6 +197,17 @@ These endpoints are provided for backward compatibility. They are simpler but le
 }
 ```
 
+**cURL Example:**
+```bash
+curl -X POST 'http://localhost:3000/api/send-message' \
+-H 'Content-Type: application/json' \
+-d '{
+    "sessionId": "mySession",
+    "number": "6281234567890",
+    "message": "This is a legacy message."
+}'
+```
+
 #### Send Text (Form Data)
 
 **`POST /message`**
@@ -159,4 +216,12 @@ These endpoints are provided for backward compatibility. They are simpler but le
 - `phone`: The recipient's phone number.
 - `message`: The text message content.
 - `sessionId` (optional): The session to use. Defaults to `putra`.
+
+**cURL Example:**
+```bash
+curl -X POST 'http://localhost:3000/api/message' \
+-F 'phone=6281234567890' \
+-F 'message=Hello from a form' \
+-F 'sessionId=mySession'
+```
 

@@ -12,7 +12,7 @@ let webhookUrl = process.env.WEBHOOK_URL || '';
 const apiToken = process.env.API_TOKEN || 'your-very-secret-and-long-token'; // TODO: Move to .env file
 
 // Multer setup for file uploads
-const mediaDir = path.join(__dirname, '..', 'media');
+const mediaDir = path.join(__dirname, 'media');
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, mediaDir);
@@ -44,7 +44,7 @@ router.use(validateToken);
 async function sendMessage(sock, to, message) {
     try {
         const jid = jidNormalizedUser(to);
-        const [result] = await sock.sendMessage(jid, message);
+        const result = await sock.sendMessage(jid, message);
         return { status: 'success', message: `Message sent to ${to}`, messageId: result.key.id };
     } catch (error) {
         console.error(`Failed to send message to ${to}:`, error);

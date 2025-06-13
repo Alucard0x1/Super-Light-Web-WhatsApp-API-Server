@@ -66,11 +66,92 @@
 
         <h2 class="mt-5">Live Logs</h2>
         <div id="log-box" class="log-box">Connecting to log stream...</div>
+
+        <h2 class="mt-5">API Control Center</h2>
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="api-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-panel"
+                            type="button" role="tab" aria-controls="text-panel" aria-selected="true">Send Text</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="image-tab" data-bs-toggle="tab" data-bs-target="#image-panel"
+                            type="button" role="tab" aria-controls="image-panel" aria-selected="false">Send Image</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="document-tab" data-bs-toggle="tab"
+                            data-bs-target="#document-panel" type="button" role="tab" aria-controls="document-panel"
+                            aria-selected="false">Send Document</button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="api-session-id" class="form-label">Select Session</label>
+                    <select class="form-select" id="api-session-id"></select>
+                </div>
+                <div class="mb-3">
+                    <label for="api-recipient" class="form-label">Recipient (Phone or Group ID)</label>
+                    <input type="text" class="form-control" id="api-recipient" placeholder="e.g., 6281234567890 or 123-456@g.us">
+                </div>
+
+                <div class="tab-content" id="api-tab-content">
+                    <!-- Text Panel -->
+                    <div class="tab-pane fade show active" id="text-panel" role="tabpanel" aria-labelledby="text-tab">
+                        <div class="mb-3">
+                            <label for="text-message" class="form-label">Message</label>
+                            <textarea class="form-control" id="text-message" rows="3"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="sendTextMessage()">Send Text</button>
+                    </div>
+
+                    <!-- Image Panel -->
+                    <div class="tab-pane fade" id="image-panel" role="tabpanel" aria-labelledby="image-tab">
+                        <div class="mb-3">
+                            <label for="image-caption" class="form-label">Caption</label>
+                            <input type="text" class="form-control" id="image-caption">
+                        </div>
+                        <div class="mb-3">
+                            <label for="image-url" class="form-label">Image by URL</label>
+                            <input type="text" class="form-control" id="image-url" placeholder="https://example.com/image.jpg">
+                        </div>
+                        <div class="text-center my-2">OR</div>
+                        <div class="mb-3">
+                            <label for="image-upload" class="form-label">Image by Upload</label>
+                            <input class="form-control" type="file" id="image-upload" accept="image/*">
+                        </div>
+                        <div id="image-preview" class="mt-3" style="max-width: 250px;"></div>
+                        <button class="btn btn-primary mt-3" onclick="sendImageMessage()">Send Image</button>
+                    </div>
+
+                    <!-- Document Panel -->
+                    <div class="tab-pane fade" id="document-panel" role="tabpanel" aria-labelledby="document-tab">
+                         <div class="mb-3">
+                            <label for="document-url" class="form-label">Document by URL</label>
+                            <input type="text" class="form-control" id="document-url" placeholder="https://example.com/file.pdf">
+                        </div>
+                        <div class="text-center my-2">OR</div>
+                        <div class="mb-3">
+                            <label for="document-upload" class="form-label">Document by Upload</label>
+                            <input class="form-control" type="file" id="document-upload">
+                        </div>
+                        <button class="btn btn-primary mt-3" onclick="sendDocumentMessage()">Send Document</button>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <h5>API Usage Example</h5>
+                <pre><code id="api-usage-example" class="bg-light p-3 rounded" style="display: block; white-space: pre-wrap;">Select an option above to see usage...</code></pre>
+                
+                <div id="api-response" class="mt-3"></div>
+
+            </div>
+        </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0rPoDovDBrM2bgabfuzY1fTqhF5WxMCLzO5dLIanKz9fsV8S+L2kP2T0c"
-        crossorigin="anonymous"></script>
+    <script src="/admin/js/bootstrap.bundle.min.js"></script>
     <script src="/admin/js/qrcode.min.js"></script>
     
     <script>
@@ -78,6 +159,16 @@
         const createSessionBtn = document.getElementById('createSessionBtn');
         const sessionIdInput = document.getElementById('sessionIdInput');
         const logBox = document.getElementById('log-box');
+        
+        let apiToken = ''; // Global variable to hold the token
+
+        // New API Control Elements
+        const apiSessionIdSelect = document.getElementById('api-session-id');
+        const apiRecipientInput = document.getElementById('api-recipient');
+        const apiUsageExample = document.getElementById('api-usage-example');
+        const apiResponseDiv = document.getElementById('api-response');
+        const imageUploadInput = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
 
 
         function createSessionCard(session) {
@@ -138,6 +229,20 @@
 
             statusElement.className = `badge status-badge ${statusClass}`;
             statusElement.textContent = statusText;
+
+            if (session.status === 'CONNECTED') {
+                const option = document.createElement('option');
+                option.value = session.sessionId;
+                option.textContent = session.sessionId;
+                if (!apiSessionIdSelect.querySelector(`option[value="${session.sessionId}"]`)) {
+                     apiSessionIdSelect.appendChild(option);
+                }
+            } else {
+                 const option = apiSessionIdSelect.querySelector(`option[value="${session.sessionId}"]`);
+                 if (option) {
+                     option.remove();
+                 }
+            }
 
             if (session.qr) {
                 qrElement.style.display = 'flex'; // Make sure it's visible
@@ -292,18 +397,282 @@
             };
         }
 
+        // --- API Control Center Logic ---
+
+        function updateApiUsage() {
+            const sessionId = apiSessionIdSelect.value;
+            const recipient = apiRecipientInput.value;
+            if (!sessionId || !recipient) {
+                apiUsageExample.textContent = 'Please select a session and enter a recipient to see an example.';
+                return;
+            }
+            
+            const activeTabEl = document.querySelector('#api-tabs .nav-link.active');
+            if (!activeTabEl) return;
+            const activeTab = activeTabEl.id;
+
+            let payload;
+            let endpoint = `/api/v1/messages?sessionId=${sessionId}`;
+            
+            if (activeTab === 'text-tab') {
+                const message = document.getElementById('text-message').value;
+                payload = {
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'text',
+                    text: { body: message }
+                };
+            } else if (activeTab === 'image-tab') {
+                 const caption = document.getElementById('image-caption').value;
+                 const imageUrl = document.getElementById('image-url').value;
+                 payload = {
+                     recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                     to: recipient,
+                     type: 'image',
+                     image: {
+                         link: imageUrl,
+                         caption: caption
+                     }
+                 };
+                 if (!imageUrl) {
+                     apiUsageExample.textContent = `// 1. First, upload the image to /api/v1/media\n// 2. Then, use the returned mediaId in the request below.\n\n`
+                 }
+            } else if (activeTab === 'document-tab') {
+                 const docUrl = document.getElementById('document-url').value;
+                 payload = {
+                     recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                     to: recipient,
+                     type: 'document',
+                     document: {
+                         link: docUrl,
+                         mimetype: 'application/pdf' // Example mimetype
+                     }
+                 };
+                 if (!docUrl) {
+                     apiUsageExample.textContent = `// 1. First, upload the document to /api/v1/media\n// 2. Then, use the returned mediaId in the request below.\n\n`
+                 }
+            }
+
+            const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${apiToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payload, null, 2)}'`;
+            
+            apiUsageExample.textContent = curlCommand;
+        }
+
+
+        async function sendApiRequest(payload) {
+            const sessionId = apiSessionIdSelect.value;
+            if (!sessionId) {
+                alert('Please select an active session.');
+                return;
+            }
+
+            apiResponseDiv.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>`;
+
+            try {
+                const response = await fetch(`/api/v1/messages?sessionId=${sessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiToken}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const resultHtml = `<div class="alert ${response.ok ? 'alert-success' : 'alert-danger'} mt-3">
+                                <pre>${JSON.stringify(result, null, 2)}</pre>
+                            </div>`;
+                apiResponseDiv.innerHTML = resultHtml;
+
+            } catch (error) {
+                apiResponseDiv.innerHTML = `<div class="alert alert-danger mt-3">Error: ${error.message}</div>`;
+            }
+        }
+
+
+        async function sendTextMessage() {
+            const recipient = apiRecipientInput.value;
+            const message = document.getElementById('text-message').value;
+            if (!recipient || !message) {
+                alert('Recipient and message are required.');
+                return;
+            }
+            const payload = {
+                recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                to: recipient,
+                type: 'text',
+                text: { body: message }
+            };
+            await sendApiRequest([payload]);
+        }
+
+        async function uploadFile(file) {
+             const formData = new FormData();
+             formData.append('file', file);
+             
+             apiResponseDiv.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"></div> <span>Uploading file...</span>`;
+
+             try {
+                const response = await fetch('/api/v1/media', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiToken}`
+                    },
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'File upload failed.');
+                }
+                apiResponseDiv.innerHTML = `<div class="alert alert-info">File uploaded. Media ID: ${result.mediaId}</div>`;
+                return result.mediaId;
+             } catch (error) {
+                apiResponseDiv.innerHTML = `<div class="alert alert-danger mt-3">Upload Error: ${error.message}</div>`;
+                return null;
+             }
+        }
+
+        async function sendImageMessage() {
+            const recipient = apiRecipientInput.value;
+            const caption = document.getElementById('image-caption').value;
+            const imageUrl = document.getElementById('image-url').value;
+            const imageFile = imageUploadInput.files[0];
+
+            if (!recipient) {
+                alert('Recipient is required.');
+                return;
+            }
+            if (!imageUrl && !imageFile) {
+                alert('Image URL or an uploaded file is required.');
+                return;
+            }
+
+            let imagePayload = {};
+            if (imageFile) {
+                const mediaId = await uploadFile(imageFile);
+                if (!mediaId) return; // Upload failed
+                imagePayload.id = mediaId;
+            } else {
+                imagePayload.link = imageUrl;
+            }
+            
+            const payload = {
+                recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                to: recipient,
+                type: 'image',
+                image: { ...imagePayload, caption }
+            };
+
+            await sendApiRequest([payload]);
+        }
+
+        async function sendDocumentMessage() {
+            const recipient = apiRecipientInput.value;
+            const docUrl = document.getElementById('document-url').value;
+            const docFile = document.getElementById('document-upload').files[0];
+
+            if (!recipient) {
+                alert('Recipient is required.');
+                return;
+            }
+            if (!docUrl && !docFile) {
+                alert('Document URL or an uploaded file is required.');
+                return;
+            }
+
+            let docPayload = {};
+            if (docFile) {
+                const mediaId = await uploadFile(docFile);
+                if (!mediaId) return; // Upload failed
+                docPayload.id = mediaId;
+                docPayload.mimetype = docFile.type;
+                docPayload.filename = docFile.name;
+            } else {
+                docPayload.link = docUrl;
+                docPayload.mimetype = 'application/pdf'; // Assume PDF for URL, could be improved
+            }
+            
+            const payload = {
+                recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                to: recipient,
+                type: 'document',
+                document: { ...docPayload }
+            };
+            
+            await sendApiRequest([payload]);
+        }
+
+        // Event Listeners
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.innerHTML = `<img src="${e.target.result}" class="img-fluid rounded">`;
+                };
+                reader.readAsDataURL(file);
+                document.getElementById('image-url').value = ''; // Clear URL field
+            }
+        });
+
+        document.getElementById('image-url').addEventListener('input', () => {
+            imageUploadInput.value = ''; // Clear file input
+            imagePreview.innerHTML = '';
+        });
+
+
+        document.querySelectorAll('#api-tab-content input, #api-tab-content textarea, #api-session-id').forEach(el => {
+            el.addEventListener('input', updateApiUsage);
+        });
+        document.querySelectorAll('#api-tabs .nav-link').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', updateApiUsage);
+        });
+
         createSessionBtn.addEventListener('click', createSession);
 
-        function initializeApp() {
-            if (typeof QRCode === 'undefined') {
-                console.warn('QR Code library not loaded yet, retrying in 100ms...');
+        async function fetchApiToken() {
+            try {
+                const response = await fetch('/api/token');
+                const data = await response.json();
+                apiToken = data.token;
+                console.log('API Token fetched successfully.');
+            } catch (error) {
+                console.error('Failed to fetch API token:', error);
+                alert('Could not fetch API token. API requests will fail.');
+            }
+        }
+
+        let initAttempts = 0;
+        const MAX_INIT_ATTEMPTS = 50; // 5 seconds of retries
+
+        async function initializeApp() {
+            if (typeof QRCode === 'undefined' || typeof bootstrap === 'undefined') {
+                initAttempts++;
+                if (initAttempts > MAX_INIT_ATTEMPTS) {
+                    console.error('Failed to initialize app: Required libraries (QRCode or Bootstrap) did not load in time.');
+                    alert('Error: A required library failed to load. Please check your internet connection and reload the page.');
+                    return;
+                }
+                console.warn(`Libraries not loaded yet (attempt ${initAttempts}), retrying in 100ms...`);
                 setTimeout(initializeApp, 100);
                 return;
             }
-            console.log('QR Code library loaded. Initializing dashboard.');
+            console.log('Libraries loaded. Initializing dashboard.');
+
+            // Initialize Bootstrap tabs
+            const triggerTabList = [].slice.call(document.querySelectorAll('#api-tabs button'));
+            triggerTabList.forEach((triggerEl) => {
+                const tabTrigger = new bootstrap.Tab(triggerEl);
+                triggerEl.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    tabTrigger.show();
+                });
+            });
+
+            await fetchApiToken();
             fetchSessions();
             connectToLogStream();
             setInterval(fetchSessions, 10000); // Poll every 10 seconds as a fallback
+            updateApiUsage();
         }
 
         initializeApp();

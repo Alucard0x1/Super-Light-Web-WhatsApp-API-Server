@@ -10,7 +10,7 @@ const upload = multer(); // for form-data parsing
 async function sendLegacyMessage(sock, to, message) {
     try {
         const jid = jidNormalizedUser(to);
-        const [result] = await sock.sendMessage(jid, message);
+        const result = await sock.sendMessage(jid, message);
         return { status: 'success', message: `Message sent to ${to}`, messageId: result.key.id };
     } catch (error) {
         console.error(`Failed to send legacy message to ${to}:`, error);

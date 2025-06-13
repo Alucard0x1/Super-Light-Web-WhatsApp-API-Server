@@ -36,6 +36,10 @@ app.use(bodyParser.json());
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
 app.use('/media', express.static(mediaDir)); // Serve uploaded media
 
+app.get('/api/token', (req, res) => {
+    res.json({ token: apiToken });
+});
+
 const apiV1Router = initializeApi(sessions);
 const legacyRouter = initializeLegacyApi(sessions);
 app.use('/api/v1', apiV1Router);

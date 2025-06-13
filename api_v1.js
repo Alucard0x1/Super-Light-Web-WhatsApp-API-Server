@@ -9,8 +9,6 @@ const router = express.Router();
 
 let webhookUrl = process.env.WEBHOOK_URL || '';
 
-const apiToken = process.env.API_TOKEN || 'your-very-secret-and-long-token'; // TODO: Move to .env file
-
 // Multer setup for file uploads
 const mediaDir = path.join(__dirname, 'media');
 const storage = multer.diskStorage({
@@ -24,37 +22,53 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const validateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (token == null) {
-        return res.status(401).json({ status: 'error', message: 'No token provided' });
-    }
-
-    if (token !== apiToken) {
-        return res.status(403).json({ status: 'error', message: 'Invalid token' });
-    }
-
-    next();
-};
-
-router.use(validateToken);
-
-async function sendMessage(sock, to, message) {
-    try {
-        const jid = jidNormalizedUser(to);
-        const result = await sock.sendMessage(jid, message);
-        return { status: 'success', message: `Message sent to ${to}`, messageId: result.key.id };
-    } catch (error) {
-        console.error(`Failed to send message to ${to}:`, error);
-        return { status: 'error', message: `Failed to send message to ${to}. Reason: ${error.message}` };
-    }
-}
-
 const getWebhookUrl = () => webhookUrl;
 
-function initializeApi(sessions) {
+function initializeApi(sessions, sessionTokens) {
+    const validateToken = (req, res, next) => {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+
+        if (token == null) {
+            return res.status(401).json({ status: 'error', message: 'No token provided' });
+        }
+        
+        // For session-specific routes, check the token against the session
+        const sessionId = req.query.sessionId || req.body.sessionId;
+        if (sessionId) {
+            const expectedToken = sessionTokens.get(sessionId);
+            if (expectedToken && token === expectedToken) {
+                return next();
+            }
+        }
+        
+        // For global routes (webhook, media), check if it's any valid token
+        // Or for requests where sessionId is not easily available in middleware
+        const isAnyTokenValid = Array.from(sessionTokens.values()).includes(token);
+        if (isAnyTokenValid) {
+            // Re-check for session routes to give a more specific error
+            if (sessionId) {
+                 return res.status(403).json({ status: 'error', message: `Invalid token for session ${sessionId}` });
+            }
+            return next();
+        }
+
+        return res.status(403).json({ status: 'error', message: 'Invalid token' });
+    };
+
+    router.use(validateToken);
+
+    async function sendMessage(sock, to, message) {
+        try {
+            const jid = jidNormalizedUser(to);
+            const result = await sock.sendMessage(jid, message);
+            return { status: 'success', message: `Message sent to ${to}`, messageId: result.key.id };
+        } catch (error) {
+            console.error(`Failed to send message to ${to}:`, error);
+            return { status: 'error', message: `Failed to send message to ${to}. Reason: ${error.message}` };
+        }
+    }
+
     // Webhook setup endpoint
     router.post('/webhook', (req, res) => {
         const { url } = req.body;
@@ -183,5 +197,4 @@ function initializeApi(sessions) {
     return router;
 }
 
-
-module.exports = { initializeApi, apiToken, getWebhookUrl }; 
+module.exports = { initializeApi, getWebhookUrl }; 

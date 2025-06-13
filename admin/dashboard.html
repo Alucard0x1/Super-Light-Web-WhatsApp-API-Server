@@ -72,17 +72,13 @@
             <div class="card-header">
                 <ul class="nav nav-tabs card-header-tabs" id="api-tabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-panel"
-                            type="button" role="tab" aria-controls="text-panel" aria-selected="true">Send Text</button>
+                        <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-panel" type="button" role="tab" aria-controls="text-panel" aria-selected="true">Send Text</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="image-tab" data-bs-toggle="tab" data-bs-target="#image-panel"
-                            type="button" role="tab" aria-controls="image-panel" aria-selected="false">Send Image</button>
+                        <button class="nav-link" id="image-tab" data-bs-toggle="tab" data-bs-target="#image-panel" type="button" role="tab" aria-controls="image-panel" aria-selected="false">Send Image</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="document-tab" data-bs-toggle="tab"
-                            data-bs-target="#document-panel" type="button" role="tab" aria-controls="document-panel"
-                            aria-selected="false">Send Document</button>
+                        <button class="nav-link" id="document-tab" data-bs-toggle="tab" data-bs-target="#document-panel" type="button" role="tab" aria-controls="document-panel" aria-selected="false">Send Document</button>
                     </li>
                 </ul>
             </div>
@@ -160,7 +156,7 @@
         const sessionIdInput = document.getElementById('sessionIdInput');
         const logBox = document.getElementById('log-box');
         
-        let apiToken = ''; // Global variable to hold the token
+        const sessionsData = new Map(); // Store full session data including token
 
         // New API Control Elements
         const apiSessionIdSelect = document.getElementById('api-session-id');
@@ -184,7 +180,7 @@
                         </h5>
                         <div class="d-flex justify-content-between align-items-center">
                              <div>
-                                <button class="btn btn-sm btn-success" onclick="getQr('${session.sessionId}')">Get QR</button>
+                                <button class="btn btn-sm btn-success" id="get-qr-btn-${session.sessionId}" onclick="getQr('${session.sessionId}')">Get QR</button>
                                 <button class="btn btn-sm btn-danger" onclick="deleteSession('${session.sessionId}')">Delete</button>
                             </div>
                         </div>
@@ -192,6 +188,13 @@
                              <div id="qr-${session.sessionId}" class="qr-code"></div>
                         </div>
                         <p class="mt-2 text-muted" id="qr-info-${session.sessionId}"></p>
+                        <div class="mt-2" id="token-container-${session.sessionId}" style="display: none;">
+                           <small>API Token:</small>
+                           <div class="input-group input-group-sm">
+                               <input type="text" class="form-control" id="token-${session.sessionId}" readonly>
+                               <button class="btn btn-outline-secondary" type="button" onclick="copySessionToken('${session.sessionId}')">Copy</button>
+                           </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -202,6 +205,7 @@
             const statusElement = document.getElementById(`status-${session.sessionId}`);
             const qrElement = document.getElementById(`qr-${session.sessionId}`);
             const qrInfo = document.getElementById(`qr-info-${session.sessionId}`);
+            const getQrBtn = document.getElementById(`get-qr-btn-${session.sessionId}`);
 
 
             if (!statusElement) return;
@@ -229,6 +233,9 @@
 
             statusElement.className = `badge status-badge ${statusClass}`;
             statusElement.textContent = statusText;
+            
+            const tokenContainer = document.getElementById(`token-container-${session.sessionId}`);
+            const tokenInput = document.getElementById(`token-${session.sessionId}`);
 
             if (session.status === 'CONNECTED') {
                 const option = document.createElement('option');
@@ -237,11 +244,20 @@
                 if (!apiSessionIdSelect.querySelector(`option[value="${session.sessionId}"]`)) {
                      apiSessionIdSelect.appendChild(option);
                 }
+                if (tokenContainer && tokenInput) {
+                    tokenContainer.style.display = 'block';
+                    tokenInput.value = session.token;
+                }
+                if (getQrBtn) getQrBtn.style.display = 'none';
             } else {
                  const option = apiSessionIdSelect.querySelector(`option[value="${session.sessionId}"]`);
                  if (option) {
                      option.remove();
                  }
+                 if (tokenContainer) {
+                    tokenContainer.style.display = 'none';
+                 }
+                 if (getQrBtn) getQrBtn.style.display = 'inline-block';
             }
 
             if (session.qr) {
@@ -270,24 +286,7 @@
             try {
                 const response = await fetch('/sessions');
                 const sessions = await response.json();
-
-                // Remove cards for sessions that no longer exist
-                const existingCardIds = Array.from(sessionsContainer.children).map(c => c.id);
-                const fetchedSessionIds = sessions.map(s => `session-${s.sessionId}`);
-                existingCardIds.forEach(cardId => {
-                    if (!fetchedSessionIds.includes(cardId)) {
-                        document.getElementById(cardId)?.remove();
-                    }
-                });
-
-                sessions.forEach(session => {
-                    let card = document.getElementById(`session-${session.sessionId}`);
-                    if (!card) {
-                        card = createSessionCard(session);
-                        sessionsContainer.appendChild(card);
-                    }
-                    updateSessionStatus(session);
-                });
+                updateSessionCards(sessions);
             } catch (error) {
                 console.error('Failed to fetch sessions:', error);
             }
@@ -366,22 +365,7 @@
                     logBox.scrollTop = logBox.scrollHeight;
                 } else if (logData.type === 'session-update') {
                     const sessions = logData.data;
-                    const existingCardIds = Array.from(sessionsContainer.children).map(c => c.id);
-                    const fetchedSessionIds = sessions.map(s => `session-${s.sessionId}`);
-                    existingCardIds.forEach(cardId => {
-                        if (!fetchedSessionIds.includes(cardId)) {
-                            document.getElementById(cardId)?.remove();
-                        }
-                    });
-
-                    sessions.forEach(session => {
-                        let card = document.getElementById(`session-${session.sessionId}`);
-                        if (!card) {
-                            card = createSessionCard(session);
-                            sessionsContainer.appendChild(card);
-                        }
-                        updateSessionStatus(session);
-                    });
+                    updateSessionCards(sessions);
                 }
 
             };
@@ -413,6 +397,8 @@
 
             let payload;
             let endpoint = `/api/v1/messages?sessionId=${sessionId}`;
+            const sessionData = sessionsData.get(sessionId);
+            const currentToken = sessionData ? sessionData.token : '';
             
             if (activeTab === 'text-tab') {
                 const message = document.getElementById('text-message').value;
@@ -453,7 +439,7 @@
                  }
             }
 
-            const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${apiToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payload, null, 2)}'`;
+            const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payload, null, 2)}'`;
             
             apiUsageExample.textContent = curlCommand;
         }
@@ -461,10 +447,13 @@
 
         async function sendApiRequest(payload) {
             const sessionId = apiSessionIdSelect.value;
-            if (!sessionId) {
-                alert('Please select an active session.');
+            const sessionData = sessionsData.get(sessionId);
+            if (!sessionId || !sessionData || !sessionData.token) {
+                alert('Please select an active session. Token not found.');
                 return;
             }
+            
+            const currentToken = sessionData.token;
 
             apiResponseDiv.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Loading...</span></div>`;
 
@@ -473,7 +462,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiToken}`
+                        'Authorization': `Bearer ${currentToken}`
                     },
                     body: JSON.stringify(payload)
                 });
@@ -510,12 +499,21 @@
              formData.append('file', file);
              
              apiResponseDiv.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"></div> <span>Uploading file...</span>`;
+            
+             const sessionId = apiSessionIdSelect.value;
+             const sessionData = sessionsData.get(sessionId);
+             const currentToken = sessionData ? sessionData.token : Array.from(sessionsData.values())[0]?.token; // Use first available token for global upload
+
+             if (!currentToken) {
+                apiResponseDiv.innerHTML = `<div class="alert alert-danger mt-3">Upload Error: No valid token found to authenticate.</div>`;
+                return null;
+             }
 
              try {
                 const response = await fetch('/api/v1/media', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${apiToken}`
+                        'Authorization': `Bearer ${currentToken}`
                     },
                     body: formData
                 });
@@ -629,53 +627,97 @@
 
         createSessionBtn.addEventListener('click', createSession);
 
-        async function fetchApiToken() {
-            try {
-                const response = await fetch('/api/token');
-                const data = await response.json();
-                apiToken = data.token;
-                console.log('API Token fetched successfully.');
-            } catch (error) {
-                console.error('Failed to fetch API token:', error);
-                alert('Could not fetch API token. API requests will fail.');
-            }
+        function initializeWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+            ws.onopen = () => {
+                logBox.innerHTML = ''; // Clear previous logs
+                logBox.innerHTML += '<p class="text-success">Log stream connected.</p>';
+            };
+
+            ws.onmessage = (event) => {
+                const logData = JSON.parse(event.data);
+                if(logData.type === 'log') {
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = `[${new Date(logData.timestamp).toLocaleTimeString()}] [${logData.sessionId || 'SYSTEM'}] ${logData.message}`;
+                    logBox.appendChild(logEntry);
+                    logBox.scrollTop = logBox.scrollHeight;
+                } else if (logData.type === 'session-update') {
+                    const sessions = logData.data;
+                    updateSessionCards(sessions);
+                }
+            };
+
+            ws.onclose = () => {
+                logBox.innerHTML += '<p class="text-danger">Log stream disconnected. Reconnecting in 5 seconds...</p>';
+                setTimeout(initializeWebSocket, 5000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                ws.close();
+            };
+        }
+        
+        function loadSessions() {
+            // Initial load of sessions via HTTP, then rely on websocket
+            fetchSessions();
         }
 
-        let initAttempts = 0;
-        const MAX_INIT_ATTEMPTS = 50; // 5 seconds of retries
-
-        async function initializeApp() {
-            if (typeof QRCode === 'undefined' || typeof bootstrap === 'undefined') {
-                initAttempts++;
-                if (initAttempts > MAX_INIT_ATTEMPTS) {
-                    console.error('Failed to initialize app: Required libraries (QRCode or Bootstrap) did not load in time.');
-                    alert('Error: A required library failed to load. Please check your internet connection and reload the page.');
-                    return;
+        function updateSessionCards(sessions) {
+            sessions.forEach(s => sessionsData.set(s.sessionId, s));
+            // Remove cards for sessions that no longer exist
+            const existingCardIds = Array.from(sessionsContainer.children).map(c => c.id);
+            const fetchedSessionIds = sessions.map(s => `session-${s.sessionId}`);
+            existingCardIds.forEach(cardId => {
+                if (!fetchedSessionIds.includes(cardId)) {
+                    document.getElementById(cardId)?.remove();
                 }
-                console.warn(`Libraries not loaded yet (attempt ${initAttempts}), retrying in 100ms...`);
-                setTimeout(initializeApp, 100);
-                return;
-            }
-            console.log('Libraries loaded. Initializing dashboard.');
-
-            // Initialize Bootstrap tabs
-            const triggerTabList = [].slice.call(document.querySelectorAll('#api-tabs button'));
-            triggerTabList.forEach((triggerEl) => {
-                const tabTrigger = new bootstrap.Tab(triggerEl);
-                triggerEl.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    tabTrigger.show();
-                });
             });
 
-            await fetchApiToken();
-            fetchSessions();
-            connectToLogStream();
-            setInterval(fetchSessions, 10000); // Poll every 10 seconds as a fallback
-            updateApiUsage();
+            sessions.forEach(session => {
+                let card = document.getElementById(`session-${session.sessionId}`);
+                if (!card) {
+                    card = createSessionCard(session);
+                    sessionsContainer.appendChild(card);
+                }
+                updateSessionStatus(session);
+            });
         }
 
-        initializeApp();
+        function copySessionToken(sessionId) {
+            const tokenEl = document.getElementById(`token-${sessionId}`);
+            if (!tokenEl) return;
+            
+            tokenEl.select();
+            tokenEl.setSelectionRange(0, 99999); 
+            
+            navigator.clipboard.writeText(tokenEl.value).then(() => {
+                // Optional: Show a "Copied!" tooltip or message
+            }, (err) => {
+                console.error('Could not copy text: ', err);
+            });
+        }
+
+        function initializeBootstrapTabs() {
+            // This function ensures the Bootstrap tabs are interactive
+            var triggerTabList = [].slice.call(document.querySelectorAll('#api-tabs button'))
+            triggerTabList.forEach(function (triggerEl) {
+                var tabTrigger = new bootstrap.Tab(triggerEl)
+                triggerEl.addEventListener('click', function (event) {
+                    event.preventDefault()
+                    tabTrigger.show()
+                })
+            })
+        }
+        
+        // Main setup
+        document.addEventListener('DOMContentLoaded', async () => {
+            initializeWebSocket();
+            loadSessions();
+            initializeBootstrapTabs();
+        });
 
     </script>
 </body>

@@ -117,7 +117,7 @@ A flexible endpoint to send various types of messages. You can send a single mes
 ```
 
 #### Delete Message
-Deletes a message for everyone.
+Deletes a message that you have previously sent.
 
 **`DELETE /message`**
 

@@ -9,7 +9,7 @@
     "test": "jest --forceExit"
   },
   "keywords": [],
-  "author": "Your Name",
+  "author": "Alucard0x1",
   "license": "ISC",
   "dependencies": {
     "@hapi/boom": "^10.0.1",

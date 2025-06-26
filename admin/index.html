@@ -19,27 +19,48 @@
           <label for="password" class="form-label">Password</label>
           <input type="password" class="form-control" id="password" required>
         </div>
-        <button type="submit" class="btn btn-primary w-100">Login</button>
+        <button type="submit" class="btn btn-primary w-100" id="loginBtn">Login</button>
         <div id="errorMessage" class="alert alert-danger mt-3" style="display: none;"></div>
       </form>
-      <div class="alert alert-warning mt-3" role="alert">
-        <strong>Warning:</strong> This login is for demonstration purposes only and uses insecure hardcoded credentials. Do not use in a production environment without proper authentication.
+      <div class="alert alert-info mt-3" role="alert">
+        <strong>Info:</strong> Use environment variables ADMIN_USER and ADMIN_PASS to set credentials.
       </div>
     </div>
   </div>
   <script>
-    document.getElementById('loginForm').addEventListener('submit', function(event) {
+    document.getElementById('loginForm').addEventListener('submit', async function(event) {
       event.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
+      const loginBtn = document.getElementById('loginBtn');
+      const errorDiv = document.getElementById('errorMessage');
 
-      // Insecure hardcoded credentials for demo purposes
-      if (username === 'admin' && password === '123') {
-        window.location.href = 'dashboard.html';
-      } else {
-        const errorMessageDiv = document.getElementById('errorMessage');
-        errorMessageDiv.textContent = 'Invalid username or password.';
-        errorMessageDiv.style.display = 'block';
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Logging in...';
+      errorDiv.style.display = 'none';
+
+      try {
+        const response = await fetch('/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          localStorage.setItem('adminToken', result.token);
+          window.location.href = 'dashboard.html';
+        } else {
+          errorDiv.textContent = result.message || 'Login failed';
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = 'Network error. Please try again.';
+        errorDiv.style.display = 'block';
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Login';
       }
     });
   </script>

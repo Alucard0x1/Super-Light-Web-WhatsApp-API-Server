@@ -15,9 +15,17 @@ const { WebSocketServer } = require('ws');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const { initializeApi, apiToken, getWebhookUrl } = require('./api_v1');
-const { initializeLegacyApi } = require('./legacy_api');
 const { randomUUID } = require('crypto');
+
+// Import new modules
+const config = require('./config');
+const AuthMiddleware = require('./middleware/auth');
+const SecurityMiddleware = require('./middleware/security');
+const ValidationSchemas = require('./middleware/validation');
+const ErrorHandler = require('./middleware/errorHandler');
+const Logger = require('./utils/logger');
+const { initializeApi, getWebhookUrl } = require('./api_v1');
+const { initializeLegacyApi } = require('./legacy_api');
 
 const sessions = new Map();
 const retries = new Map();
@@ -25,58 +33,167 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const logger = pino({ level: 'debug' });
+const logger = pino({ level: config.logging.level });
 
-const TOKENS_FILE = path.join(__dirname, 'session_tokens.json');
 let sessionTokens = new Map();
 
 function saveTokens() {
-    const tokensToSave = Object.fromEntries(sessionTokens);
-    fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokensToSave, null, 2), 'utf-8');
-}
-
-function loadTokens() {
-    if (fs.existsSync(TOKENS_FILE)) {
-        try {
-            const tokensFromFile = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf-8'));
-            sessionTokens.clear(); // Do not reassign, clear and populate instead
-            for (const [key, value] of Object.entries(tokensFromFile)) {
-                sessionTokens.set(key, value);
-            }
-        } catch (error) {
-            console.error('Error loading tokens file:', error);
-            sessionTokens.clear();
-        }
+    try {
+        const tokensToSave = Object.fromEntries(sessionTokens);
+        fs.writeFileSync(config.storage.tokensFile, JSON.stringify(tokensToSave, null, 2), 'utf-8');
+        Logger.debug('Session tokens saved successfully');
+    } catch (error) {
+        Logger.error('Failed to save session tokens', error);
+        throw new ErrorHandler.WhatsAppError('Failed to save session tokens');
     }
 }
 
-// Ensure media directory exists
-const mediaDir = path.join(__dirname, 'media');
-if (!fs.existsSync(mediaDir)) {
-    fs.mkdirSync(mediaDir);
+function loadTokens() {
+    try {
+        if (fs.existsSync(config.storage.tokensFile)) {
+            const tokensFromFile = JSON.parse(fs.readFileSync(config.storage.tokensFile, 'utf-8'));
+            sessionTokens.clear();
+            for (const [key, value] of Object.entries(tokensFromFile)) {
+                sessionTokens.set(key, value);
+            }
+            Logger.info(`Loaded ${sessionTokens.size} session tokens`);
+        }
+    } catch (error) {
+        Logger.error('Error loading tokens file', error);
+        sessionTokens.clear();
+    }
 }
 
-app.use(express.json());
-app.use(bodyParser.json());
-app.use('/admin', express.static(path.join(__dirname, 'admin')));
-app.use('/media', express.static(mediaDir)); // Serve uploaded media
-app.use(express.urlencoded({ extended: true }));
+// Ensure required directories exist
+const requiredDirs = [config.storage.mediaDir, config.storage.authDir, config.storage.logsDir];
+requiredDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        Logger.info(`Created directory: ${dir}`);
+    }
+});
 
+// Setup security middleware
+SecurityMiddleware.setupSecurity(app);
+
+// Basic middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(Logger.api);
+
+// Trust proxy for rate limiting behind reverse proxies
+app.set('trust proxy', 1);
+
+// Admin authentication endpoints
+app.post('/admin/login', 
+    SecurityMiddleware.validateInput(ValidationSchemas.adminLogin),
+    ErrorHandler.handleAsync(async (req, res) => {
+        const { username, password } = req.body;
+        const result = await AuthMiddleware.loginAdmin(username, password);
+        
+        if (result.success) {
+            Logger.security('Admin login successful', { username }, req.ip);
+            res.status(200).json({
+                status: 'success',
+                message: result.message,
+                token: result.token
+            });
+        } else {
+            Logger.security('Admin login failed', { username, reason: result.message }, req.ip);
+            throw new ErrorHandler.AuthenticationError(result.message);
+        }
+    })
+);
+
+app.post('/admin/verify', AuthMiddleware.adminAuth, (req, res) => {
+    res.status(200).json({
+        status: 'success',
+        message: 'Token is valid',
+        admin: req.admin.username
+    });
+});
+
+// Static file serving
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
+app.use('/media', express.static(config.storage.mediaDir));
+
+// Add auth check script to dashboard
+app.get('/admin/dashboard.html', (req, res) => {
+    try {
+        const dashboardPath = path.join(__dirname, 'admin', 'dashboard.html');
+        let dashboardContent = fs.readFileSync(dashboardPath, 'utf-8');
+        
+        // Inject auth check script before closing head tag
+        const authScript = `
+            <script>
+                ${AuthMiddleware.checkAdminAccess()}
+            </script>
+        `;
+        dashboardContent = dashboardContent.replace('</head>', `${authScript}</head>`);
+        
+        res.send(dashboardContent);
+    } catch (error) {
+        Logger.error('Failed to serve dashboard', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// API routes
 const v1ApiRouter = initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession);
 const legacyApiRouter = initializeLegacyApi(sessions);
 app.use('/api/v1', v1ApiRouter);
-app.use('/api', legacyApiRouter); // Mount legacy routes at /api
+app.use('/api', legacyApiRouter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    try {
+        const healthData = {
+            status: 'healthy',
+            version: require('./package.json').version,
+            uptime: Math.floor(process.uptime()),
+            sessions: sessions.size,
+            environment: config.server.environment,
+            memory: process.memoryUsage(),
+            logging: Logger.getStats(),
+            errors: ErrorHandler.getErrorStats()
+        };
+        
+        res.status(200).json(healthData);
+    } catch (error) {
+        Logger.error('Health check failed', error);
+        res.status(500).json({
+            status: 'unhealthy',
+            error: 'Health check failed'
+        });
+    }
+});
+
+// Ping endpoint for testing
+app.get('/ping', (req, res) => {
+    res.status(200).send('pong');
+});
 
 function broadcast(data) {
+    const clientCount = wss.clients.size;
     wss.clients.forEach(client => {
         if (client.readyState === client.OPEN) {
-            client.send(JSON.stringify(data));
+            try {
+                client.send(JSON.stringify(data));
+            } catch (error) {
+                Logger.error('Failed to broadcast to client', error);
+            }
         }
     });
+    
+    if (clientCount > 0) {
+        Logger.debug(`Broadcasted to ${clientCount} WebSocket clients`, null, { type: data.type });
+    }
 }
 
 function log(message, sessionId = 'SYSTEM') {
-    console.log(`[${sessionId}] ${message}`);
+    Logger.info(message, sessionId);
+    
     broadcast({
         type: 'log',
         sessionId,
@@ -89,206 +206,326 @@ async function postToWebhook(data) {
     const webhookUrl = getWebhookUrl();
     if (!webhookUrl) return;
 
+    const startTime = Date.now();
     try {
-        await axios.post(webhookUrl, data, {
-            headers: { 'Content-Type': 'application/json' }
+        const response = await axios.post(webhookUrl, data, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: config.webhook.timeout
         });
-        log(`Successfully posted to webhook: ${webhookUrl}`);
+        
+        const duration = Date.now() - startTime;
+        Logger.webhook(webhookUrl, data, response);
+        Logger.performance('webhook_delivery', duration);
+        return response;
     } catch (error) {
-        log(`Failed to post to webhook: ${error.message}`);
+        const duration = Date.now() - startTime;
+        Logger.webhook(webhookUrl, data, null, error);
+        Logger.performance('webhook_delivery_failed', duration);
+        throw error;
     }
 }
 
 function updateSessionState(sessionId, status, detail, qr, reason) {
-    const oldSession = sessions.get(sessionId) || {};
-    const newSession = {
-        ...oldSession,
-        sessionId: sessionId, // Explicitly ensure sessionId is preserved
-        status,
-        detail,
-        qr,
-        reason
-    };
-    sessions.set(sessionId, newSession);
+    try {
+        const oldSession = sessions.get(sessionId) || {};
+        const newSession = {
+            ...oldSession,
+            sessionId: sessionId,
+            status,
+            detail,
+            qr,
+            reason,
+            lastUpdate: new Date().toISOString()
+        };
+        sessions.set(sessionId, newSession);
 
-    broadcast({ type: 'session-update', data: getSessionsDetails() });
+        Logger.session(sessionId, `Status updated: ${status} - ${detail}`);
+        broadcast({ type: 'session-update', data: getSessionsDetails() });
 
-    postToWebhook({
-        event: 'session-status',
-        sessionId,
-        status,
-        detail,
-        reason
-    });
+        postToWebhook({
+            event: 'session-status',
+            sessionId,
+            status,
+            detail,
+            reason,
+            timestamp: new Date().toISOString()
+        }).catch(err => {
+            Logger.error('Webhook delivery failed for session update', err, sessionId);
+        });
+    } catch (error) {
+        Logger.error('Failed to update session state', error, sessionId);
+    }
 }
 
 async function connectToWhatsApp(sessionId) {
-    updateSessionState(sessionId, 'CONNECTING', 'Initializing session...', '', '');
-    log('Starting session...', sessionId);
-
-    const sessionDir = path.join(__dirname, 'auth_info_baileys', sessionId);
-    if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
-    }
+    const startTime = Date.now();
     
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version, isLatest } = await fetchLatestBaileysVersion();
-    log(`Using WA version: ${version.join('.')}, isLatest: ${isLatest}`, sessionId);
+    try {
+        updateSessionState(sessionId, 'CONNECTING', 'Initializing session...', '', '');
+        Logger.session(sessionId, 'Starting WhatsApp connection');
 
-    const sock = makeWASocket({
-        version,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, logger),
-        },
-        printQRInTerminal: false,
-        logger,
-        browser: Browsers.macOS('Desktop'),
-        generateHighQualityLinkPreview: true,
-        shouldIgnoreJid: (jid) => isJidBroadcast(jid),
-        qrTimeout: 30000,
-    });
-    
-    sock.ev.on('creds.update', saveCreds);
-
-    sock.ev.on('messages.upsert', async (m) => {
-        const msg = m.messages[0];
-        if (!msg.key.fromMe) {
-            log(`Received new message from ${msg.key.remoteJid}`, sessionId);
-            
-            const messageData = {
-                event: 'new-message',
-                sessionId,
-                from: msg.key.remoteJid,
-                messageId: msg.key.id,
-                timestamp: msg.messageTimestamp,
-                data: msg
-            };
-            await postToWebhook(messageData);
+        const sessionDir = path.join(config.storage.authDir, sessionId);
+        if (!fs.existsSync(sessionDir)) {
+            fs.mkdirSync(sessionDir, { recursive: true });
         }
-    });
+        
+        const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+        const { version, isLatest } = await fetchLatestBaileysVersion();
+        Logger.session(sessionId, `Using WA version: ${version.join('.')}, isLatest: ${isLatest}`);
 
-    sock.ev.on('connection.update', (update) => {
-      const { connection, lastDisconnect, qr } = update;
-        const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 0;
+        const sock = makeWASocket({
+            version,
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, logger),
+            },
+            printQRInTerminal: false,
+            logger,
+            browser: Browsers.macOS(config.whatsapp.browser),
+            generateHighQualityLinkPreview: config.whatsapp.generateHighQualityPreviews,
+            shouldIgnoreJid: (jid) => isJidBroadcast(jid),
+            qrTimeout: config.whatsapp.qrTimeout,
+        });
+        
+        sock.ev.on('creds.update', saveCreds);
 
-        log(`Connection update: ${connection}, status code: ${statusCode}`, sessionId);
-
-      if (qr) {
-            log('QR code generated.', sessionId);
-            updateSessionState(sessionId, 'GENERATING_QR', 'QR code available.', qr, '');
-        }
-
-        if (connection === 'close') {
-            const reason = new Boom(lastDisconnect?.error)?.output?.payload?.error || 'Unknown';
-
-            // Allow reconnection on a 515 error, which is a "stream error" often seen after pairing.
-            const shouldReconnect = statusCode !== 401 && statusCode !== 403;
-            
-            log(`Connection closed. Reason: ${reason}, statusCode: ${statusCode}. Reconnecting: ${shouldReconnect}`, sessionId);
-            updateSessionState(sessionId, 'DISCONNECTED', 'Connection closed.', '', reason);
-
-            if (shouldReconnect) {
-                setTimeout(() => connectToWhatsApp(sessionId), 5000);
-            } else {
-                 log(`Not reconnecting for session ${sessionId} due to fatal error. Please delete and recreate the session.`, sessionId);
-                 const sessionDir = path.join(__dirname, 'auth_info_baileys', sessionId);
-                 if (fs.existsSync(sessionDir)) {
-                    fs.rmSync(sessionDir, { recursive: true, force: true });
-                    log(`Cleared session data for ${sessionId}`, sessionId);
-                 }
+        sock.ev.on('messages.upsert', async (m) => {
+            try {
+                const msg = m.messages[0];
+                if (!msg.key.fromMe) {
+                    Logger.session(sessionId, `Received message from ${msg.key.remoteJid}`);
+                    
+                    const messageData = {
+                        event: 'new-message',
+                        sessionId,
+                        from: msg.key.remoteJid,
+                        messageId: msg.key.id,
+                        timestamp: msg.messageTimestamp,
+                        data: msg
+                    };
+                    
+                    await postToWebhook(messageData).catch(err => {
+                        Logger.error('Failed to deliver message webhook', err, sessionId);
+                    });
+                }
+            } catch (error) {
+                Logger.error('Error processing incoming message', error, sessionId);
             }
-        } else if (connection === 'open') {
-            log('Connection opened.', sessionId);
-            updateSessionState(sessionId, 'CONNECTED', `Connected as ${sock.user?.name || 'Unknown'}`, '', '');
-        }
-    });
+        });
 
-    sessions.get(sessionId).sock = sock;
+        sock.ev.on('connection.update', (update) => {
+            try {
+                const { connection, lastDisconnect, qr } = update;
+                const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 0;
+
+                Logger.session(sessionId, `Connection update: ${connection}, status code: ${statusCode}`);
+
+                if (qr) {
+                    Logger.session(sessionId, 'QR code generated');
+                    updateSessionState(sessionId, 'GENERATING_QR', 'QR code available.', qr, '');
+                }
+
+                if (connection === 'close') {
+                    const error = lastDisconnect?.error;
+                    const whatsappError = ErrorHandler.handleWhatsAppError(error, sessionId);
+                    const shouldReconnect = statusCode !== 401 && statusCode !== 403;
+                    
+                    Logger.session(sessionId, `Connection closed. Reconnecting: ${shouldReconnect}`, 'warn');
+                    updateSessionState(sessionId, 'DISCONNECTED', 'Connection closed.', '', whatsappError.message);
+
+                    if (shouldReconnect) {
+                        setTimeout(() => connectToWhatsApp(sessionId), config.whatsapp.reconnectDelay);
+                    } else {
+                        Logger.session(sessionId, 'Not reconnecting due to fatal error. Session data will be cleared.', 'error');
+                        const sessionDir = path.join(config.storage.authDir, sessionId);
+                        if (fs.existsSync(sessionDir)) {
+                            fs.rmSync(sessionDir, { recursive: true, force: true });
+                            Logger.session(sessionId, 'Session data cleared');
+                        }
+                    }
+                } else if (connection === 'open') {
+                    const duration = Date.now() - startTime;
+                    Logger.session(sessionId, `Connection established successfully in ${duration}ms`);
+                    Logger.performance('whatsapp_connection', duration, sessionId);
+                    updateSessionState(sessionId, 'CONNECTED', `Connected as ${sock.user?.name || 'Unknown'}`, '', '');
+                }
+            } catch (error) {
+                Logger.error('Error handling connection update', error, sessionId);
+            }
+        });
+
+        sessions.get(sessionId).sock = sock;
+    } catch (error) {
+        Logger.error('Failed to initialize WhatsApp session', error, sessionId);
+        updateSessionState(sessionId, 'ERROR', 'Failed to initialize', '', error.message);
+        throw new ErrorHandler.WhatsAppError(`Failed to initialize session ${sessionId}: ${error.message}`, sessionId);
+    }
 }
 
 function getSessionsDetails() {
-    return Array.from(sessions.values()).map(s => ({
-        sessionId: s.sessionId,
-        status: s.status,
-        detail: s.detail,
-        qr: s.qr,
-        token: sessionTokens.get(s.sessionId) || null
-    }));
+    try {
+        return Array.from(sessions.values()).map(s => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            detail: s.detail,
+            qr: s.qr,
+            lastUpdate: s.lastUpdate,
+            token: sessionTokens.get(s.sessionId) || null
+        }));
+    } catch (error) {
+        Logger.error('Failed to get sessions details', error);
+        throw new ErrorHandler.WhatsAppError('Failed to retrieve sessions details');
+    }
 }
 
 // API Endpoints
-app.get('/sessions', (req, res) => {
-    res.json(getSessionsDetails());
-});
+app.get('/sessions', ErrorHandler.handleAsync(async (req, res) => {
+    const sessions = getSessionsDetails();
+    res.json(sessions);
+}));
 
 async function createSession(sessionId) {
-    if (sessions.has(sessionId)) {
-        throw new Error('Session already exists');
+    try {
+        if (sessions.has(sessionId)) {
+            throw new ErrorHandler.ConflictError('Session already exists');
+        }
+        
+        const token = randomUUID();
+        sessionTokens.set(sessionId, token);
+        saveTokens();
+        
+        sessions.set(sessionId, { 
+            sessionId: sessionId, 
+            status: 'CREATING', 
+            detail: 'Session is being created.',
+            lastUpdate: new Date().toISOString()
+        });
+        
+        Logger.info(`Creating new session: ${sessionId}`);
+        connectToWhatsApp(sessionId);
+        return { status: 'success', message: `Session ${sessionId} created.`, token };
+    } catch (error) {
+        Logger.error(`Failed to create session ${sessionId}`, error);
+        throw error;
     }
-    const token = randomUUID();
-    sessionTokens.set(sessionId, token);
-    saveTokens();
-    
-    // Set a placeholder before async connection
-    sessions.set(sessionId, { sessionId: sessionId, status: 'CREATING', detail: 'Session is being created.' });
-    
-    connectToWhatsApp(sessionId);
-    return { status: 'success', message: `Session ${sessionId} created.`, token };
 }
 
-app.get('/sessions/:sessionId/qr', async (req, res) => {
-  const { sessionId } = req.params;
+app.get('/sessions/:sessionId/qr', ErrorHandler.handleAsync(async (req, res) => {
+    const { sessionId } = req.params;
     const session = sessions.get(sessionId);
+    
     if (!session) {
-        return res.status(404).json({ error: 'Session not found' });
+        throw new ErrorHandler.NotFoundError('Session not found');
     }
-    log(`QR code requested for ${sessionId}`, sessionId);
+    
+    Logger.session(sessionId, 'QR code requested by user');
     updateSessionState(sessionId, 'GENERATING_QR', 'QR code requested by user.', '', '');
-    // The connection logic will handle the actual QR generation and broadcast.
     res.status(200).json({ message: 'QR generation triggered.' });
-});
+}));
 
 async function deleteSession(sessionId) {
-    const session = sessions.get(sessionId);
-    if (session && session.sock) {
-        session.sock.logout();
-    }
-    sessions.delete(sessionId);
-    sessionTokens.delete(sessionId);
-    saveTokens();
-    const sessionDir = path.join(__dirname, 'auth_info_baileys', sessionId);
-    if (fs.existsSync(sessionDir)) {
-        fs.rmSync(sessionDir, { recursive: true, force: true });
-    }
-    log(`Session ${sessionId} deleted and data cleared.`, 'SYSTEM');
-    broadcast({ type: 'session-update', data: getSessionsDetails() });
-}
-
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin', 'dashboard.html'));
-});
-
-const PORT = process.env.PORT || 3000;
-
-async function initializeExistingSessions() {
-    const sessionsDir = path.join(__dirname, 'auth_info_baileys');
-    if (fs.existsSync(sessionsDir)) {
-        const sessionFolders = fs.readdirSync(sessionsDir);
-        log(`Found ${sessionFolders.length} existing session(s). Initializing...`);
-        for (const sessionId of sessionFolders) {
-            const sessionPath = path.join(sessionsDir, sessionId);
-            if (fs.statSync(sessionPath).isDirectory()) {
-                log(`Re-initializing session: ${sessionId}`);
-                await createSession(sessionId); // Await creation to prevent race conditions
+    try {
+        const session = sessions.get(sessionId);
+        if (session && session.sock) {
+            try {
+                await session.sock.logout();
+                Logger.session(sessionId, 'WhatsApp logout completed');
+            } catch (error) {
+                Logger.error('Error during WhatsApp logout', error, sessionId);
             }
         }
+        
+        sessions.delete(sessionId);
+        sessionTokens.delete(sessionId);
+        saveTokens();
+        
+        const sessionDir = path.join(config.storage.authDir, sessionId);
+        if (fs.existsSync(sessionDir)) {
+            fs.rmSync(sessionDir, { recursive: true, force: true });
+        }
+        
+        Logger.info(`Session ${sessionId} deleted and data cleared`);
+        broadcast({ type: 'session-update', data: getSessionsDetails() });
+    } catch (error) {
+        Logger.error(`Failed to delete session ${sessionId}`, error);
+        throw new ErrorHandler.WhatsAppError(`Failed to delete session ${sessionId}: ${error.message}`);
     }
 }
 
+// Error handlers (must be last)
+app.use(ErrorHandler.notFoundHandler());
+app.use(ErrorHandler.globalErrorHandler());
+
+async function initializeExistingSessions() {
+    try {
+        if (fs.existsSync(config.storage.authDir)) {
+            const sessionFolders = fs.readdirSync(config.storage.authDir);
+            Logger.info(`Found ${sessionFolders.length} existing session(s). Initializing...`);
+            
+            for (const sessionId of sessionFolders) {
+                const sessionPath = path.join(config.storage.authDir, sessionId);
+                if (fs.statSync(sessionPath).isDirectory()) {
+                    Logger.info(`Re-initializing session: ${sessionId}`);
+                    await createSession(sessionId);
+                }
+            }
+        }
+    } catch (error) {
+        Logger.error('Failed to initialize existing sessions', error);
+    }
+}
+
+const PORT = config.server.port;
+
 server.listen(PORT, () => {
-    log(`Server is running on port ${PORT}`);
-    log('Admin dashboard available at http://localhost:3000/admin/dashboard.html');
-    loadTokens(); // Load tokens at startup
+    Logger.info(`🚀 Server is running on port ${PORT}`);
+    Logger.info(`🌍 Environment: ${config.server.environment}`);
+    Logger.info(`📊 Admin dashboard: http://localhost:${PORT}/admin/dashboard.html`);
+    Logger.info(`🔑 Health check: http://localhost:${PORT}/health`);
+    
+    loadTokens();
     initializeExistingSessions();
 });
+
+// Graceful shutdown
+const gracefulShutdown = (signal) => {
+    Logger.info(`${signal} received, shutting down gracefully`);
+    
+    server.close(() => {
+        Logger.info('HTTP server closed');
+        
+        // Close all WebSocket connections
+        wss.clients.forEach(client => {
+            client.close();
+        });
+        
+        // Logout all WhatsApp sessions
+        const logoutPromises = Array.from(sessions.values()).map(session => {
+            if (session.sock) {
+                return session.sock.logout().catch(err => {
+                    Logger.error('Error during session logout', err, session.sessionId);
+                });
+            }
+        });
+        
+        Promise.all(logoutPromises).finally(() => {
+            Logger.info('All sessions logged out');
+            process.exit(0);
+        });
+    });
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    Logger.error('Uncaught Exception', error);
+    gracefulShutdown('UNCAUGHT_EXCEPTION');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    Logger.error('Unhandled Rejection', new Error(reason), null, { promise });
+});
+
+module.exports = { app };

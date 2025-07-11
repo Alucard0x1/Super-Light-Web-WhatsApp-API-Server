@@ -1,16 +1,15 @@
 module.exports = {
   apps: [{
-    name: 'whatsapp-api',
+    name: 'wa',
     script: './index.js',
     instances: 1,
     autorestart: true,
     watch: false,
     max_memory_restart: '1G',
+    node_args: '--max-old-space-size=1024 --optimize-for-size --gc-interval=100',
     env: {
-      NODE_ENV: 'production'
-    },
-    env_production: {
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      NODE_OPTIONS: '--max-old-space-size=1024'
     },
     error_file: './logs/err.log',
     out_file: './logs/out.log',
@@ -18,13 +17,11 @@ module.exports = {
     time: true,
     // Graceful shutdown
     kill_timeout: 5000,
-    listen_timeout: 3000,
-    // Restart on file changes (disable in production)
-    ignore_watch: ['node_modules', 'logs', 'media', 'auth_info_baileys', '.git'],
-    // Auto restart if app crashes
+    // Crash recovery
     min_uptime: '10s',
     max_restarts: 10,
-    // Log date format
-    log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
+    // Memory optimization
+    instance_var: 'INSTANCE_ID',
+    exec_mode: 'fork'
   }]
 }; 

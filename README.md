@@ -26,11 +26,19 @@ A powerful, lightweight, and multi-session WhatsApp API server using the `@whisk
 ## Features
 
 -   **Multi-Session Management:** Run multiple WhatsApp accounts from a single server.
+-   **Multi-User System:** Role-based access control with Admin and User roles.
+    -   User authentication with email/password
+    -   Session ownership tracking
+    -   Activity logging and audit trail
+    -   Admin can manage all users and monitor all activities
+    -   Users can only manage their own sessions
 -   **Persistent Sessions:** Sessions automatically reconnect after a server restart.
 -   **Interactive Web Dashboard:** A user-friendly interface to manage sessions and test the API.
     -   Create, delete, and view the status of all sessions.
     -   Generate and scan QR codes for authentication.
     -   View a live stream of server logs.
+    -   User management interface (Admin only)
+    -   Activity monitoring dashboard
 -   **Full-Featured API Control Center:**
     -   Visually test all API features directly from the dashboard.
     -   Send text, images, and documents.
@@ -73,6 +81,49 @@ Session tokens are now encrypted using AES-256-CBC encryption for enhanced secur
    ```
 
 For advanced security options (token hashing, JWT, database storage), see [SECURITY_IMPROVEMENTS.md](SECURITY_IMPROVEMENTS.md).
+
+## Multi-User System
+
+The application now includes a comprehensive multi-user system with role-based access control:
+
+### User Roles
+
+-   **Admin**: Full system access
+    -   Can create, update, and delete users
+    -   Can view and manage all sessions
+    -   Can monitor all user activities
+    -   Can delete system logs
+    
+-   **User**: Limited access
+    -   Can only view and manage their own sessions
+    -   Cannot delete system logs
+    -   Cannot access user management
+
+### Initial Setup
+
+1. On first run, a default admin account is created:
+   - Email: `admin@localhost`
+   - Password: Value of `ADMIN_DASHBOARD_PASSWORD` from `.env`
+
+2. Admin users can create additional users through:
+   - Web interface: `/admin/users.html`
+   - API: `POST /api/v1/users` (requires admin role)
+
+### User Authentication
+
+Users can log in using:
+- Email and password (for multi-user system)
+- Legacy admin password (for backward compatibility)
+
+### Activity Logging
+
+All user actions are logged and encrypted:
+- Login attempts
+- Session creation/deletion
+- Message sending
+- User management actions
+
+Admins can view all activities at `/admin/activities.html`
 
 ## Prerequisites
 

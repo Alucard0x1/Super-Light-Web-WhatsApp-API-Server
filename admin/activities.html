@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Log - WhatsApp API</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/admin/dashboard.html">WhatsApp API Admin</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/dashboard.html">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/users.html">Users</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/admin/activities.html">Activities</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <span class="navbar-text text-white me-3" id="currentUser"></span>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- Activity Summary (Admin Only) -->
+        <div class="row mb-4" id="activitySummaryRow" style="display: none;">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Activity Summary (Last 7 Days)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h3 id="totalActivities">0</h3>
+                                <p class="text-muted">Total Activities</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="activeUsers">0</h3>
+                                <p class="text-muted">Active Users</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="sessionsCreated">0</h3>
+                                <p class="text-muted">Sessions Created</p>
+                            </div>
+                            <div class="col-md-3">
+                                <h3 id="messagesSent">0</h3>
+                                <p class="text-muted">Messages Sent</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Activity Log</h5>
+                        <button class="btn btn-sm btn-primary" onclick="refreshActivities()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Timestamp</th>
+                                        <th>User</th>
+                                        <th>Action</th>
+                                        <th>Resource</th>
+                                        <th>Details</th>
+                                        <th>IP Address</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activitiesTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center">Loading activities...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentUserEmail = '';
+        let currentUserRole = '';
+
+        // Check authentication
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/v1/me');
+                if (!res.ok) {
+                    window.location.href = '/admin/login.html';
+                    return;
+                }
+                const user = await res.json();
+                currentUserEmail = user.email;
+                currentUserRole = user.role;
+                document.getElementById('currentUser').textContent = `${user.email} (${user.role})`;
+                
+                // Show activity summary only for admins
+                if (user.role === 'admin') {
+                    document.getElementById('activitySummaryRow').style.display = 'block';
+                    loadActivitySummary();
+                }
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        async function loadActivities() {
+            try {
+                const response = await fetch('/api/v1/activities?limit=100');
+                if (!response.ok) throw new Error('Failed to load activities');
+                
+                const activities = await response.json();
+                renderActivitiesTable(activities);
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                document.getElementById('activitiesTableBody').innerHTML = `
+                    <tr><td colspan="7" class="text-center text-danger">Error loading activities</td></tr>
+                `;
+            }
+        }
+
+        async function loadActivitySummary() {
+            if (currentUserRole !== 'admin') return;
+
+            try {
+                const response = await fetch('/api/v1/activities/summary?days=7');
+                if (!response.ok) throw new Error('Failed to load summary');
+                
+                const summary = await response.json();
+                
+                document.getElementById('totalActivities').textContent = summary.totalActivities || 0;
+                document.getElementById('activeUsers').textContent = Object.keys(summary.byUser || {}).length;
+                document.getElementById('sessionsCreated').textContent = summary.byAction?.create || 0;
+                document.getElementById('messagesSent').textContent = summary.byAction?.send_message || 0;
+            } catch (error) {
+                console.error('Error loading activity summary:', error);
+            }
+        }
+
+        function renderActivitiesTable(activities) {
+            const tbody = document.getElementById('activitiesTableBody');
+            
+            if (activities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No activities found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = activities.map(activity => {
+                const actionIcon = getActionIcon(activity.action);
+                const resourceIcon = getResourceIcon(activity.resource);
+                const details = formatDetails(activity);
+                
+                return `
+                    <tr>
+                        <td>${new Date(activity.timestamp).toLocaleString()}</td>
+                        <td>${activity.userEmail}</td>
+                        <td>
+                            ${actionIcon} ${formatAction(activity.action)}
+                        </td>
+                        <td>
+                            ${resourceIcon} ${activity.resource}
+                            ${activity.resourceId ? `<br><small class="text-muted">${activity.resourceId}</small>` : ''}
+                        </td>
+                        <td>${details}</td>
+                        <td><small>${activity.ip || 'N/A'}</small></td>
+                        <td>
+                            <span class="badge bg-${activity.success ? 'success' : 'danger'}">
+                                ${activity.success ? 'Success' : 'Failed'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getActionIcon(action) {
+            const icons = {
+                'login': '<i class="bi bi-box-arrow-in-right text-primary"></i>',
+                'create': '<i class="bi bi-plus-circle text-success"></i>',
+                'delete': '<i class="bi bi-trash text-danger"></i>',
+                'update': '<i class="bi bi-pencil text-warning"></i>',
+                'send_message': '<i class="bi bi-send text-info"></i>',
+                'create_user': '<i class="bi bi-person-plus text-success"></i>',
+                'update_user': '<i class="bi bi-person-gear text-warning"></i>',
+                'delete_user': '<i class="bi bi-person-x text-danger"></i>'
+            };
+            return icons[action] || '<i class="bi bi-circle"></i>';
+        }
+
+        function getResourceIcon(resource) {
+            const icons = {
+                'auth': '<i class="bi bi-shield-lock"></i>',
+                'session': '<i class="bi bi-phone"></i>',
+                'message': '<i class="bi bi-chat-dots"></i>',
+                'user': '<i class="bi bi-person"></i>'
+            };
+            return icons[resource] || '<i class="bi bi-folder"></i>';
+        }
+
+        function formatAction(action) {
+            return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function formatDetails(activity) {
+            if (!activity.details) return '-';
+            
+            let details = [];
+            
+            if (activity.action === 'send_message' && activity.details.recipient) {
+                details.push(`To: ${activity.details.recipient}`);
+                details.push(`Type: ${activity.details.messageType}`);
+            } else if (activity.action === 'create_user' && activity.details.newUserEmail) {
+                details.push(`Email: ${activity.details.newUserEmail}`);
+                details.push(`Role: ${activity.details.role}`);
+            } else if (activity.action === 'update_user' && activity.details.changes) {
+                const changes = Object.entries(activity.details.changes)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(', ');
+                details.push(changes);
+            } else if (activity.details.sessionId) {
+                details.push(`Session: ${activity.details.sessionId}`);
+            }
+            
+            return details.join('<br>') || '-';
+        }
+
+        async function refreshActivities() {
+            await loadActivities();
+            if (currentUserRole === 'admin') {
+                await loadActivitySummary();
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/admin/logout', { method: 'POST' });
+                window.location.href = '/admin/login.html';
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        // Initialize
+        checkAuth().then(() => {
+            loadActivities();
+            // Refresh activities every 30 seconds
+            setInterval(refreshActivities, 30000);
+        });
+    </script>
+</body>
+</html> 

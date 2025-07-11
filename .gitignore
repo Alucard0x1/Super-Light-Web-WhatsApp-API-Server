@@ -7,6 +7,9 @@ npm-debug.log
 auth_info_baileys/
 session_tokens.json
 session_tokens.enc
+users.enc
+activity_logs/
+sessions/
 *.bak
 .env
 plan.md
@@ -19,3 +22,4 @@ test_whatsapp_api.py
 test-encryption.js
 requirements.txt
 Super-Light-Web-WhatsApp-API-Server.code-workspace
+.env.production

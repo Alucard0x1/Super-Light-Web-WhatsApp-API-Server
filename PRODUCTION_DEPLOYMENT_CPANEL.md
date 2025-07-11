@@ -96,8 +96,35 @@ module.exports = {
 2. Or create `.env` file in project root
 
 #### Step 5: Start Application
-1. Click "Start" in cPanel Node.js interface
-2. Or use PM2: `pm2 start ecosystem.config.js`
+
+**Important: Memory Optimization Required**
+
+Due to cPanel memory limitations, use the optimized start scripts:
+
+1. **Option 1: Using cPanel Interface**
+   - Set Application startup file: `index.js`
+   - Add to Environment Variables:
+     ```
+     NODE_ENV=production
+     NODE_OPTIONS=--max-old-space-size=1024
+     ```
+
+2. **Option 2: Using PM2 (Recommended)**
+   ```bash
+   cd /home/yourusername/whatsapp-api
+   npm run start:pm2
+   ```
+
+3. **Option 3: Direct Node.js with optimizations**
+   ```bash
+   cd /home/yourusername/whatsapp-api
+   npm run start:production
+   ```
+
+**Memory Limit Issues?**
+- Reduce `MAX_SESSIONS` to 3-5 in `.env`
+- Disable features you don't need
+- Consider upgrading hosting plan for more memory
 
 ### 4. Security Hardening
 

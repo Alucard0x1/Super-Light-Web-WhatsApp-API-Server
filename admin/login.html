@@ -12,17 +12,25 @@
             <div class="col-md-4">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white text-center">
-                        <h4>Admin Login</h4>
+                        <h4>WhatsApp API Login</h4>
                     </div>
                     <div class="card-body">
                         <form id="loginForm">
                             <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" placeholder="user@example.com" autofocus>
+                                <small class="text-muted">Leave blank for legacy admin login</small>
+                            </div>
+                            <div class="mb-3">
                                 <label for="password" class="form-label">Password</label>
-                                <input type="password" class="form-control" id="password" required autofocus>
+                                <input type="password" class="form-control" id="password" required>
                             </div>
                             <button type="submit" class="btn btn-primary w-100">Login</button>
                         </form>
                         <div id="loginError" class="alert alert-danger mt-3 d-none"></div>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">Contact admin for account creation</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -31,13 +39,29 @@
     <script>
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+            
+            const loginData = { password };
+            if (email) {
+                loginData.email = email;
+            }
+            
             const res = await fetch('/admin/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
+                body: JSON.stringify(loginData)
             });
+            
             if (res.ok) {
+                const data = await res.json();
+                // Store user role for dashboard customization
+                if (data.role) {
+                    sessionStorage.setItem('userRole', data.role);
+                }
+                if (data.email) {
+                    sessionStorage.setItem('userEmail', data.email);
+                }
                 window.location.href = '/admin/dashboard.html';
             } else {
                 const data = await res.json();

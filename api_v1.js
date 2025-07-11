@@ -29,7 +29,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log) {
+function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log, userManager, activityLogger) {
     // Security middlewares
     router.use(helmet());
     router.use(rateLimit({
@@ -71,11 +71,14 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.post('/sessions', async (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
         
-        // Check if user is authenticated as admin (from dashboard)
-        const isAdminAuthenticated = req.session && req.session.adminAuthed;
+        // Get current user from session
+        const currentUser = req.session && req.session.adminAuthed ? {
+            email: req.session.userEmail,
+            role: req.session.userRole
+        } : null;
         
-        // Check for master API key (only if not admin authenticated)
-        if (!isAdminAuthenticated) {
+        // Check if user is authenticated or has master API key
+        if (!currentUser) {
             const masterKey = req.headers['x-master-key'];
             const requiredMasterKey = process.env.MASTER_API_KEY;
             
@@ -102,12 +105,25 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         const sanitizedSessionId = sessionId.trim().replace(/\s+/g, '_');
         
         try {
-            await createSession(sanitizedSessionId);
+            // Pass the creator email to createSession
+            const creatorEmail = currentUser ? currentUser.email : null;
+            await createSession(sanitizedSessionId, creatorEmail);
             const token = sessionTokens.get(sanitizedSessionId);
+            
+            // Log activity
+            if (currentUser && activityLogger) {
+                await activityLogger.logSessionCreate(
+                    currentUser.email, 
+                    sanitizedSessionId, 
+                    req.ip, 
+                    req.headers['user-agent']
+                );
+            }
+            
             log('Session created', sanitizedSessionId, { 
                 event: 'session-created', 
                 sessionId: sanitizedSessionId,
-                createdBy: isAdminAuthenticated ? 'admin-dashboard' : 'api-key'
+                createdBy: currentUser ? currentUser.email : 'api-key'
             });
             res.status(201).json({ status: 'success', message: `Session ${sanitizedSessionId} created.`, token: token });
         } catch (error) {
@@ -118,7 +134,20 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.get('/sessions', (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl });
-        res.status(200).json(getSessionsDetails());
+        
+        // Get current user from session
+        const currentUser = req.session && req.session.adminAuthed ? {
+            email: req.session.userEmail,
+            role: req.session.userRole
+        } : null;
+        
+        if (currentUser) {
+            // If authenticated, filter sessions based on role
+            res.status(200).json(getSessionsDetails(currentUser.email, currentUser.role === 'admin'));
+        } else {
+            // For API access without authentication, show all sessions (backward compatibility)
+            res.status(200).json(getSessionsDetails());
+        }
     });
 
     // All routes below this are protected by token
@@ -127,8 +156,37 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.delete('/sessions/:sessionId', async (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, params: req.params });
         const { sessionId } = req.params;
+        
+        // Get current user from session
+        const currentUser = req.session && req.session.adminAuthed ? {
+            email: req.session.userEmail,
+            role: req.session.userRole
+        } : null;
+        
         try {
+            // Check ownership if user is authenticated
+            if (currentUser && currentUser.role !== 'admin' && userManager) {
+                const sessionOwner = userManager.getSessionOwner(sessionId);
+                if (sessionOwner && sessionOwner.email !== currentUser.email) {
+                    return res.status(403).json({ 
+                        status: 'error', 
+                        message: 'You can only delete your own sessions' 
+                    });
+                }
+            }
+            
             await deleteSession(sessionId);
+            
+            // Log activity
+            if (currentUser && activityLogger) {
+                await activityLogger.logSessionDelete(
+                    currentUser.email, 
+                    sessionId, 
+                    req.ip, 
+                    req.headers['user-agent']
+                );
+            }
+            
             log('Session deleted', sessionId, { event: 'session-deleted', sessionId });
             res.status(200).json({ status: 'success', message: `Session ${sessionId} deleted.` });
         } catch (error) {
@@ -334,6 +392,26 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             }
         }
 
+        // Log activity for each successful message
+        if (activityLogger) {
+            const currentUser = req.session && req.session.adminAuthed ? req.session.userEmail : null;
+            const sessionOwner = userManager ? userManager.getSessionOwner(sessionId) : null;
+            const userEmail = currentUser || (sessionOwner ? sessionOwner.email : 'api-user');
+            
+            for (let i = 0; i < results.length; i++) {
+                if (results[i].status === 'success') {
+                    await activityLogger.logMessageSend(
+                        userEmail,
+                        sessionId,
+                        phoneNumbers[i],
+                        messages[i].type,
+                        req.ip,
+                        req.headers['user-agent']
+                    );
+                }
+            }
+        }
+        
         log('Messages sent', sessionId, { 
             event: 'messages-sent', 
             sessionId, 

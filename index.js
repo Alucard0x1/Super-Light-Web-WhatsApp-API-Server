@@ -1,3 +1,17 @@
+// Memory optimization for production environments
+if (process.env.NODE_ENV === 'production') {
+    // Limit V8 heap if not already set
+    if (!process.env.NODE_OPTIONS) {
+        process.env.NODE_OPTIONS = '--max-old-space-size=1024';
+    }
+    // Optimize garbage collection
+    if (global.gc) {
+        setInterval(() => {
+            global.gc();
+        }, 60000); // Run GC every minute
+    }
+}
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -23,6 +37,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
+const UserManager = require('./users');
+const ActivityLogger = require('./activity-logger');
 
 const sessions = new Map();
 const retries = new Map();
@@ -42,6 +59,10 @@ if (!process.env.TOKEN_ENCRYPTION_KEY) {
     console.warn('⚠️  WARNING: Using random encryption key. Set TOKEN_ENCRYPTION_KEY in .env file!');
     console.warn(`Add this to your .env file: TOKEN_ENCRYPTION_KEY=${ENCRYPTION_KEY}`);
 }
+
+// Initialize user management and activity logging
+const userManager = new UserManager(ENCRYPTION_KEY);
+const activityLogger = new ActivityLogger(ENCRYPTION_KEY);
 
 // Encryption functions
 function encrypt(text) {
@@ -163,21 +184,60 @@ const ADMIN_PASSWORD = process.env.ADMIN_DASHBOARD_PASSWORD;
 const MAX_SESSIONS = parseInt(process.env.MAX_SESSIONS) || 10;
 const SESSION_TIMEOUT_HOURS = parseInt(process.env.SESSION_TIMEOUT_HOURS) || 24;
 
+// Use file-based session store for production
+const sessionStore = new FileStore({
+    path: './sessions',
+    ttl: 86400, // 1 day
+    retries: 3,
+    secret: process.env.SESSION_SECRET || 'change_this_secret'
+});
+
 app.use(session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || 'change_this_secret',
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, secure: false } // Set secure: true if using HTTPS
+    cookie: { 
+        httpOnly: true, 
+        secure: false, // Set secure: true if using HTTPS
+        maxAge: 86400000 // 1 day
+    }
 }));
 
-// Admin login endpoint
-app.post('/admin/login', express.json(), (req, res) => {
-    const { password } = req.body;
-    if (password === ADMIN_PASSWORD) {
+// Admin login endpoint - supports both legacy password and new email/password
+app.post('/admin/login', express.json(), async (req, res) => {
+    const { email, password } = req.body;
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
+    
+    // Legacy support: if only password is provided, try admin password
+    if (!email && password === ADMIN_PASSWORD) {
         req.session.adminAuthed = true;
-        return res.json({ success: true });
+        req.session.userEmail = 'admin@localhost';
+        req.session.userRole = 'admin';
+        await activityLogger.logLogin('admin@localhost', ip, userAgent, true);
+        return res.json({ success: true, role: 'admin' });
     }
-    res.status(401).json({ success: false, message: 'Invalid password' });
+    
+    // New email/password authentication
+    if (email && password) {
+        const user = await userManager.authenticateUser(email, password);
+        if (user) {
+            req.session.adminAuthed = true;
+            req.session.userEmail = user.email;
+            req.session.userRole = user.role;
+            req.session.userId = user.id;
+            await activityLogger.logLogin(user.email, ip, userAgent, true);
+            return res.json({ 
+                success: true, 
+                role: user.role,
+                email: user.email 
+            });
+        }
+    }
+    
+    await activityLogger.logLogin(email || 'unknown', ip, userAgent, false);
+    res.status(401).json({ success: false, message: 'Invalid credentials' });
 });
 
 // Middleware to protect admin dashboard
@@ -186,6 +246,24 @@ function requireAdminAuth(req, res, next) {
         return next();
     }
     res.status(401).sendFile(path.join(__dirname, 'admin', 'login.html'));
+}
+
+// Middleware to check if user is admin role
+function requireAdminRole(req, res, next) {
+    if (req.session && req.session.adminAuthed && req.session.userRole === 'admin') {
+        return next();
+    }
+    res.status(403).json({ success: false, message: 'Admin access required' });
+}
+
+// Helper to get current user info
+function getCurrentUser(req) {
+    if (!req.session || !req.session.adminAuthed) return null;
+    return {
+        email: req.session.userEmail,
+        role: req.session.userRole,
+        id: req.session.userId
+    };
 }
 
 // Serve login page only if not authenticated
@@ -204,12 +282,119 @@ app.get('/admin', requireAdminAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'admin', 'dashboard.html'));
 });
 
+// Protect user management page (admin only)
+app.get('/admin/users.html', requireAdminAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'users.html'));
+});
+
+// Protect activities page
+app.get('/admin/activities.html', requireAdminAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'activities.html'));
+});
+
 // Admin logout endpoint
 app.post('/admin/logout', requireAdminAuth, (req, res) => {
     req.session.destroy(() => {
         res.clearCookie('connect.sid');
         res.json({ success: true, redirect: '/admin/login.html' });
     });
+});
+
+// User management endpoints
+app.get('/api/v1/users', requireAdminAuth, (req, res) => {
+    const currentUser = getCurrentUser(req);
+    if (currentUser.role === 'admin') {
+        // Admin can see all users
+        res.json(userManager.getAllUsers());
+    } else {
+        // Regular users can only see themselves
+        res.json([userManager.getUser(currentUser.email)]);
+    }
+});
+
+app.post('/api/v1/users', requireAdminRole, async (req, res) => {
+    const { email, password, role = 'user' } = req.body;
+    const currentUser = getCurrentUser(req);
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
+    
+    try {
+        const newUser = await userManager.createUser({
+            email,
+            password,
+            role,
+            createdBy: currentUser.email
+        });
+        
+        await activityLogger.logUserCreate(currentUser.email, email, role, ip, userAgent);
+        res.status(201).json(newUser);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.put('/api/v1/users/:email', requireAdminRole, async (req, res) => {
+    const { email } = req.params;
+    const updates = req.body;
+    const currentUser = getCurrentUser(req);
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
+    
+    try {
+        const updatedUser = await userManager.updateUser(email, updates);
+        await activityLogger.logUserUpdate(currentUser.email, email, updates, ip, userAgent);
+        res.json(updatedUser);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.delete('/api/v1/users/:email', requireAdminRole, async (req, res) => {
+    const { email } = req.params;
+    const currentUser = getCurrentUser(req);
+    const ip = req.ip;
+    const userAgent = req.headers['user-agent'];
+    
+    try {
+        await userManager.deleteUser(email);
+        await activityLogger.logUserDelete(currentUser.email, email, ip, userAgent);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Get current user info
+app.get('/api/v1/me', requireAdminAuth, (req, res) => {
+    const currentUser = getCurrentUser(req);
+    const user = userManager.getUser(currentUser.email);
+    res.json(user);
+});
+
+// Activity endpoints
+app.get('/api/v1/activities', requireAdminAuth, async (req, res) => {
+    const currentUser = getCurrentUser(req);
+    const { limit = 100, startDate, endDate } = req.query;
+    
+    if (currentUser.role === 'admin') {
+        // Admin can see all activities
+        const activities = await activityLogger.getActivities({
+            limit: parseInt(limit),
+            startDate,
+            endDate
+        });
+        res.json(activities);
+    } else {
+        // Regular users see only their activities
+        const activities = await activityLogger.getUserActivities(currentUser.email, parseInt(limit));
+        res.json(activities);
+    }
+});
+
+app.get('/api/v1/activities/summary', requireAdminRole, async (req, res) => {
+    const { days = 7 } = req.query;
+    const summary = await activityLogger.getActivitySummary(null, parseInt(days));
+    res.json(summary);
 });
 
 // Test endpoint to verify log injection
@@ -264,7 +449,7 @@ app.post('/admin/update-logs', requireAdminAuth, express.json(), (req, res) => {
     }
 });
 
-const v1ApiRouter = initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log);
+const v1ApiRouter = initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log, userManager, activityLogger);
 const legacyApiRouter = initializeLegacyApi(sessions, sessionTokens);
 app.use('/api/v1', v1ApiRouter);
 app.use('/api', legacyApiRouter); // Mount legacy routes at /api
@@ -411,9 +596,21 @@ async function connectToWhatsApp(sessionId) {
         printQRInTerminal: false,
         logger,
         browser: Browsers.macOS('Desktop'),
-        generateHighQualityLinkPreview: true,
+        generateHighQualityLinkPreview: false, // Disable to save memory
         shouldIgnoreJid: (jid) => isJidBroadcast(jid),
         qrTimeout: 30000,
+        // Memory optimization settings
+        markOnlineOnConnect: false,
+        syncFullHistory: false,
+        // Reduce message retry count
+        retryRequestDelayMs: 2000,
+        maxMsgRetryCount: 3,
+        // Connection options for stability
+        connectTimeoutMs: 30000,
+        keepAliveIntervalMs: 30000,
+        // Disable unnecessary features
+        fireInitQueries: false,
+        emitOwnEvents: false
     });
     
     sock.ev.on('creds.update', saveCreds);
@@ -474,22 +671,36 @@ async function connectToWhatsApp(sessionId) {
     sessions.get(sessionId).sock = sock;
 }
 
-function getSessionsDetails() {
-    return Array.from(sessions.values()).map(s => ({
-        sessionId: s.sessionId,
-        status: s.status,
-        detail: s.detail,
-        qr: s.qr,
-        token: sessionTokens.get(s.sessionId) || null
-    }));
+function getSessionsDetails(userEmail = null, isAdmin = false) {
+    return Array.from(sessions.values())
+        .filter(s => {
+            // Admin can see all sessions
+            if (isAdmin) return true;
+            // Regular users can only see their own sessions
+            return s.owner === userEmail;
+        })
+        .map(s => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            detail: s.detail,
+            qr: s.qr,
+            token: sessionTokens.get(s.sessionId) || null,
+            owner: s.owner || 'system' // Include owner info
+        }));
 }
 
 // API Endpoints
 app.get('/sessions', (req, res) => {
-    res.json(getSessionsDetails());
+    const currentUser = getCurrentUser(req);
+    if (currentUser) {
+        res.json(getSessionsDetails(currentUser.email, currentUser.role === 'admin'));
+    } else {
+        // For backwards compatibility, show all sessions if not authenticated
+        res.json(getSessionsDetails());
+    }
 });
 
-async function createSession(sessionId) {
+async function createSession(sessionId, createdBy = null) {
     if (sessions.has(sessionId)) {
         throw new Error('Session already exists');
     }
@@ -503,8 +714,18 @@ async function createSession(sessionId) {
     sessionTokens.set(sessionId, token);
     saveTokens();
     
-    // Set a placeholder before async connection
-    sessions.set(sessionId, { sessionId: sessionId, status: 'CREATING', detail: 'Session is being created.' });
+    // Set a placeholder before async connection with owner info
+    sessions.set(sessionId, { 
+        sessionId: sessionId, 
+        status: 'CREATING', 
+        detail: 'Session is being created.',
+        owner: createdBy // Track who created this session
+    });
+    
+    // Track session ownership in user manager
+    if (createdBy) {
+        await userManager.addSessionToUser(createdBy, sessionId);
+    }
     
     // Auto-cleanup inactive sessions after timeout
     setTimeout(async () => {
@@ -519,8 +740,8 @@ async function createSession(sessionId) {
     return { status: 'success', message: `Session ${sessionId} created.`, token };
 }
 
-app.get('/sessions/:sessionId/qr', async (req, res) => {
-  const { sessionId } = req.params;
+app.get('/api/v1/sessions/:sessionId/qr', async (req, res) => {
+    const { sessionId } = req.params;
     const session = sessions.get(sessionId);
     if (!session) {
         return res.status(404).json({ error: 'Session not found' });
@@ -540,6 +761,12 @@ async function deleteSession(sessionId) {
             log(`Error during logout for session ${sessionId}: ${err.message}`, sessionId);
         }
     }
+    
+    // Remove session ownership
+    if (session && session.owner) {
+        await userManager.removeSessionFromUser(session.owner, sessionId);
+    }
+    
     sessions.delete(sessionId);
     sessionTokens.delete(sessionId);
     saveTokens();
@@ -552,6 +779,20 @@ async function deleteSession(sessionId) {
 }
 
 const PORT = process.env.PORT || 3000;
+
+// Handle memory errors gracefully
+process.on('uncaughtException', (error) => {
+    if (error.message && error.message.includes('Out of memory')) {
+        console.error('FATAL: Out of memory error. The application will exit.');
+        console.error('Consider reducing MAX_SESSIONS or upgrading your hosting plan.');
+        process.exit(1);
+    }
+    console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 async function initializeExistingSessions() {
     const sessionsDir = path.join(__dirname, 'auth_info_baileys');

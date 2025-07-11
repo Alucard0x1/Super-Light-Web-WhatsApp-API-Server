@@ -257,6 +257,23 @@ Your Node.js app URL is already configured in step 4
 
 ## 10. Troubleshooting Common Issues
 
+### Issue: "Python not found" or "bcrypt installation failed"
+
+**This is a common issue on cPanel because bcrypt requires Python to compile.**
+
+**Solution:**
+The application now uses `bcryptjs` instead of `bcrypt`, which is a pure JavaScript implementation that doesn't require Python. If you still see this error:
+
+1. Make sure your `package.json` has `"bcryptjs": "^2.4.3"` instead of `"bcrypt"`
+2. Delete `node_modules` folder if it exists
+3. Run `npm install --production` again
+
+### Issue: "csurf deprecated" warning
+
+**This is just a warning, not an error. The application will still work.**
+
+The `csurf` package is deprecated but still functional. This warning can be safely ignored. In future versions, we'll replace it with a newer CSRF protection method.
+
 ### Issue: "Out of Memory" Error
 
 **Solution:**
@@ -299,6 +316,18 @@ Your Node.js app URL is already configured in step 4
 2. Select all files in `whatsapp-api`
 3. Click **"Permissions"**
 4. Set to `755` for folders, `644` for files
+
+### Issue: "npm install" takes too long or times out
+
+**Solutions:**
+1. Use the terminal method instead of the button
+2. Try installing in smaller batches:
+```bash
+cd ~/whatsapp-api
+npm install express
+npm install @whiskeysockets/baileys
+npm install --production
+```
 
 ---
 

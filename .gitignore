@@ -6,4 +6,16 @@ npm-debug.log
 .vscode/
 auth_info_baileys/
 session_tokens.json
+session_tokens.enc
 *.bak
+.env
+plan.md
+SECURITY_IMPROVEMENTS.md
+logs/
+*.log
+.pm2/
+test_api_readme.md
+test_whatsapp_api.py
+test-encryption.js
+requirements.txt
+Super-Light-Web-WhatsApp-API-Server.code-workspace

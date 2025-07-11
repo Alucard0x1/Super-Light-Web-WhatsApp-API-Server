@@ -87,23 +87,129 @@
         #api-usage-example {
             border: 1px solid #dee2e6;
         }
+        [data-bs-theme="light"] .card-header {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+  }
+  [data-bs-theme="dark"] .card-header {
+    background-color: #2563eb !important;
+    color: #fff !important;
+  }
+  
+  /* System Log History Styles */
+  .log-entry-card .card-header {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .log-entry-card .card-header:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+  }
+  
+  .log-entry-card .bi-chevron-down {
+    transition: transform 0.2s ease;
+  }
+  
+  .log-entry-card .card-header[aria-expanded="true"] .bi-chevron-down {
+    transform: rotate(180deg);
+  }
+  
+  .message-item {
+    transition: all 0.2s ease;
+  }
+  
+  .message-item:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  /* Remove background from text messages */
+  .message-content .text-break {
+    background-color: transparent !important;
+  }
+  
+  /* Style for image captions */
+  .message-content .caption-box {
+    background-color: var(--bs-gray-200);
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+  }
+  
+  [data-bs-theme="dark"] .message-content .caption-box {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+        
+        /* Lightbox styles */
+        #imageLightbox .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.9);
+        }
+        
+        #imageLightbox .btn-close-white {
+            filter: brightness(0) invert(1);
+            opacity: 0.8;
+        }
+        
+        #imageLightbox .btn-close-white:hover {
+            opacity: 1;
+        }
   </style>
 </head>
 
 <body>
+    <!-- Log Data Initialization -->
+    <script>
+        // Initialize systemLogData
+        window.systemLogData = [];
+        
+        // Fetch log data after page load
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/admin/test-logs', {
+                method: 'GET',
+                credentials: 'same-origin', // Include cookies for session
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.status === 401) {
+                        // Unauthorized - redirect to login
+                        window.location.href = '/admin/login.html';
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data) {
+                        console.log('Fetched log data:', data);
+                        if (data.logs && data.logs.length > 0) {
+                            window.systemLogData = data.logs;
+                            // Re-render the log history
+                            renderSystemLogHistory();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to fetch log data:', error);
+                });
+        });
+    </script>
     <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="#" style="gap: 0.5rem;">
                 <i class="bi bi-whatsapp" style="color: #25D366; font-size: 1.4rem;"></i>
                 <span>WhatsApp Gateway</span>
             </a>
-            <div class="ms-auto">
-                 <button class="btn btn-outline-secondary" id="theme-toggler" type="button">
+            <div class="ms-auto d-flex align-items-center" style="gap: 0.5rem;">
+                <button class="btn btn-outline-secondary" id="theme-toggler" type="button">
                     <i class="bi bi-sun-fill"></i>
                 </button>
+                <button class="btn btn-outline-danger" id="logout-btn" type="button">Logout</button>
             </div>
-    </div>
-  </nav>
+        </div>
+    </nav>
 
     <main class="container mt-4">
         <section id="session-management" class="mb-5">
@@ -151,6 +257,9 @@
                                 <li class="nav-item" role="presentation">
                                     <button class="nav-link" id="document-tab" data-bs-toggle="tab" data-bs-target="#document-panel" type="button" role="tab" aria-controls="document-panel" aria-selected="false"><i class="bi bi-file-earmark-arrow-up-fill"></i> Document</button>
                                 </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="combo-tab" data-bs-toggle="tab" data-bs-target="#combo-panel" type="button" role="tab" aria-controls="combo-panel" aria-selected="false"><i class="bi bi-collection-fill"></i> Text + Image + Doc</button>
+                                </li>
                             </ul>
                             <div class="tab-content" id="api-tab-content">
                                 <!-- Text Panel -->
@@ -178,6 +287,42 @@
                                     <input class="form-control mb-2" type="file" id="document-upload">
                                     <button class="btn btn-primary mt-3" onclick="sendDocumentMessage()"><i class="bi bi-send-fill"></i> Send Document</button>
                                 </div>
+
+                                <!-- Combo Panel (Text + Image + Document) -->
+                                <div class="tab-pane fade" id="combo-panel" role="tabpanel" aria-labelledby="combo-tab">
+                                    <div class="alert alert-info mb-3">
+                                        <i class="bi bi-info-circle"></i> Send multiple message types in a single API request
+                                    </div>
+                                    
+                                    <!-- Text Section -->
+                                    <div class="border rounded p-3 mb-3">
+                                        <h6 class="text-primary mb-2"><i class="bi bi-chat-text-fill"></i> Text Message</h6>
+                                        <textarea class="form-control" id="combo-text-message" rows="3" placeholder="Your text message..."></textarea>
+                                    </div>
+                                    
+                                    <!-- Image Section -->
+                                    <div class="border rounded p-3 mb-3">
+                                        <h6 class="text-primary mb-2"><i class="bi bi-image-fill"></i> Image</h6>
+                                        <input type="text" class="form-control mb-2" id="combo-image-caption" placeholder="Image caption (optional)...">
+                                        <input type="text" class="form-control mb-2" id="combo-image-url" placeholder="Image URL (e.g., https://...)">
+                                        <div class="text-center text-muted my-1"><small>OR</small></div>
+                                        <input class="form-control mb-2" type="file" id="combo-image-upload" accept="image/*">
+                                        <div id="combo-image-preview" class="mt-2" style="max-width: 200px;"></div>
+                                    </div>
+                                    
+                                    <!-- Document Section -->
+                                    <div class="border rounded p-3 mb-3">
+                                        <h6 class="text-primary mb-2"><i class="bi bi-file-earmark-arrow-up-fill"></i> Document</h6>
+                                        <input type="text" class="form-control mb-2" id="combo-document-url" placeholder="Document URL (e.g., https://...)">
+                                        <div class="text-center text-muted my-1"><small>OR</small></div>
+                                        <input class="form-control mb-2" type="file" id="combo-document-upload">
+                                        <input type="text" class="form-control mb-2" id="combo-document-filename" placeholder="Filename (optional, e.g., report.pdf)">
+                                    </div>
+                                    
+                                    <button class="btn btn-primary btn-lg w-100" onclick="sendComboMessage()">
+                                        <i class="bi bi-send-fill"></i> Send All Messages
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -189,6 +334,243 @@
             </div>
         </section>
 
+        <section id="api-reference" class="mb-5">
+  <div class="card shadow-sm">
+    <div class="card-header bg-light">
+      <h5 class="mb-0">API Reference & Example cURL Commands</h5>
+    </div>
+    <div class="card-body">
+      <ul class="nav nav-tabs mb-3" id="curlExampleTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="curl-sessions-tab" data-bs-toggle="tab" data-bs-target="#curl-sessions" type="button" role="tab">Session Management</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="curl-text-tab" data-bs-toggle="tab" data-bs-target="#curl-text" type="button" role="tab">Text</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="curl-text-image-tab" data-bs-toggle="tab" data-bs-target="#curl-text-image" type="button" role="tab">Text + Image</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="curl-text-image-doc-tab" data-bs-toggle="tab" data-bs-target="#curl-text-image-doc" type="button" role="tab">Text + Image + Document</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="curl-text-doc-tab" data-bs-toggle="tab" data-bs-target="#curl-text-doc" type="button" role="tab">Text + Document</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="curl-formatting-tab" data-bs-toggle="tab" data-bs-target="#curl-formatting" type="button" role="tab">Formatting</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="curl-webhook-tab" data-bs-toggle="tab" data-bs-target="#curl-webhook" type="button" role="tab">Webhook</button>
+        </li>
+      </ul>
+      <div class="tab-content" id="curlExampleTabsContent">
+        <div class="tab-pane fade show active" id="curl-sessions" role="tabpanel">
+  <div class="mb-2"><strong>Session Management</strong></div>
+  <div class="mb-3">
+    <strong>Create Session (API Access)</strong>
+    <pre><code id="curl-create-session">curl -X POST "http://localhost:3000/api/v1/sessions" \
+-H "X-Master-Key: YOUR_MASTER_API_KEY" \
+-H "Content-Type: application/json" \
+-d '{
+  "sessionId": "myNewSession"
+}'</code></pre>
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-create-session', this)">Copy</button>
+    <div class="alert alert-info mt-2">
+      <i class="bi bi-info-circle"></i> <strong>Note:</strong> The Master API Key is required for creating sessions via API. Find it in your <code>.env</code> file. Admin dashboard users don't need the key.
+    </div>
+  </div>
+  <div class="mb-3">
+    <strong>List All Sessions</strong>
+    <pre><code id="curl-list-sessions">curl -X GET "http://localhost:3000/api/v1/sessions"</code></pre>
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-list-sessions', this)">Copy</button>
+  </div>
+  <div class="mb-3">
+    <strong>Delete Session</strong>
+    <pre><code id="curl-delete-session">curl -X DELETE "http://localhost:3000/api/v1/sessions/mySession" \
+-H "Authorization: Bearer YOUR_SESSION_TOKEN"</code></pre>
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-delete-session', this)">Copy</button>
+  </div>
+  <div class="text-muted small mt-2">
+    <ul>
+      <li><b>Create Session:</b> Requires Master API Key for API access. Returns a session token.</li>
+      <li><b>List Sessions:</b> Public endpoint - no authentication required.</li>
+      <li><b>Delete Session:</b> Requires the session's Bearer token.</li>
+      <li>Save the token returned from session creation - it's needed for all other operations.</li>
+    </ul>
+  </div>
+</div>
+        <div class="tab-pane fade" id="curl-text" role="tabpanel">
+          <div class="mb-2"><strong>Send Text Message</strong></div>
+          <pre><code id="curl-send-text">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "recipient_type": "individual",
+  "to": "6281234567890",
+  "type": "text",
+  "text": { "body": "Hello from the API!" }
+}'</code></pre>
+          <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text', this)">Copy</button>
+        </div>
+        <div class="tab-pane fade" id="curl-text-image" role="tabpanel">
+          <div class="mb-2"><strong>Send Text + Image</strong></div>
+          <pre><code id="curl-send-text-image">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "recipient_type": "individual",
+  "to": "6281234567890",
+  "type": "image",
+  "image": {
+    "link": "https://picsum.photos/200",
+    "caption": "This is a test image.\nWith a new line!"
+  }
+}'</code></pre>
+          <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text-image', this)">Copy</button>
+        </div>
+        <div class="tab-pane fade" id="curl-text-image-doc" role="tabpanel">
+          <div class="mb-2"><strong>Send Text + Image + Document</strong></div>
+          <pre><code id="curl-send-text-image-doc">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '[
+  {
+    "recipient_type": "individual",
+    "to": "6281234567890",
+    "type": "text",
+    "text": { "body": "Here is an image and a document!" }
+  },
+  {
+    "recipient_type": "individual",
+    "to": "6281234567890",
+    "type": "image",
+    "image": {
+      "link": "https://picsum.photos/200",
+      "caption": "Image caption."
+    }
+  },
+  {
+    "recipient_type": "individual",
+    "to": "6281234567890",
+    "type": "document",
+    "document": {
+      "link": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+      "mimetype": "application/pdf",
+      "filename": "dummy.pdf"
+    }
+  }
+]'</code></pre>
+          <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text-image-doc', this)">Copy</button>
+        </div>
+        <div class="tab-pane fade" id="curl-text-doc" role="tabpanel">
+          <div class="mb-2"><strong>Send Text + Document</strong></div>
+          <pre><code id="curl-send-text-doc">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '[
+  {
+    "recipient_type": "individual",
+    "to": "6281234567890",
+    "type": "text",
+    "text": { "body": "Here is a document!" }
+  },
+  {
+    "recipient_type": "individual",
+    "to": "6281234567890",
+    "type": "document",
+    "document": {
+      "link": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+      "mimetype": "application/pdf",
+      "filename": "dummy.pdf"
+    }
+  }
+]'</code></pre>
+          <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text-doc', this)">Copy</button>
+        </div>
+        <div class="tab-pane fade" id="curl-formatting" role="tabpanel">
+          <div class="mb-2"><strong>Formatting: New Lines, Bold, and Links</strong></div>
+          <pre><code id="curl-send-formatting">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "recipient_type": "individual",
+  "to": "6281234567890",
+  "type": "text",
+  "text": { "body": "Hello!\nThis is a new line.\n*This is bold text!*\nVisit: https://example.com" }
+}'</code></pre>
+          <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-formatting', this)">Copy</button>
+          <div class="text-muted small mt-2">
+            <ul>
+              <li>Use <code>\n</code> for new lines.</li>
+              <li>Use <code>*bold text*</code> for <b>bold</b> (WhatsApp formatting).</li>
+              <li>Paste a URL directly to make it clickable in WhatsApp.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="curl-webhook" role="tabpanel">
+  <div class="mb-2"><strong>Manage Webhook for a Session</strong></div>
+  <div class="mb-3">
+    <strong>Set Webhook</strong>
+    <pre><code id="curl-set-webhook">curl -X POST "http://localhost:3000/api/v1/webhook" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "sessionId": "YOUR_SESSION_ID",
+  "url": "https://your-webhook-receiver.com/events"
+}'</code></pre>
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-set-webhook', this)">Copy</button>
+  </div>
+  <div class="mb-3">
+    <strong>Get Webhook</strong>
+    <pre><code id="curl-get-webhook">curl -X GET "http://localhost:3000/api/v1/webhook?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-get-webhook', this)">Copy</button>
+  </div>
+  <div class="mb-3">
+    <strong>Delete Webhook</strong>
+    <pre><code id="curl-delete-webhook">curl -X DELETE "http://localhost:3000/api/v1/webhook" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{
+  "sessionId": "YOUR_SESSION_ID"
+}'</code></pre>
+    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-delete-webhook', this)">Copy</button>
+  </div>
+  <div class="text-muted small mt-2">
+    <ul>
+      <li><b>Set Webhook:</b> Assigns a webhook URL for a specific session. All events for that session will be sent to the specified URL.</li>
+      <li><b>Get Webhook:</b> Retrieves the current webhook URL for a session.</li>
+      <li><b>Delete Webhook:</b> Removes the webhook for a session. No events will be sent until a new webhook is set.</li>
+      <li>Each session can have its own webhook URL. To update, call <b>Set Webhook</b> again with the same <code>sessionId</code>.</li>
+      <li>Events include: new messages, session status changes, and more.</li>
+      <li>Webhook payloads always include <code>sessionId</code> for context.</li>
+    </ul>
+  </div>
+</div>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+function copyCurl(id, btn) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    if (btn) {
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+      btn.classList.remove('btn-outline-secondary');
+      btn.classList.add('btn-info');
+      btn.style.borderRadius = '6px';
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.classList.remove('btn-info');
+        btn.classList.add('btn-outline-secondary');
+        btn.style.borderRadius = '';
+      }, 1200);
+    }
+  });
+}
+</script>
          <section id="logging" class="mb-4">
              <div class="card shadow-sm">
                 <div class="card-header bg-light">
@@ -200,7 +582,62 @@
   </div>
         </section>
 
+        <!-- System Log History Section -->
+<section id="system-log-history" class="mb-5">
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">System Log History</h5>
+        <div>
+          <button class="btn btn-sm btn-outline-light ms-2" onclick="toggleBulkSelect()" id="bulkSelectBtn">
+            <i class="bi bi-check-square"></i> Select
+          </button>
+          <button class="btn btn-sm btn-outline-danger ms-2 d-none" onclick="deleteSelectedLogs()" id="deleteSelectedBtn">
+            <i class="bi bi-trash"></i> Delete Selected
+          </button>
+          <button class="btn btn-sm btn-outline-light ms-2" onclick="refreshSystemLog()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+          </button>
+          <button class="btn btn-sm btn-outline-light ms-2" onclick="exportSystemLog()">
+            <i class="bi bi-download"></i> Export
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="bulk-actions d-none mb-3" id="bulkActions">
+        <div class="d-flex justify-content-between align-items-center p-2 bg-body-secondary rounded">
+          <div>
+            <input type="checkbox" class="form-check-input me-2" id="selectAllCheckbox" onchange="selectAllLogs()">
+            <label for="selectAllCheckbox" class="form-check-label">Select All</label>
+            <span class="ms-3 text-muted" id="selectedCount">0 selected</span>
+          </div>
+          <button class="btn btn-sm btn-outline-secondary" onclick="cancelBulkSelect()">Cancel</button>
+        </div>
+      </div>
+      <div id="systemLogHistory">
+        <!-- Log entries will be rendered here -->
+      </div>
+    </div>
+  </div>
+</section>
+
     </main>
+
+    <!-- Image Lightbox Modal -->
+    <div id="imageLightbox" class="modal fade" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content bg-transparent border-0">
+                <div class="modal-header border-0">
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-0">
+                    <img id="lightboxImage" src="" class="img-fluid" style="max-height: 90vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer class="text-center text-muted py-4">
         <small>Super-Light-Web-WhatsApp-API-Server by Alucard0x1</small>
     </footer>
@@ -209,6 +646,14 @@
     <script src="/admin/js/qrcode.min.js"></script>
     
   <script>
+        // DOM sanitization utility
+        function sanitize(str) {
+            const temp = document.createElement('div');
+            temp.textContent = str;
+            return temp.innerHTML;
+        }
+        // Patch all DOM insertions to use sanitize()
+        // Example: logEntry.textContent = ... is safe, but innerHTML = ... should use sanitize()
         // --- THEME TOGGLER ---
         const themeToggler = document.getElementById('theme-toggler');
         const themeIcon = themeToggler.querySelector('i');
@@ -259,25 +704,27 @@
             card.innerHTML = `
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">
-                            <span>Session: <strong>${session.sessionId}</strong></span>
-                            <span class="badge status-badge" id="status-${session.sessionId}"></span>
+                        <h5 class="card-title mb-3">
+                            <span>Session:</span>
                         </h5>
+                        <div class="input-group input-group-sm mb-2" style="max-width: 100%;">
+                            <input type="text" class="form-control" id="sessionid-${session.sessionId}" value="${session.sessionId}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('sessionid-${session.sessionId}', this)"><i class="bi bi-clipboard"></i></button>
+                        </div>
+                        <span class="badge status-badge mb-3" id="status-${session.sessionId}"></span>
+                        <div class="mt-3">
+                            <small class="text-muted">Token:</small>
+                            <div class="input-group input-group-sm mt-1 mb-3" style="max-width: 100%;">
+                                <input type="text" class="form-control" id="token-${session.sessionId}" value="${session.token || 'N/A'}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('token-${session.sessionId}', this)"><i class="bi bi-clipboard"></i></button>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger w-100 mb-2" onclick="deleteSession('${session.sessionId}')">Delete</button>
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <button class="btn btn-sm btn-outline-primary get-qr-btn" onclick="getQrCode('${session.sessionId}')" id="btn-qr-${session.sessionId}">Get QR</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSession('${session.sessionId}')">Delete</button>
                         </div>
                         <div class="qr-code-container" id="qr-container-${session.sessionId}" style="display: none;">
                             <div class="qr-code" id="qr-${session.sessionId}"></div>
-                        </div>
-                        <div class="mt-2">
-                             <small class="text-muted">Token:</small>
-                            <div class="input-group input-group-sm">
-                                <input type="text" class="form-control" id="token-${session.sessionId}" value="${session.token || 'N/A'}" readonly>
-                                <button class="btn btn-outline-secondary" type="button" onclick="copySessionToken('${session.sessionId}')">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -442,7 +889,10 @@
                 const logData = JSON.parse(event.data);
                 if(logData.type === 'log') {
                     const logEntry = document.createElement('div');
-                    logEntry.textContent = `[${new Date(logData.timestamp).toLocaleTimeString()}] [${logData.sessionId || 'SYSTEM'}] ${logData.message}`;
+                    logEntry.innerHTML = `<span class='text-info'>[${new Date(logData.timestamp).toLocaleTimeString()}]</span> <span class='fw-bold'>[${sanitize(logData.sessionId || 'SYSTEM')}]</span> <span>${sanitize(logData.message)}</span>`;
+                    if (logData.details && Object.keys(logData.details).length > 0) {
+                      logEntry.innerHTML += `<br><span class='text-secondary small'>${sanitize(JSON.stringify(logData.details, null, 2))}</span>`;
+                    }
                     logBox.appendChild(logEntry);
                     logBox.scrollTop = logBox.scrollHeight;
                 } else if (logData.type === 'session-update') {
@@ -519,6 +969,50 @@
                  if (!docUrl) {
                      apiUsageExample.textContent = `// 1. First, upload the document to /api/v1/media\n// 2. Then, use the returned mediaId in the request below.\n\n`
                  }
+            } else if (activeTab === 'combo-tab') {
+                // Build payload array for combo
+                const payloads = [];
+                
+                // Text
+                const textMessage = document.getElementById('combo-text-message').value || 'Hello! Here is an image and a document.';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'text',
+                    text: { body: textMessage }
+                });
+                
+                // Image
+                const imageCaption = document.getElementById('combo-image-caption').value || 'Image caption';
+                const imageUrl = document.getElementById('combo-image-url').value || 'https://picsum.photos/200';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'image',
+                    image: {
+                        link: imageUrl,
+                        caption: imageCaption
+                    }
+                });
+                
+                // Document
+                const docUrl = document.getElementById('combo-document-url').value || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+                const docFilename = document.getElementById('combo-document-filename').value || 'document.pdf';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'document',
+                    document: {
+                        link: docUrl,
+                        mimetype: 'application/pdf',
+                        filename: docFilename
+                    }
+                });
+                
+                const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payloads, null, 2)}'`;
+                
+                apiUsageExample.textContent = curlCommand;
+                return; // Exit early since we already set the curl command
             }
 
             const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payload, null, 2)}'`;
@@ -681,6 +1175,96 @@
             await sendApiRequest([payload]);
         }
 
+        async function sendComboMessage() {
+            const recipient = apiRecipientInput.value;
+            if (!recipient) {
+                alert('Recipient is required.');
+                return;
+            }
+
+            const payloads = [];
+            
+            // Text message
+            const textMessage = document.getElementById('combo-text-message').value;
+            if (textMessage) {
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'text',
+                    text: { body: textMessage }
+                });
+            }
+            
+            // Image message
+            const imageCaption = document.getElementById('combo-image-caption').value;
+            const imageUrl = document.getElementById('combo-image-url').value;
+            const imageFile = document.getElementById('combo-image-upload').files[0];
+            
+            if (imageUrl || imageFile) {
+                let imagePayload = {};
+                if (imageFile) {
+                    const mediaId = await uploadFile(imageFile);
+                    if (!mediaId) {
+                        alert('Image upload failed. Continuing with other messages...');
+                    } else {
+                        imagePayload.id = mediaId;
+                    }
+                } else {
+                    imagePayload.link = imageUrl;
+                }
+                
+                if (imagePayload.id || imagePayload.link) {
+                    payloads.push({
+                        recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                        to: recipient,
+                        type: 'image',
+                        image: { ...imagePayload, caption: imageCaption }
+                    });
+                }
+            }
+            
+            // Document message
+            const docUrl = document.getElementById('combo-document-url').value;
+            const docFile = document.getElementById('combo-document-upload').files[0];
+            const docFilename = document.getElementById('combo-document-filename').value;
+            
+            if (docUrl || docFile) {
+                let docPayload = {};
+                if (docFile) {
+                    const mediaId = await uploadFile(docFile);
+                    if (!mediaId) {
+                        alert('Document upload failed. Continuing with other messages...');
+                    } else {
+                        docPayload.id = mediaId;
+                        docPayload.mimetype = docFile.type;
+                        docPayload.filename = docFilename || docFile.name;
+                    }
+                } else {
+                    docPayload.link = docUrl;
+                    docPayload.mimetype = 'application/pdf'; // Default mimetype
+                    if (docFilename) {
+                        docPayload.filename = docFilename;
+                    }
+                }
+                
+                if (docPayload.id || docPayload.link) {
+                    payloads.push({
+                        recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                        to: recipient,
+                        type: 'document',
+                        document: { ...docPayload }
+                    });
+                }
+            }
+            
+            if (payloads.length === 0) {
+                alert('Please add at least one message (text, image, or document).');
+                return;
+            }
+            
+            await sendApiRequest(payloads);
+        }
+
         // Event Listeners
         imageUploadInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
@@ -694,11 +1278,31 @@
             }
         });
 
+        // Combo image upload preview
+        const comboImageUploadInput = document.getElementById('combo-image-upload');
+        const comboImagePreview = document.getElementById('combo-image-preview');
+        
+        comboImageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    comboImagePreview.innerHTML = `<img src="${e.target.result}" class="img-fluid rounded">`;
+                };
+                reader.readAsDataURL(file);
+                document.getElementById('combo-image-url').value = ''; // Clear URL field
+            }
+        });
+
+        document.getElementById('combo-image-url').addEventListener('input', () => {
+            comboImageUploadInput.value = ''; // Clear file input
+            comboImagePreview.innerHTML = '';
+        });
+
         document.getElementById('image-url').addEventListener('input', () => {
             imageUploadInput.value = ''; // Clear file input
             imagePreview.innerHTML = '';
         });
-
 
         document.querySelectorAll('#api-tab-content input, #api-tab-content textarea, #api-session-id').forEach(el => {
             el.addEventListener('input', updateApiUsage);
@@ -707,17 +1311,35 @@
             tab.addEventListener('shown.bs.tab', updateApiUsage);
         });
 
+        // Add input event listener to convert spaces to underscores as user types
+        sessionIdInput.addEventListener('input', (e) => {
+            const cursorPosition = e.target.selectionStart;
+            const originalValue = e.target.value;
+            const newValue = originalValue.replace(/\s/g, '_');
+            
+            if (originalValue !== newValue) {
+                e.target.value = newValue;
+                // Maintain cursor position
+                e.target.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        });
+
         createSessionBtn.addEventListener('click', async () => {
             const sessionId = sessionIdInput.value.trim();
             if (!sessionId) {
                 alert('Please enter a Session ID.');
                 return;
             }
+            
+            // Convert spaces to underscores
+            const sanitizedSessionId = sessionId.replace(/\s+/g, '_');
+            
             try {
                 const response = await fetch('/api/v1/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sessionId: sessionId })
+                    credentials: 'same-origin', // Include session cookie
+                    body: JSON.stringify({ sessionId: sanitizedSessionId })
                 });
                 const result = await response.json();
                 if (response.ok) {
@@ -750,6 +1372,7 @@
                 } else if (logData.type === 'session-update') {
                     const sessions = logData.data;
                     updateSessionCards(sessions);
+                    updateApiSessionSelect(sessions);
                 }
             };
 
@@ -784,11 +1407,20 @@
         }
 
         function updateApiSessionSelect(sessions) {
-            const connectedSessions = sessions.filter(s => s.status === 'CONNECTED');
-            apiSessionIdSelect.innerHTML = connectedSessions
-                .map(s => `<option value="${s.sessionId}">${s.sessionId}</option>`)
-                .join('');
-            updateApiUsageExample();
+            apiSessionIdSelect.innerHTML = '';
+            sessions.forEach(session => {
+                if (session.status === 'CONNECTED') {
+                    const option = document.createElement('option');
+                    option.value = session.sessionId;
+                    option.textContent = session.sessionId;
+                    apiSessionIdSelect.appendChild(option);
+                }
+            });
+            // Optionally, select the first session if available
+            if (apiSessionIdSelect.options.length > 0) {
+                apiSessionIdSelect.selectedIndex = 0;
+                updateApiUsage();
+            }
         }
 
         function updateApiUsageExample() {
@@ -845,6 +1477,50 @@
                  if (!docUrl) {
                      apiUsageExample.textContent = `// 1. First, upload the document to /api/v1/media\n// 2. Then, use the returned mediaId in the request below.\n\n`
                  }
+            } else if (activeTab === 'combo-tab') {
+                // Build payload array for combo
+                const payloads = [];
+                
+                // Text
+                const textMessage = document.getElementById('combo-text-message').value || 'Hello! Here is an image and a document.';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'text',
+                    text: { body: textMessage }
+                });
+                
+                // Image
+                const imageCaption = document.getElementById('combo-image-caption').value || 'Image caption';
+                const imageUrl = document.getElementById('combo-image-url').value || 'https://picsum.photos/200';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'image',
+                    image: {
+                        link: imageUrl,
+                        caption: imageCaption
+                    }
+                });
+                
+                // Document
+                const docUrl = document.getElementById('combo-document-url').value || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+                const docFilename = document.getElementById('combo-document-filename').value || 'document.pdf';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'document',
+                    document: {
+                        link: docUrl,
+                        mimetype: 'application/pdf',
+                        filename: docFilename
+                    }
+                });
+                
+                const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payloads, null, 2)}'`;
+                
+                apiUsageExample.textContent = curlCommand;
+                return; // Exit early since we already set the curl command
             }
 
             const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payload, null, 2)}'`;
@@ -852,11 +1528,453 @@
             apiUsageExample.textContent = curlCommand;
         }
 
+        function copyToClipboard(inputId, btn) {
+            const input = document.getElementById(inputId);
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).then(() => {
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+                btn.classList.remove('btn-outline-secondary');
+                btn.classList.add('btn-info');
+                btn.style.borderRadius = '6px';
+                setTimeout(() => {
+                    btn.innerHTML = original;
+                    btn.classList.remove('btn-info');
+                    btn.classList.add('btn-outline-secondary');
+                    btn.style.borderRadius = '';
+                }, 1200);
+            });
+        }
+
+        // System Log History
+        let bulkSelectMode = false;
+        let selectedLogs = new Set();
+        
+        function renderSystemLogHistory() {
+            console.log('Debug: Rendering System Log History...');
+            const logContainer = document.getElementById('systemLogHistory');
+            if (!logContainer) {
+                console.error('Debug: systemLogHistory element not found!');
+                return;
+            }
+            
+            if (!window.systemLogData || window.systemLogData.length === 0) {
+                console.log('Debug: window.systemLogData is empty or undefined.');
+                logContainer.innerHTML = '<div class="text-muted text-center p-4"><i class="bi bi-inbox fs-1"></i><br>No log entries to display.</div>';
+                console.log('Debug: No log entries to render.');
+                return;
+            }
+            
+            console.log('Debug: Found', window.systemLogData.length, 'log entries to render.');
+            
+            // Create array with original indices before sorting
+            const logsWithIndex = window.systemLogData.map((log, index) => ({
+                log: log,
+                originalIndex: index
+            }));
+            
+            // Sort logs by timestamp (newest first)
+            const sortedLogs = logsWithIndex.sort((a, b) => 
+                new Date(b.log.timestamp) - new Date(a.log.timestamp)
+            );
+            
+            const logHtml = sortedLogs.map((item, displayIndex) => {
+                const log = item.log;
+                const originalIndex = item.originalIndex;
+                const date = new Date(log.timestamp);
+                const formattedDate = date.toLocaleString();
+                const phoneNumbers = log.details.phoneNumbers ? log.details.phoneNumbers.map(num => sanitize(num)).join(', ') : 'N/A';
+                const uniqueId = `log-${displayIndex}-${Date.now()}`;
+                
+                // Create summary info
+                let summaryInfo = `<span class="text-muted">${log.details.count || 1} message(s) to ${phoneNumbers}</span>`;
+                
+                // Format message details for the collapsible section
+                let detailsContent = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Session:</strong> ${sanitize(log.sessionId)}</p>
+                            <p class="mb-1"><strong>Recipients:</strong> ${phoneNumbers}</p>
+                            <p class="mb-1"><strong>Count:</strong> ${log.details.count || 1}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Event:</strong> ${sanitize(log.details.event || '')}</p>
+                            <p class="mb-1"><strong>Time:</strong> ${formattedDate}</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Display message content if available
+                if (log.details.messages && log.details.messages.length > 0) {
+                    detailsContent += '<hr class="my-3">';
+                    detailsContent += '<h6 class="mb-3">Message Content:</h6>';
+                    detailsContent += '<div class="message-list">';
+                    
+                    log.details.messages.forEach((msg, msgIndex) => {
+                        detailsContent += `
+                            <div class="message-item mb-3 p-3 border rounded bg-body-secondary">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-primary">${sanitize(msg.type).toUpperCase()}</span>
+                                    <small class="text-muted">To: ${sanitize(msg.to)}</small>
+                                </div>
+                        `;
+                        
+                        if (msg.type === 'text' && msg.text) {
+                            // Preserve formatting by converting newlines to <br> and escaping HTML
+                            const formattedText = sanitize(msg.text).replace(/\n/g, '<br>');
+                            detailsContent += `
+                                <div class="message-content">
+                                    <div class="text-break">${formattedText}</div>
+                                </div>
+                            `;
+                        } else if (msg.type === 'image' && msg.image) {
+                            detailsContent += `
+                                <div class="message-content">
+                            `;
+                            
+                            // Show image preview if it's a local media file or external URL
+                            const imageUrl = sanitize(msg.image.url);
+                            if (imageUrl.startsWith('/media/') || imageUrl.startsWith('http')) {
+                                detailsContent += `
+                                    <div class="mb-2">
+                                        <img src="${imageUrl}" class="img-thumbnail" style="max-width: 300px; max-height: 300px; cursor: pointer;" 
+                                             onclick="showImageLightbox('${imageUrl}')"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                        <div style="display: none;">
+                                            <i class="bi bi-image-fill text-muted" style="font-size: 3rem;"></i>
+                                            <p class="text-muted">Image preview unavailable</p>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            
+                            detailsContent += `
+                                    <p class="mb-1"><i class="bi bi-image"></i> Image: <a href="${imageUrl}" target="_blank" class="text-decoration-none">${imageUrl}</a></p>
+                            `;
+                            
+                            if (msg.image.caption) {
+                                const formattedCaption = sanitize(msg.image.caption).replace(/\n/g, '<br>');
+                                detailsContent += `
+                                    <div class="mt-2 caption-box">
+                                        <small><strong>Caption:</strong></small><br>
+                                        <div style="white-space: pre-wrap;">${formattedCaption}</div>
+                                    </div>
+                                `;
+                            }
+                            detailsContent += `</div>`;
+                        } else if (msg.type === 'document' && msg.document) {
+                            const docUrl = sanitize(msg.document.url);
+                            const filename = sanitize(msg.document.filename);
+                            
+                            detailsContent += `
+                                <div class="message-content">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="bi bi-file-earmark-text-fill text-primary" style="font-size: 2rem; margin-right: 10px;"></i>
+                                        <div>
+                                            <p class="mb-0"><strong>${filename}</strong></p>
+                                            <a href="${docUrl}" target="_blank" class="text-decoration-none">
+                                                <i class="bi bi-download"></i> Download Document
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">URL: ${docUrl}</small>
+                                </div>
+                            `;
+                        }
+                        
+                        detailsContent += `</div>`;
+                    });
+                    
+                    detailsContent += '</div>';
+                }
+                
+                // Add delete button at the bottom of details - use originalIndex
+                detailsContent += `
+                    <hr class="my-3">
+                    <div class="text-end">
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteLogEntry(${originalIndex})">
+                            <i class="bi bi-trash"></i> Delete This Log Entry
+                        </button>
+                    </div>
+                `;
+                
+                return `
+                    <div class="log-entry-card mb-2" data-log-index="${originalIndex}">
+                        <div class="card">
+                            <div class="card-header py-2" role="button" data-bs-toggle="collapse" data-bs-target="#${uniqueId}" aria-expanded="false" aria-controls="${uniqueId}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <input type="checkbox" class="form-check-input me-2 bulk-checkbox d-none" 
+                                               data-log-index="${originalIndex}" 
+                                               onclick="event.stopPropagation(); toggleLogSelection(${originalIndex})">
+                                        <div>
+                                            <i class="bi bi-clock-history me-2"></i>
+                                            <strong>${sanitize(log.sessionId)}</strong>
+                                            <span class="mx-2">•</span>
+                                            ${summaryInfo}
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <small class="text-muted me-3">${formattedDate}</small>
+                                        <i class="bi bi-chevron-down"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="collapse" id="${uniqueId}">
+                                <div class="card-body">
+                                    ${detailsContent}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            logContainer.innerHTML = logHtml;
+        }
+        
+        // Make it globally accessible
+        window.renderSystemLogHistory = renderSystemLogHistory;
+
+        // Bulk selection functions
+        function toggleBulkSelect() {
+            bulkSelectMode = !bulkSelectMode;
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkSelectBtn = document.getElementById('bulkSelectBtn');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const checkboxes = document.querySelectorAll('.bulk-checkbox');
+            
+            if (bulkSelectMode) {
+                bulkActions.classList.remove('d-none');
+                bulkSelectBtn.innerHTML = '<i class="bi bi-x-square"></i> Cancel';
+                bulkSelectBtn.classList.add('btn-outline-secondary');
+                bulkSelectBtn.classList.remove('btn-outline-light');
+                checkboxes.forEach(cb => cb.classList.remove('d-none'));
+            } else {
+                cancelBulkSelect();
+            }
+        }
+        
+        function cancelBulkSelect() {
+            bulkSelectMode = false;
+            selectedLogs.clear();
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkSelectBtn = document.getElementById('bulkSelectBtn');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            const checkboxes = document.querySelectorAll('.bulk-checkbox');
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            
+            bulkActions.classList.add('d-none');
+            bulkSelectBtn.innerHTML = '<i class="bi bi-check-square"></i> Select';
+            bulkSelectBtn.classList.remove('btn-outline-secondary');
+            bulkSelectBtn.classList.add('btn-outline-light');
+            deleteSelectedBtn.classList.add('d-none');
+            checkboxes.forEach(cb => {
+                cb.checked = false;
+                cb.classList.add('d-none');
+            });
+            selectAllCheckbox.checked = false;
+            updateSelectedCount();
+        }
+        
+        function toggleLogSelection(index) {
+            if (selectedLogs.has(index)) {
+                selectedLogs.delete(index);
+            } else {
+                selectedLogs.add(index);
+            }
+            updateSelectedCount();
+        }
+        
+        function selectAllLogs() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const checkboxes = document.querySelectorAll('.bulk-checkbox');
+            
+            if (selectAllCheckbox.checked) {
+                checkboxes.forEach(cb => {
+                    cb.checked = true;
+                    const index = parseInt(cb.getAttribute('data-log-index'));
+                    selectedLogs.add(index);
+                });
+            } else {
+                checkboxes.forEach(cb => {
+                    cb.checked = false;
+                });
+                selectedLogs.clear();
+            }
+            updateSelectedCount();
+        }
+        
+        function updateSelectedCount() {
+            const selectedCount = document.getElementById('selectedCount');
+            const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+            
+            selectedCount.textContent = `${selectedLogs.size} selected`;
+            
+            if (selectedLogs.size > 0) {
+                deleteSelectedBtn.classList.remove('d-none');
+            } else {
+                deleteSelectedBtn.classList.add('d-none');
+            }
+        }
+        
+        function deleteLogEntry(index) {
+            if (!confirm('Are you sure you want to delete this log entry?')) {
+                return;
+            }
+            
+            // Remove from systemLogData
+            window.systemLogData.splice(index, 1);
+            
+            // Update the system.log file
+            updateSystemLogFile();
+            
+            // Re-render the log history
+            renderSystemLogHistory();
+            
+            // Show success message
+            showToast('Log entry deleted successfully', 'success');
+        }
+        
+        function deleteSelectedLogs() {
+            if (selectedLogs.size === 0) return;
+            
+            const count = selectedLogs.size;
+            if (!confirm(`Are you sure you want to delete ${count} log entries?`)) {
+                return;
+            }
+            
+            // Sort indices in reverse order to avoid index shifting issues
+            const indicesToDelete = Array.from(selectedLogs).sort((a, b) => b - a);
+            
+            // Remove from systemLogData
+            indicesToDelete.forEach(index => {
+                window.systemLogData.splice(index, 1);
+            });
+            
+            // Update the system.log file
+            updateSystemLogFile();
+            
+            // Clear selection and re-render
+            cancelBulkSelect();
+            renderSystemLogHistory();
+            
+            // Show success message
+            showToast(`${count} log entries deleted successfully`, 'success');
+        }
+        
+        function updateSystemLogFile() {
+            // Send updated log data to server
+            fetch('/admin/update-logs', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ logs: window.systemLogData })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to update log file');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating log file:', error);
+                showToast('Error updating log file', 'danger');
+            });
+        }
+        
+        function showToast(message, type = 'info') {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.getElementById('toastContainer');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.id = 'toastContainer';
+                toastContainer.className = 'position-fixed bottom-0 end-0 p-3';
+                toastContainer.style.zIndex = '1050';
+                document.body.appendChild(toastContainer);
+            }
+            
+            const toastId = `toast-${Date.now()}`;
+            const toastHtml = `
+                <div id="${toastId}" class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            const toastElement = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastElement);
+            toast.show();
+            
+            // Remove toast element after it's hidden
+            toastElement.addEventListener('hidden.bs.toast', () => {
+                toastElement.remove();
+            });
+        }
+
+        function refreshSystemLog() {
+  location.reload();
+}
+
+        function exportSystemLog() {
+            if (!window.systemLogData || window.systemLogData.length === 0) {
+                alert('No log data to export.');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(window.systemLogData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `system-log-${new Date().toISOString().slice(0,10)}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        // Image Lightbox Functions
+        function showImageLightbox(imageUrl) {
+            const lightboxImage = document.getElementById('lightboxImage');
+            lightboxImage.src = imageUrl;
+            const myModal = new bootstrap.Modal(document.getElementById('imageLightbox'));
+            myModal.show();
+        }
+
         // Main setup
         document.addEventListener('DOMContentLoaded', async () => {
             initializeWebSocket();
             loadSessions();
+            renderSystemLogHistory(); // Render logs on page load
         });
+
+        document.getElementById('logout-btn').addEventListener('click', async function() {
+  const btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Logging out...';
+  try {
+    const res = await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } });
+    if (res.status === 401) {
+      window.location.href = '/admin/login.html';
+      return;
+    }
+    const data = await res.json();
+    if (data && data.redirect) {
+      window.location.href = data.redirect;
+    } else {
+      window.location.reload();
+    }
+  } catch (e) {
+    window.location.href = '/admin/login.html';
+  }
+});
 
   </script>
 </body>

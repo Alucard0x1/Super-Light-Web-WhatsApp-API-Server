@@ -15,13 +15,17 @@ For most endpoints, you will be sending data in JSON format. Ensure your request
 
 ## Authentication
 
-All API requests to the `/api/v1/*` endpoints **must** be authenticated using a Bearer Token. The token is printed to the server console on startup.
+All API requests to the `/api/v1/*` endpoints **must** be authenticated using a Bearer Token, with these exceptions:
+- `POST /api/v1/sessions` - Requires Master API Key OR admin authentication
+- `GET /api/v1/sessions` - Lists all sessions (public endpoint)
+
+The token is unique per session and is returned when you create a session. You can also view tokens in the Admin Dashboard.
 
 **Header Format:** `Authorization: Bearer <your_api_token>`
 
-*Legacy endpoints do not require this token.*
+*Legacy endpoints at `/api/*` do not require authentication.*
 
-**cURL Example (for any V1 request):**
+**cURL Example (for any authenticated V1 request):**
 ```bash
 curl ... -H "Authorization: Bearer your_api_token"
 ```
@@ -30,16 +34,99 @@ curl ... -H "Authorization: Bearer your_api_token"
 
 ## V1 API Endpoints
 
+### **Session Management**
+
+#### Create Session
+Creates a new WhatsApp session with a unique ID. **Requires Master API Key OR admin dashboard authentication.**
+
+**`POST /sessions`**
+
+**Authentication:**
+- **Via API**: Include `X-Master-Key` header with your master API key
+- **Via Dashboard**: Automatic when logged in as admin
+
+**Request Body (JSON):**
+```json
+{
+    "sessionId": "mySession"
+}
+```
+
+**Success Response (JSON):**
+```json
+{
+    "status": "success",
+    "message": "Session mySession created.",
+    "token": "your-bearer-token-for-this-session"
+}
+```
+
+**Note:** Save the returned token - it's required for all other API calls for this session.
+
+**cURL Example (API Access):**
+```bash
+curl -X POST 'http://localhost:3000/api/v1/sessions' \
+-H 'X-Master-Key: your-master-api-key-from-env' \
+-H 'Content-Type: application/json' \
+-d '{
+    "sessionId": "mySession"
+}'
+```
+
+#### List Sessions
+Retrieves all sessions with their current status. **No authentication required.**
+
+**`GET /sessions`**
+
+**Success Response (JSON):**
+```json
+[
+    {
+        "sessionId": "mySession",
+        "status": "CONNECTED",
+        "detail": "Connected as John Doe",
+        "qr": null,
+        "token": "session-token-here"
+    },
+    {
+        "sessionId": "anotherSession",
+        "status": "DISCONNECTED",
+        "detail": "Connection closed.",
+        "qr": null,
+        "token": "another-token-here"
+    }
+]
+```
+
+**cURL Example:**
+```bash
+curl -X GET 'http://localhost:3000/api/v1/sessions'
+```
+
+#### Delete Session
+Deletes a specific session and all its data. **Requires authentication.**
+
+**`DELETE /sessions/:sessionId`**
+
+**cURL Example:**
+```bash
+curl -X DELETE 'http://localhost:3000/api/v1/sessions/mySession' \
+-H 'Authorization: Bearer your_api_token'
+```
+
+---
+
 ### **Webhook Management**
 
 #### Set Webhook URL
-Configures or updates the URL where the server will send event notifications (e.g., new messages, session status changes).
+Configures or updates the URL where the server will send event notifications for a specific session.
 
 **`POST /webhook`**
 
 **Request Body (JSON):**
 ```json
 {
+    "sessionId": "mySession",
     "url": "https://your-webhook-receiver.com/events"
 }
 ```
@@ -50,7 +137,50 @@ curl -X POST 'http://localhost:3000/api/v1/webhook' \
 -H 'Authorization: Bearer your_api_token' \
 -H 'Content-Type: application/json' \
 -d '{
+    "sessionId": "mySession",
     "url": "https://your-webhook-receiver.com/events"
+}'
+```
+
+#### Get Webhook URL
+Retrieves the configured webhook URL for a specific session.
+
+**`GET /webhook?sessionId=<your_session_id>`**
+
+**Success Response (JSON):**
+```json
+{
+    "status": "success",
+    "sessionId": "mySession",
+    "url": "https://your-webhook-receiver.com/events"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET 'http://localhost:3000/api/v1/webhook?sessionId=mySession' \
+-H 'Authorization: Bearer your_api_token'
+```
+
+#### Delete Webhook
+Removes the webhook URL for a specific session. No events will be sent until a new webhook is set.
+
+**`DELETE /webhook`**
+
+**Request Body (JSON):**
+```json
+{
+    "sessionId": "mySession"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X DELETE 'http://localhost:3000/api/v1/webhook' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "sessionId": "mySession"
 }'
 ```
 
@@ -61,10 +191,15 @@ curl -X POST 'http://localhost:3000/api/v1/webhook' \
 #### Upload Media
 Uploads an image or document to the server's `media` directory. The server returns a `mediaId` which can be used to send the file in a subsequent API call.
 
+**File Restrictions:**
+- **Allowed types:** JPEG, PNG, PDF only
+- **Maximum size:** 5MB
+- **MIME types:** `image/jpeg`, `image/png`, `application/pdf`
+
 **`POST /media`**
 
 **Request Body (form-data):**
-- `file`: The media file to upload (e.g., image.jpg, document.pdf).
+- `file`: The media file to upload (must be JPEG, PNG, or PDF; max 5MB).
 
 **Success Response (JSON):**
 ```json
@@ -73,6 +208,14 @@ Uploads an image or document to the server's `media` directory. The server retur
     "message": "File uploaded successfully.",
     "mediaId": "f7e3e7a0-5e7a-4b0f-8b9a-9e7d6e6e2c3d.jpg",
     "url": "/media/f7e3e7a0-5e7a-4b0f-8b9a-9e7d6e6e2c3d.jpg"
+}
+```
+
+**Error Response (JSON):**
+```json
+{
+    "status": "error",
+    "message": "Invalid file type. Only JPEG, PNG, and PDF allowed."
 }
 ```
 
@@ -145,6 +288,41 @@ curl -X POST 'http://localhost:3000/api/v1/messages?sessionId=mySession' \
         "image": {
             "link": "https://picsum.photos/200",
             "caption": "This is a test image."
+        }
+    }
+]'
+```
+
+**cURL Example (Text + Image + Document Combo):**
+```bash
+# Send text, image, and document to the same recipient in one request
+curl -X POST 'http://localhost:3000/api/v1/messages?sessionId=mySession' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '[
+    {
+        "recipient_type": "individual",
+        "to": "6281234567890",
+        "type": "text",
+        "text": { "body": "Here are the files you requested:" }
+    },
+    {
+        "recipient_type": "individual",
+        "to": "6281234567890",
+        "type": "image",
+        "image": {
+            "link": "https://example.com/chart.png",
+            "caption": "Q4 Sales Chart"
+        }
+    },
+    {
+        "recipient_type": "individual",
+        "to": "6281234567890",
+        "type": "document",
+        "document": {
+            "link": "https://example.com/report.pdf",
+            "mimetype": "application/pdf",
+            "filename": "Q4_Report_2023.pdf"
         }
     }
 ]'

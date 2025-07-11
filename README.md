@@ -10,6 +10,7 @@ A powerful, lightweight, and multi-session WhatsApp API server using the `@whisk
 ## Table of Contents
 
 -   [Features](#features)
+-   [Security](#security)
 -   [Prerequisites](#prerequisites)
 -   [Installation](#installation)
 -   [Usage](#usage)
@@ -33,6 +34,7 @@ A powerful, lightweight, and multi-session WhatsApp API server using the `@whisk
 -   **Full-Featured API Control Center:**
     -   Visually test all API features directly from the dashboard.
     -   Send text, images, and documents.
+    -   **NEW:** Send Text + Image + Document together in one request.
     -   Upload media and see a preview before sending.
     -   Dynamically generated `cURL` examples for every action.
 -   **Rich RESTful API (v1):**
@@ -42,6 +44,35 @@ A powerful, lightweight, and multi-session WhatsApp API server using the `@whisk
 -   **Webhook Support:**
     -   Configure a webhook URL to receive events for new messages and session status changes.
 -   **Legacy API Support:** Includes backward-compatible endpoints for easier migration from older systems.
+
+## Security
+
+### 🔒 Token Encryption (Level 1 - Implemented)
+
+Session tokens are now encrypted using AES-256-CBC encryption for enhanced security:
+
+-   **Automatic Migration:** Existing plain JSON tokens are automatically encrypted on first run
+-   **Secure Storage:** Tokens stored in `session_tokens.enc` with restricted file permissions
+-   **Environment Configuration:** Encryption key stored in `.env` file (never commit this!)
+
+#### Quick Setup:
+
+1. Generate a secure encryption key:
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+2. Add to your `.env` file:
+   ```env
+   TOKEN_ENCRYPTION_KEY=your_generated_64_character_hex_key
+   ```
+
+3. Test encryption:
+   ```bash
+   node test-encryption.js
+   ```
+
+For advanced security options (token hashing, JWT, database storage), see [SECURITY_IMPROVEMENTS.md](SECURITY_IMPROVEMENTS.md).
 
 ## Prerequisites
 
@@ -100,11 +131,21 @@ For complete, interactive testing and usage examples, please use the **API Contr
 
 ### Authentication
 
-All API requests to the `/api/v1/*` endpoints must be authenticated using a Bearer Token in the `Authorization` header. Your token is printed to the console when the server starts.
+All API requests to the `/api/v1/*` endpoints must be authenticated using a Bearer Token in the `Authorization` header, **except for**:
+- `POST /api/v1/sessions` - Requires Master API Key (see below) OR admin dashboard login
+- `GET /api/v1/sessions` - Lists all sessions (public information)
 
-**Header Format:** `Authorization: Bearer <your_api_token>`
+**Session Creation Authentication:**
+- **Via API**: Requires `X-Master-Key` header with the master API key from `.env`
+- **Via Admin Dashboard**: No API key needed when logged in as admin
 
-*Legacy endpoints do not require this token.*
+Your session token is returned when creating a session and also displayed in the dashboard.
+
+**Header Formats:**
+- Session operations: `Authorization: Bearer <your_session_token>`
+- Create session (API): `X-Master-Key: <your_master_api_key>`
+
+*Legacy endpoints do not require authentication.*
 
 ---
 
@@ -112,12 +153,19 @@ All API requests to the `/api/v1/*` endpoints must be authenticated using a Bear
 
 **Base URL:** `/api/v1`
 
-| Method | Endpoint        | Description                                      |
-| :----- | :-------------- | :----------------------------------------------- |
-| `POST` | `/webhook`      | Set the webhook URL for receiving events.        |
-| `POST` | `/media`        | Upload an image or document for later use.       |
-| `POST` | `/messages`     | Send a text, image, or document message.         |
-| `DELETE`| `/message`      | Deletes a message that you have previously sent. |
+| Method | Endpoint        | Description                                      | Auth Required |
+| :----- | :-------------- | :----------------------------------------------- | :------------ |
+| `POST` | `/sessions`     | Create a new WhatsApp session.                   | Master Key†   |
+| `GET`  | `/sessions`     | List all sessions with their status.             | No            |
+| `DELETE`| `/sessions/:sessionId` | Delete a specific session.                | Yes           |
+| `POST` | `/webhook`      | Set webhook URL for a specific session.          | Yes           |
+| `GET`  | `/webhook?sessionId=xxx` | Get webhook URL for a session.        | Yes           |
+| `DELETE`| `/webhook`     | Remove webhook URL for a session.                | Yes           |
+| `POST` | `/media`        | Upload media file (JPEG/PNG/PDF, max 5MB).       | Yes           |
+| `POST` | `/messages?sessionId=xxx` | Send text/image/document messages.    | Yes           |
+| `DELETE`| `/message`      | Delete a previously sent message.                | Yes           |
+
+† Master API Key required for API access. Admin dashboard users can create sessions without the key.
 
 *For detailed request/response formats, please refer to the `api_documentation.md` file or use the API Control Center on the dashboard.*
 

@@ -4,10 +4,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { randomUUID } = require('crypto');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const csurf = require('csurf');
+const validator = require('validator');
+// Remove: const { log } = require('./index');
 
 const router = express.Router();
 
-let webhookUrl = process.env.WEBHOOK_URL || '';
+const webhookUrls = new Map();
+
+const getWebhookUrl = (sessionId) => webhookUrls.get(sessionId) || process.env.WEBHOOK_URL || '';
 
 // Multer setup for file uploads
 const mediaDir = path.join(__dirname, 'media');
@@ -22,9 +29,17 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-const getWebhookUrl = () => webhookUrl;
+function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log) {
+    // Security middlewares
+    router.use(helmet());
+    router.use(rateLimit({
+        windowMs: 1 * 60 * 1000,
+        max: 30,
+        message: { status: 'error', message: 'Too many requests, please try again later.' }
+    }));
+    // CSRF protection for dashboard and sensitive endpoints (not for API clients)
+    // router.use(csurf()); // Uncomment if you want CSRF for all POST/DELETE
 
-function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession) {
     const validateToken = (req, res, next) => {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
@@ -54,20 +69,55 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Unprotected routes
     router.post('/sessions', async (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
+        
+        // Check if user is authenticated as admin (from dashboard)
+        const isAdminAuthenticated = req.session && req.session.adminAuthed;
+        
+        // Check for master API key (only if not admin authenticated)
+        if (!isAdminAuthenticated) {
+            const masterKey = req.headers['x-master-key'];
+            const requiredMasterKey = process.env.MASTER_API_KEY;
+            
+            if (requiredMasterKey && masterKey !== requiredMasterKey) {
+                log('Unauthorized session creation attempt', 'SYSTEM', { 
+                    event: 'auth-failed', 
+                    endpoint: req.originalUrl,
+                    ip: req.ip 
+                });
+                return res.status(401).json({ 
+                    status: 'error', 
+                    message: 'Master API key required for session creation' 
+                });
+            }
+        }
+        
         const { sessionId } = req.body;
         if (!sessionId) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'sessionId is required', endpoint: req.originalUrl });
             return res.status(400).json({ status: 'error', message: 'sessionId is required' });
         }
+        
+        // Convert spaces to underscores
+        const sanitizedSessionId = sessionId.trim().replace(/\s+/g, '_');
+        
         try {
-            await createSession(sessionId);
-            const token = sessionTokens.get(sessionId);
-            res.status(201).json({ status: 'success', message: `Session ${sessionId} created.`, token: token });
+            await createSession(sanitizedSessionId);
+            const token = sessionTokens.get(sanitizedSessionId);
+            log('Session created', sanitizedSessionId, { 
+                event: 'session-created', 
+                sessionId: sanitizedSessionId,
+                createdBy: isAdminAuthenticated ? 'admin-dashboard' : 'api-key'
+            });
+            res.status(201).json({ status: 'success', message: `Session ${sanitizedSessionId} created.`, token: token });
         } catch (error) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: error.message, endpoint: req.originalUrl });
             res.status(500).json({ status: 'error', message: `Failed to create session: ${error.message}` });
         }
     });
 
     router.get('/sessions', (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl });
         res.status(200).json(getSessionsDetails());
     });
 
@@ -75,11 +125,14 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.use(validateToken);
 
     router.delete('/sessions/:sessionId', async (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, params: req.params });
         const { sessionId } = req.params;
         try {
             await deleteSession(sessionId);
+            log('Session deleted', sessionId, { event: 'session-deleted', sessionId });
             res.status(200).json({ status: 'success', message: `Session ${sessionId} deleted.` });
         } catch (error) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: error.message, endpoint: req.originalUrl });
             res.status(500).json({ status: 'error', message: `Failed to delete session: ${error.message}` });
         }
     });
@@ -97,21 +150,58 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Webhook setup endpoint
     router.post('/webhook', (req, res) => {
-        const { url } = req.body;
-        if (!url) {
-            return res.status(400).json({ status: 'error', message: 'URL is required.' });
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
+        const { url, sessionId } = req.body;
+        if (!url || !sessionId) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'URL and sessionId are required.', endpoint: req.originalUrl });
+            return res.status(400).json({ status: 'error', message: 'URL and sessionId are required.' });
         }
-        webhookUrl = url;
-        console.log(`Webhook URL set to: ${webhookUrl}`);
-        res.status(200).json({ status: 'success', message: `Webhook URL updated to ${url}` });
+        webhookUrls.set(sessionId, url);
+        log('Webhook URL updated', url, { event: 'webhook-updated', sessionId, url });
+        res.status(200).json({ status: 'success', message: `Webhook URL for session ${sessionId} updated to ${url}` });
     });
     
-    // Media upload endpoint
+    // Add GET and DELETE endpoints for webhook management
+    router.get('/webhook', (req, res) => {
+        const { sessionId } = req.query;
+        if (!sessionId) {
+            return res.status(400).json({ status: 'error', message: 'sessionId is required.' });
+        }
+        const url = webhookUrls.get(sessionId) || null;
+        res.status(200).json({ status: 'success', sessionId, url });
+    });
+
+    router.delete('/webhook', (req, res) => {
+        const { sessionId } = req.body;
+        if (!sessionId) {
+            return res.status(400).json({ status: 'error', message: 'sessionId is required.' });
+        }
+        webhookUrls.delete(sessionId);
+        log('Webhook URL deleted', '', { event: 'webhook-deleted', sessionId });
+        res.status(200).json({ status: 'success', message: `Webhook for session ${sessionId} deleted.` });
+    });
+
+    // Hardened media upload endpoint
     router.post('/media', upload.single('file'), (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
         if (!req.file) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'No file uploaded.', endpoint: req.originalUrl });
             return res.status(400).json({ status: 'error', message: 'No file uploaded.' });
         }
+        // Restrict file type and size
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+        if (!allowedTypes.includes(req.file.mimetype)) {
+            fs.unlinkSync(req.file.path);
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'Invalid file type.', endpoint: req.originalUrl });
+            return res.status(400).json({ status: 'error', message: 'Invalid file type. Only JPEG, PNG, and PDF allowed.' });
+        }
+        if (req.file.size > 5 * 1024 * 1024) { // 5MB
+            fs.unlinkSync(req.file.path);
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'File too large.', endpoint: req.originalUrl });
+            return res.status(400).json({ status: 'error', message: 'File too large. Max 5MB.' });
+        }
         const mediaId = req.file.filename;
+        log('File uploaded', mediaId, { event: 'file-uploaded', mediaId });
         res.status(201).json({
             status: 'success',
             message: 'File uploaded successfully.',
@@ -122,26 +212,80 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Main message sending endpoint
     router.post('/messages', async (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, query: req.query });
         const { sessionId } = req.query;
         if (!sessionId) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'sessionId query parameter is required', endpoint: req.originalUrl });
             return res.status(400).json({ status: 'error', message: 'sessionId query parameter is required' });
         }
-
         const session = sessions.get(sessionId);
         if (!session || !session.sock || session.status !== 'CONNECTED') {
+            log('API error', 'SYSTEM', { event: 'api-error', error: `Session ${sessionId} not found or not connected.`, endpoint: req.originalUrl });
             return res.status(404).json({ status: 'error', message: `Session ${sessionId} not found or not connected.` });
         }
-
         const messages = Array.isArray(req.body) ? req.body : [req.body];
         const results = [];
-
+        const phoneNumbers = []; // Track all phone numbers for logging
+        const messageContents = []; // Track message contents with formatting
+        
         for (const msg of messages) {
             const { recipient_type, to, type, text, image, document } = msg;
-
+            // Input validation
             if (!to || !type) {
-                 results.push({ status: 'error', message: 'Invalid message format. "to" and "type" are required.' });
-                 continue;
+                results.push({ status: 'error', message: 'Invalid message format. "to" and "type" are required.' });
+                continue;
             }
+            if (!validator.isNumeric(to) && !to.endsWith('@g.us')) {
+                results.push({ status: 'error', message: 'Invalid recipient format.' });
+                continue;
+            }
+            
+            // Add phone number to the list for logging
+            phoneNumbers.push(to);
+            
+            // Track message content based on type
+            let messageContent = {
+                type: type,
+                to: to
+            };
+            
+            if (type === 'text') {
+                if (!text || typeof text.body !== 'string' || text.body.length === 0 || text.body.length > 4096) {
+                    results.push({ status: 'error', message: 'Invalid text message content.' });
+                    continue;
+                }
+                messageContent.text = text.body; // Preserve formatting
+            }
+            if (type === 'image' && image) {
+                if (image.id && !validator.isAlphanumeric(image.id.replace(/[\.\-]/g, ''))) {
+                    results.push({ status: 'error', message: 'Invalid image ID.' });
+                    continue;
+                }
+                if (image.link && !validator.isURL(image.link)) {
+                    results.push({ status: 'error', message: 'Invalid image URL.' });
+                    continue;
+                }
+                messageContent.image = {
+                    caption: image.caption || '',
+                    url: image.link || `/media/${image.id}` // Convert media ID to URL for display
+                };
+            }
+            if (type === 'document' && document) {
+                if (document.id && !validator.isAlphanumeric(document.id.replace(/[\.\-]/g, ''))) {
+                    results.push({ status: 'error', message: 'Invalid document ID.' });
+                    continue;
+                }
+                if (document.link && !validator.isURL(document.link)) {
+                    results.push({ status: 'error', message: 'Invalid document URL.' });
+                    continue;
+                }
+                messageContent.document = {
+                    filename: document.filename || 'document',
+                    url: document.link || `/media/${document.id}` // Convert media ID to URL for display
+                };
+            }
+            
+            messageContents.push(messageContent);
 
             let destination;
             if (recipient_type === 'group') {
@@ -190,18 +334,28 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             }
         }
 
+        log('Messages sent', sessionId, { 
+            event: 'messages-sent', 
+            sessionId, 
+            count: results.length, 
+            phoneNumbers: phoneNumbers,
+            messages: messageContents 
+        });
         res.status(200).json(results);
     });
 
     router.delete('/message', async (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
         const { sessionId, messageId, remoteJid } = req.body;
 
         if (!sessionId || !messageId || !remoteJid) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'sessionId, messageId, and remoteJid are required.', endpoint: req.originalUrl });
             return res.status(400).json({ status: 'error', message: 'sessionId, messageId, and remoteJid are required.' });
         }
 
         const session = sessions.get(sessionId);
         if (!session || !session.sock || session.status !== 'CONNECTED') {
+            log('API error', 'SYSTEM', { event: 'api-error', error: `Session ${sessionId} not found or not connected.`, endpoint: req.originalUrl });
             return res.status(404).json({ status: 'error', message: `Session ${sessionId} not found or not connected.` });
         }
 
@@ -213,8 +367,10 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             // The above is for clearing. For actual deletion:
             await session.sock.sendMessage(remoteJid, { delete: { remoteJid: remoteJid, fromMe: true, id: messageId } });
 
+            log('Message deleted', messageId, { event: 'message-deleted', messageId, sessionId });
             res.status(200).json({ status: 'success', message: `Attempted to delete message ${messageId}` });
         } catch (error) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: error.message, endpoint: req.originalUrl });
             console.error(`Failed to delete message ${messageId}:`, error);
             res.status(500).json({ status: 'error', message: `Failed to delete message. Reason: ${error.message}` });
         }

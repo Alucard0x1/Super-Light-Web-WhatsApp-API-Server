@@ -247,16 +247,22 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             return res.status(400).json({ status: 'error', message: 'No file uploaded.' });
         }
         // Restrict file type and size
-        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+        const allowedTypes = [
+            'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+            'application/pdf', 'application/msword', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
         if (!allowedTypes.includes(req.file.mimetype)) {
             fs.unlinkSync(req.file.path);
             log('API error', 'SYSTEM', { event: 'api-error', error: 'Invalid file type.', endpoint: req.originalUrl });
-            return res.status(400).json({ status: 'error', message: 'Invalid file type. Only JPEG, PNG, and PDF allowed.' });
+            return res.status(400).json({ status: 'error', message: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF, DOC, DOCX, XLS, XLSX.' });
         }
-        if (req.file.size > 5 * 1024 * 1024) { // 5MB
+        if (req.file.size > 25 * 1024 * 1024) { // 25MB
             fs.unlinkSync(req.file.path);
             log('API error', 'SYSTEM', { event: 'api-error', error: 'File too large.', endpoint: req.originalUrl });
-            return res.status(400).json({ status: 'error', message: 'File too large. Max 5MB.' });
+            return res.status(400).json({ status: 'error', message: 'File too large. Max 25MB.' });
         }
         const mediaId = req.file.filename;
         log('File uploaded', mediaId, { event: 'file-uploaded', mediaId });

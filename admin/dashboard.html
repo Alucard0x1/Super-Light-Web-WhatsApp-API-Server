@@ -213,7 +213,7 @@
                     <li class="nav-item" id="nav-users" style="display: none;">
                         <a class="nav-link" href="/admin/users.html">Users</a>
                     </li>
-                    <li class="nav-item">
+                    <li class="nav-item" id="nav-activities" style="display: none;">
                         <a class="nav-link" href="/admin/activities.html">Activities</a>
                     </li>
                 </ul>
@@ -838,32 +838,6 @@ function copyCurl(id, btn) {
             }
         }
 
-        async function createSession() {
-            const sessionId = sessionIdInput.value.trim();
-            if (!sessionId) {
-                alert('Please enter a valid Session ID.');
-                return;
-            }
-            try {
-                const response = await fetch('/api/v1/sessions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin', // Include session cookie
-                    body: JSON.stringify({ sessionId })
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    await fetchSessions();
-                    sessionIdInput.value = '';
-                } else {
-                    alert('Failed to create session: ' + (result.message || result.error));
-                }
-            } catch (error) {
-                console.error('Error creating session:', error);
-                alert('An error occurred while creating the session.');
-            }
-        }
-
         async function getQrCode(sessionId) {
             try {
                 const response = await fetch(`/api/v1/sessions/${sessionId}/qr`, {
@@ -871,7 +845,10 @@ function copyCurl(id, btn) {
                 });
                 const result = await response.json();
                 if (!response.ok) {
-                    alert('Failed to get QR code: ' + (result.message || result.error));
+                    // Only show alert if it's a real error, not just a token issue
+                    if (result.message && !result.message.includes('token')) {
+                        alert('Failed to get QR code: ' + (result.message || result.error));
+                    }
                 }
                 // The websocket will deliver the QR update automatically.
             } catch (error) {
@@ -907,42 +884,7 @@ function copyCurl(id, btn) {
             }
         }
 
-        function connectToLogStream() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${protocol}//${window.location.host}`);
 
-            ws.onopen = () => {
-                logBox.innerHTML = ''; // Clear previous logs
-                logBox.innerHTML += '<p class="text-success">Log stream connected.</p>';
-            };
-
-            ws.onmessage = (event) => {
-                const logData = JSON.parse(event.data);
-                if(logData.type === 'log') {
-                    const logEntry = document.createElement('div');
-                    logEntry.innerHTML = `<span class='text-info'>[${new Date(logData.timestamp).toLocaleTimeString()}]</span> <span class='fw-bold'>[${sanitize(logData.sessionId || 'SYSTEM')}]</span> <span>${sanitize(logData.message)}</span>`;
-                    if (logData.details && Object.keys(logData.details).length > 0) {
-                      logEntry.innerHTML += `<br><span class='text-secondary small'>${sanitize(JSON.stringify(logData.details, null, 2))}</span>`;
-                    }
-                    logBox.appendChild(logEntry);
-                    logBox.scrollTop = logBox.scrollHeight;
-                } else if (logData.type === 'session-update') {
-                    const sessions = logData.data;
-                    updateSessionCards(sessions);
-                }
-
-            };
-
-            ws.onclose = () => {
-                logBox.innerHTML += '<p class="text-danger">Log stream disconnected. Reconnecting in 5 seconds...</p>';
-                setTimeout(connectToLogStream, 5000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                ws.close();
-            };
-        }
 
         // --- API Control Center Logic ---
 
@@ -1375,7 +1317,11 @@ function copyCurl(id, btn) {
                 const result = await response.json();
                 if (response.ok) {
                     sessionIdInput.value = '';
-                    // The UI will be updated automatically via the websocket broadcast
+                    
+                    // Wait a moment for QR code to be generated before fetching sessions
+                    setTimeout(async () => {
+                        await fetchSessions();
+                    }, 1000);
                 } else {
                     throw new Error(result.message || 'Failed to create session');
                 }
@@ -1385,37 +1331,53 @@ function copyCurl(id, btn) {
         });
 
         function initializeWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${protocol}//${window.location.host}`);
+            // First get a WebSocket auth token
+            fetch('/api/v1/ws-auth')
+                .then(res => res.json())
+                .then(data => {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const ws = new WebSocket(`${protocol}//${window.location.host}?token=${data.wsToken}`);
 
-            ws.onopen = () => {
-                logBox.innerHTML = ''; // Clear previous logs
-                logBox.innerHTML += '<p class="text-success">Log stream connected.</p>';
-            };
+                    ws.onopen = () => {
+                        logBox.innerHTML = ''; // Clear previous logs
+                        logBox.innerHTML += '<p class="text-success">Log stream connected.</p>';
+                    };
 
-            ws.onmessage = (event) => {
-                const logData = JSON.parse(event.data);
-                if(logData.type === 'log') {
-                    const logEntry = document.createElement('div');
-                    logEntry.textContent = `[${new Date(logData.timestamp).toLocaleTimeString()}] [${logData.sessionId || 'SYSTEM'}] ${logData.message}`;
-                    logBox.appendChild(logEntry);
-                    logBox.scrollTop = logBox.scrollHeight;
-                } else if (logData.type === 'session-update') {
-                    const sessions = logData.data;
-                    updateSessionCards(sessions);
-                    updateApiSessionSelect(sessions);
-                }
-            };
+                    ws.onmessage = (event) => {
+                        const logData = JSON.parse(event.data);
+                        if(logData.type === 'log') {
+                            const logEntry = document.createElement('div');
+                            logEntry.textContent = `[${new Date(logData.timestamp).toLocaleTimeString()}] [${logData.sessionId || 'SYSTEM'}] ${logData.message}`;
+                            logBox.appendChild(logEntry);
+                            logBox.scrollTop = logBox.scrollHeight;
+                        } else if (logData.type === 'session-update') {
+                            const sessions = logData.data;
+                            updateSessionCards(sessions);
+                            updateApiSessionSelect(sessions);
+                            
+                            // Check if any session has a new QR code
+                            sessions.forEach(session => {
+                                if (session.status === 'GENERATING_QR' && session.qr) {
+                                    console.log(`QR code ready for session ${session.sessionId}`);
+                                }
+                            });
+                        }
+                    };
 
-            ws.onclose = () => {
-                logBox.innerHTML += '<p class="text-danger">Log stream disconnected. Reconnecting in 5 seconds...</p>';
-                setTimeout(initializeWebSocket, 5000);
-            };
+                    ws.onclose = () => {
+                        logBox.innerHTML += '<p class="text-danger">Log stream disconnected. Reconnecting in 5 seconds...</p>';
+                        setTimeout(initializeWebSocket, 5000);
+                    };
 
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                ws.close();
-            };
+                    ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        ws.close();
+                    };
+                })
+                .catch(error => {
+                    console.error('Failed to get WebSocket auth token:', error);
+                    setTimeout(initializeWebSocket, 5000);
+                });
         }
         
         function loadSessions() {
@@ -2002,6 +1964,7 @@ function copyCurl(id, btn) {
                 // Show Users menu only for admins
                 if (user.role === 'admin') {
                     document.getElementById('nav-users').style.display = 'block';
+                    document.getElementById('nav-activities').style.display = 'block';
                 }
                 
                 // Apply role-based restrictions

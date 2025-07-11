@@ -123,6 +123,14 @@
                 const user = await res.json();
                 currentUserEmail = user.email;
                 currentUserRole = user.role;
+                
+                // Restrict access to admin only
+                if (user.role !== 'admin') {
+                    alert('Access denied. This page is restricted to administrators only.');
+                    window.location.href = '/admin/dashboard.html';
+                    return;
+                }
+                
                 document.getElementById('currentUser').textContent = `${user.email} (${user.role})`;
                 
                 // Show activity summary only for admins

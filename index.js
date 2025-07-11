@@ -47,6 +47,9 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+// Track WebSocket connections with their associated users
+const wsClients = new Map(); // Maps WebSocket client to user info
+
 const logger = pino({ level: 'debug' });
 
 const TOKENS_FILE = path.join(__dirname, 'session_tokens.json');
@@ -183,6 +186,43 @@ const ADMIN_PASSWORD = process.env.ADMIN_DASHBOARD_PASSWORD;
 // Session limits configuration
 const MAX_SESSIONS = parseInt(process.env.MAX_SESSIONS) || 10;
 const SESSION_TIMEOUT_HOURS = parseInt(process.env.SESSION_TIMEOUT_HOURS) || 24;
+
+// WebSocket connection handler
+wss.on('connection', (ws, req) => {
+    // Try to authenticate the WebSocket connection
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const wsToken = url.searchParams.get('token');
+    
+    let userInfo = null;
+    
+    if (wsToken && global.wsAuthTokens) {
+        const tokenData = global.wsAuthTokens.get(wsToken);
+        if (tokenData && tokenData.expires > Date.now()) {
+            userInfo = {
+                email: tokenData.email,
+                role: tokenData.role
+            };
+            // Delete the token after use (one-time use)
+            global.wsAuthTokens.delete(wsToken);
+        }
+    }
+    
+    // Store the user info for this WebSocket client
+    wsClients.set(ws, userInfo);
+    
+    // Send initial session data based on user permissions
+    if (userInfo) {
+        ws.send(JSON.stringify({
+            type: 'session-update',
+            data: getSessionsDetails(userInfo.email, userInfo.role === 'admin')
+        }));
+    }
+    
+    ws.on('close', () => {
+        // Clean up when client disconnects
+        wsClients.delete(ws);
+    });
+});
 
 // Use file-based session store for production
 const sessionStore = new FileStore({
@@ -371,6 +411,33 @@ app.get('/api/v1/me', requireAdminAuth, (req, res) => {
     res.json(user);
 });
 
+// Generate WebSocket authentication token
+app.get('/api/v1/ws-auth', requireAdminAuth, (req, res) => {
+    const currentUser = getCurrentUser(req);
+    // Create a temporary token for WebSocket authentication
+    const wsToken = crypto.randomBytes(32).toString('hex');
+    
+    // Store the token temporarily (expires in 30 seconds)
+    const tokenData = {
+        email: currentUser.email,
+        role: currentUser.role,
+        expires: Date.now() + 30000 // 30 seconds
+    };
+    
+    // Store in a temporary map (you might want to use Redis in production)
+    if (!global.wsAuthTokens) {
+        global.wsAuthTokens = new Map();
+    }
+    global.wsAuthTokens.set(wsToken, tokenData);
+    
+    // Clean up expired tokens
+    setTimeout(() => {
+        global.wsAuthTokens.delete(wsToken);
+    }, 30000);
+    
+    res.json({ wsToken });
+});
+
 // Activity endpoints
 app.get('/api/v1/activities', requireAdminAuth, async (req, res) => {
     const currentUser = getCurrentUser(req);
@@ -464,7 +531,25 @@ app.use((req, res, next) => {
 function broadcast(data) {
     wss.clients.forEach(client => {
         if (client.readyState === client.OPEN) {
-            client.send(JSON.stringify(data));
+            const userInfo = wsClients.get(client);
+            
+            // If it's a session update, filter based on user permissions
+            if (data.type === 'session-update') {
+                let filteredData = { ...data };
+                
+                if (userInfo && userInfo.email) {
+                    // Send filtered sessions based on user permissions
+                    filteredData.data = getSessionsDetails(userInfo.email, userInfo.role === 'admin');
+                } else {
+                    // Unauthenticated connections get no session data
+                    filteredData.data = [];
+                }
+                
+                client.send(JSON.stringify(filteredData));
+            } else {
+                // For other message types (logs), send as-is
+                client.send(JSON.stringify(data));
+            }
         }
     });
 }

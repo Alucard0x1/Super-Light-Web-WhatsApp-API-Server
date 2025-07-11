@@ -49,6 +49,7 @@ A powerful, lightweight, and multi-session WhatsApp API server using the `@whisk
     -   Secure endpoints with bearer token authentication.
     -   Endpoints for sending messages (text, image, document), uploading media, and deleting messages.
     -   Send media by uploading a file or providing a direct URL.
+    -   Support for large files up to 25MB (images, documents, PDFs, Word, Excel)
 -   **Webhook Support:**
     -   Configure a webhook URL to receive events for new messages and session status changes.
 -   **Legacy API Support:** Includes backward-compatible endpoints for easier migration from older systems.
@@ -165,6 +166,26 @@ npm run dev
 
 The server will start on `http://localhost:3000` (or the port specified in your `PORT` environment variable).
 
+## 🚀 Deployment
+
+### cPanel Hosting
+
+For detailed instructions on deploying to cPanel hosting:
+
+📖 **[Complete cPanel Deployment Guide](CPANEL_DEPLOYMENT_GUIDE.md)** - Step-by-step guide for beginners
+⚡ **[cPanel Quick Start](CPANEL_QUICK_START.md)** - Quick reference for experienced users
+
+Key requirements for cPanel:
+- Node.js 14+ support
+- At least 1GB RAM
+- Set `MAX_SESSIONS=5` for optimal performance
+
+### Other Deployment Options
+
+- **VPS/Cloud**: Use the production scripts (`start-production.sh` or `start-production.bat`)
+- **PM2**: Configuration included in `ecosystem.config.js`
+- **Docker**: Coming soon
+
 ## Admin Dashboard
 
 Access the dashboard by navigating to `/admin/dashboard.html` in your browser (e.g., `http://localhost:3000/admin/dashboard.html`).
@@ -212,7 +233,7 @@ Your session token is returned when creating a session and also displayed in the
 | `POST` | `/webhook`      | Set webhook URL for a specific session.          | Yes           |
 | `GET`  | `/webhook?sessionId=xxx` | Get webhook URL for a session.        | Yes           |
 | `DELETE`| `/webhook`     | Remove webhook URL for a session.                | Yes           |
-| `POST` | `/media`        | Upload media file (JPEG/PNG/PDF, max 5MB).       | Yes           |
+| `POST` | `/media`        | Upload media file (images/documents, max 25MB).  | Yes           |
 | `POST` | `/messages?sessionId=xxx` | Send text/image/document messages.    | Yes           |
 | `DELETE`| `/message`      | Delete a previously sent message.                | Yes           |
 

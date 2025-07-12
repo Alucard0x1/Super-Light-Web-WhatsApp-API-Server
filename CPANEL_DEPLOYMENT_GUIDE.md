@@ -262,11 +262,15 @@ Your Node.js app URL is already configured in step 4
 **This is a common issue on cPanel because bcrypt requires Python to compile.**
 
 **Solution:**
-The application now uses `bcryptjs` instead of `bcrypt`, which is a pure JavaScript implementation that doesn't require Python. If you still see this error:
+The application now includes a fallback system that automatically uses `bcryptjs` (pure JavaScript) when `bcrypt` (native) isn't available:
 
-1. Make sure your `package.json` has `"bcryptjs": "^2.4.3"` instead of `"bcrypt"`
-2. Delete `node_modules` folder if it exists
-3. Run `npm install --production` again
+1. The application will try to use `bcrypt` first (better performance)
+2. If that fails, it automatically falls back to `bcryptjs` (works everywhere)
+3. You'll see a message in the logs indicating which one is being used
+
+If you still have issues:
+- Make sure `bcryptjs` is installed: `npm install bcryptjs`
+- The application will work with either `bcrypt` or `bcryptjs` installed
 
 ### Issue: "csurf deprecated" warning
 

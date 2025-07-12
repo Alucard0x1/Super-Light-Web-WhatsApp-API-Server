@@ -280,6 +280,87 @@ class ActivityLogger {
 
         return summary;
     }
+
+    // Campaign logging methods
+    async logCampaignCreate(userEmail, campaignId, campaignName, recipientCount) {
+        return this.logActivity({
+            userEmail,
+            action: 'create_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName, recipientCount }
+        });
+    }
+    
+    async logCampaignStart(userEmail, campaignId, campaignName, recipientCount) {
+        return this.logActivity({
+            userEmail,
+            action: 'start_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName, recipientCount }
+        });
+    }
+    
+    async logCampaignMessage(userEmail, campaignId, recipient, status, error = null) {
+        return this.logActivity({
+            userEmail,
+            action: 'campaign_message',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { recipient, status, error }
+        });
+    }
+    
+    async logCampaignPause(userEmail, campaignId, campaignName) {
+        return this.logActivity({
+            userEmail,
+            action: 'pause_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName }
+        });
+    }
+    
+    async logCampaignResume(userEmail, campaignId, campaignName) {
+        return this.logActivity({
+            userEmail,
+            action: 'resume_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName }
+        });
+    }
+    
+    async logCampaignComplete(userEmail, campaignId, campaignName, statistics) {
+        return this.logActivity({
+            userEmail,
+            action: 'complete_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName, statistics }
+        });
+    }
+    
+    async logCampaignDelete(userEmail, campaignId, campaignName) {
+        return this.logActivity({
+            userEmail,
+            action: 'delete_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName }
+        });
+    }
+    
+    async logCampaignRetry(userEmail, campaignId, campaignName, retryCount) {
+        return this.logActivity({
+            userEmail,
+            action: 'retry_campaign',
+            resource: 'campaign',
+            resourceId: campaignId,
+            details: { campaignName, retryCount }
+        });
+    }
 }
 
 module.exports = ActivityLogger; 

@@ -370,6 +370,127 @@ curl -X DELETE 'http://localhost:3000/api/v1/message' \
 
 ---
 
+## Campaign Management API
+
+The Campaign Management API allows you to create and manage bulk WhatsApp messaging campaigns. All campaign endpoints require authentication.
+
+### Create Campaign
+Creates a new WhatsApp campaign with recipients, message templates, and scheduling options.
+
+**`POST /campaigns`**
+
+**Request Body (JSON):**
+```json
+{
+    "name": "Marketing Campaign Q1",
+    "sessionId": "mySession",
+    "scheduledAt": "2024-02-01T10:00:00Z",
+    "message": {
+        "type": "text",
+        "content": "Hi {{Name}}, check out our new products at {{Company}}!"
+    },
+    "recipients": [
+        {
+            "number": "+1234567890",
+            "name": "John Doe",
+            "jobTitle": "CEO",
+            "companyName": "ABC Corp"
+        }
+    ],
+    "settings": {
+        "delayBetweenMessages": 3000
+    }
+}
+```
+
+### List Campaigns
+Retrieves all campaigns (filtered by user role).
+
+**`GET /campaigns`**
+
+**Success Response (JSON):**
+```json
+[
+    {
+        "id": "campaign_1234567890",
+        "name": "Marketing Campaign Q1",
+        "status": "scheduled",
+        "createdBy": "admin@example.com",
+        "createdAt": "2024-01-15T08:00:00Z",
+        "recipientCount": 150,
+        "statistics": {
+            "sent": 0,
+            "failed": 0,
+            "total": 150
+        }
+    }
+]
+```
+
+### Campaign Actions
+Control campaign execution with these endpoints:
+
+- **Start/Send**: `POST /campaigns/{id}/send`
+- **Pause**: `POST /campaigns/{id}/pause`
+- **Resume**: `POST /campaigns/{id}/resume`
+- **Retry Failed**: `POST /campaigns/{id}/retry`
+- **Clone**: `POST /campaigns/{id}/clone`
+- **Delete**: `DELETE /campaigns/{id}`
+
+### CSV Template Download
+Download a CSV template for bulk recipient upload.
+
+**`GET /campaigns/csv-template`**
+
+**Success Response:** CSV file download with sample data
+
+**cURL Example:**
+```bash
+curl -X GET 'http://localhost:3000/api/v1/campaigns/csv-template' \
+-H 'Authorization: Bearer your_api_token' \
+-o whatsapp_campaign_template.csv
+```
+
+### Preview CSV Upload
+Upload and preview a CSV file before creating a campaign.
+
+**`POST /campaigns/preview-csv`**
+
+**Request Body (multipart/form-data):**
+- `file`: CSV file with recipients
+
+**Success Response (JSON):**
+```json
+{
+    "success": true,
+    "recipients": [
+        {
+            "number": "+1234567890",
+            "name": "John Doe",
+            "jobTitle": "CEO",
+            "companyName": "ABC Corp"
+        }
+    ],
+    "errors": []
+}
+```
+
+### Export Campaign Results
+Export campaign results and recipient status as CSV.
+
+**`GET /campaigns/{id}/export`**
+
+**Success Response:** CSV file download with campaign results
+
+**cURL Example:**
+```bash
+curl -X GET 'http://localhost:3000/api/v1/campaigns/campaign_123/export' \
+-H 'Authorization: Bearer your_api_token' \
+-o campaign_results.csv
+```
+
+---
+
 ## Legacy API Endpoints
 
 These endpoints are provided for backward compatibility. They are simpler but less flexible and do **not** require token authentication.

@@ -32,11 +32,19 @@ const upload = multer({ storage });
 function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log, userManager, activityLogger) {
     // Security middlewares
     router.use(helmet());
-    router.use(rateLimit({
+    
+    // More lenient rate limiter for authenticated dashboard requests
+    const apiLimiter = rateLimit({
         windowMs: 1 * 60 * 1000,
-        max: 30,
-        message: { status: 'error', message: 'Too many requests, please try again later.' }
-    }));
+        max: 100, // Increased from 30 to 100 requests per minute
+        message: { status: 'error', message: 'Too many requests, please try again later.' },
+        skip: (req) => {
+            // Skip rate limiting for authenticated admin users
+            return req.session && req.session.adminAuthed;
+        }
+    });
+    
+    router.use(apiLimiter);
     // CSRF protection for dashboard and sensitive endpoints (not for API clients)
     // router.use(csurf()); // Uncomment if you want CSRF for all POST/DELETE
 
@@ -150,6 +158,556 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
+    // Campaign Management Endpoints (Session-based auth, not token-based)
+    const CampaignManager = require('./campaigns');
+    const CampaignSender = require('./campaign-sender');
+    const RecipientListManager = require('./recipient-lists');
+    
+    // Initialize campaign manager and sender
+    const campaignManager = new CampaignManager(process.env.TOKEN_ENCRYPTION_KEY || 'default-key');
+    const campaignSender = new CampaignSender(campaignManager, sessions, activityLogger);
+    const recipientListManager = new RecipientListManager(process.env.TOKEN_ENCRYPTION_KEY || 'default-key');
+    
+    // Middleware to check campaign access (session-based)
+    const checkCampaignAccess = async (req, res, next) => {
+        const currentUser = req.session && req.session.adminAuthed ? {
+            email: req.session.userEmail,
+            role: req.session.userRole
+        } : null;
+        
+        if (!currentUser) {
+            return res.status(401).json({ status: 'error', message: 'Authentication required' });
+        }
+        
+        req.currentUser = currentUser;
+        next();
+    };
+    
+    // Campaign routes - these use session auth, not token auth
+    router.get('/campaigns', checkCampaignAccess, (req, res) => {
+        const campaigns = campaignManager.getAllCampaigns(
+            req.currentUser.email,
+            req.currentUser.role === 'admin'
+        );
+        res.json(campaigns);
+    });
+    
+    // Function to check and start campaigns (shared with scheduler and API endpoints)
+    async function checkAndStartScheduledCampaigns() {
+        try {
+            if (!campaignManager || !campaignSender) {
+                return { error: 'Campaign services not initialized' };
+            }
+            
+            const now = new Date();
+            const campaigns = campaignManager.getAllCampaigns();
+            
+            // Find campaigns that should be started
+            const campaignsToStart = campaigns.filter(campaign => {
+                return (
+                    campaign.status === 'ready' && 
+                    campaign.scheduledAt && 
+                    new Date(campaign.scheduledAt) <= now
+                );
+            });
+            
+            console.log(`📋 Scheduler check: Found ${campaignsToStart.length} campaigns to start out of ${campaigns.length} total campaigns`);
+            
+            // Start each campaign
+            for (const campaign of campaignsToStart) {
+                try {
+                    console.log(`🚀 Auto-starting scheduled campaign: ${campaign.name} (${campaign.id})`);
+                    
+                    // Find the user who created the campaign
+                    const createdBy = campaign.createdBy || 'scheduler';
+                    
+                    // Start the campaign
+                    await campaignSender.startCampaign(campaign.id, createdBy);
+                    
+                    log(`Scheduled campaign started: ${campaign.name}`, 'SCHEDULER', {
+                        event: 'campaign-auto-start',
+                        campaignId: campaign.id,
+                        campaignName: campaign.name,
+                        scheduledAt: campaign.scheduledAt,
+                        startedAt: now.toISOString()
+                    });
+                    
+                } catch (error) {
+                    console.error(`❌ Error auto-starting campaign ${campaign.id}:`, error);
+                    log(`Failed to auto-start campaign: ${campaign.name} - ${error.message}`, 'SCHEDULER', {
+                        event: 'campaign-auto-start-error',
+                        campaignId: campaign.id,
+                        error: error.message
+                    });
+                }
+            }
+            
+            return {
+                totalCampaigns: campaigns.length,
+                campaignsToStart: campaignsToStart.length,
+                campaigns: campaignsToStart.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    status: c.status,
+                    scheduledAt: c.scheduledAt
+                }))
+            };
+            
+        } catch (error) {
+            console.error('❌ Campaign scheduler error:', error);
+            return { error: error.message };
+        }
+    }
+
+    router.get('/campaigns/csv-template', checkCampaignAccess, (req, res) => {
+        const csvContent = `WhatsApp Number,Name,Job Title,Company Name
++1234567890,John Doe,Sales Manager,ABC Corporation
++0987654321,Jane Smith,Marketing Director,XYZ Company
++1122334455,Bob Johnson,CEO,Startup Inc
++5544332211,Alice Brown,CTO,Tech Solutions
++9988776655,Charlie Davis,Product Manager,Innovation Labs`;
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="whatsapp_campaign_template.csv"');
+        res.send(csvContent);
+    });
+
+    // Manual trigger endpoint for checking scheduled campaigns (MUST be before /:id route)
+    router.get('/campaigns/check-scheduled', checkCampaignAccess, async (req, res) => {
+        console.log('🔍 Manual scheduler check triggered by:', req.currentUser.email);
+        try {
+            const result = await checkAndStartScheduledCampaigns();
+            res.json({
+                status: 'success',
+                message: 'Scheduler check completed',
+                ...result
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                status: 'error', 
+                message: error.message 
+            });
+        }
+    });
+
+    // Endpoint to get campaigns that should have been started but are still in ready status (MUST be before /:id route)
+    router.get('/campaigns/overdue', checkCampaignAccess, (req, res) => {
+        try {
+            if (!campaignManager) {
+                return res.status(503).json({ error: 'Campaign manager not initialized' });
+            }
+            
+            const now = new Date();
+            const campaigns = campaignManager.getAllCampaigns();
+            
+            const overdueCampaigns = campaigns.filter(campaign => {
+                return (
+                    campaign.status === 'ready' && 
+                    campaign.scheduledAt && 
+                    new Date(campaign.scheduledAt) <= now
+                );
+            });
+            
+            res.json({
+                totalCampaigns: campaigns.length,
+                overdueCampaigns: overdueCampaigns.length,
+                campaigns: overdueCampaigns.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    status: c.status,
+                    scheduledAt: c.scheduledAt,
+                    createdAt: c.createdAt,
+                    minutesOverdue: Math.floor((now - new Date(c.scheduledAt)) / 60000)
+                }))
+            });
+            
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
+    
+    router.get('/campaigns/:id', checkCampaignAccess, (req, res) => {
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        
+        // Check access
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
+        
+        res.json(campaign);
+    });
+    
+    router.post('/campaigns', checkCampaignAccess, async (req, res) => {
+        try {
+            const campaignData = {
+                ...req.body,
+                createdBy: req.currentUser.email
+            };
+            
+            const campaign = campaignManager.createCampaign(campaignData);
+            
+            // Log activity
+            await activityLogger.logCampaignCreate(
+                req.currentUser.email,
+                campaign.id,
+                campaign.name,
+                campaign.recipients.length
+            );
+            
+            res.status(201).json(campaign);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    router.put('/campaigns/:id', checkCampaignAccess, (req, res) => {
+        try {
+            const campaign = campaignManager.loadCampaign(req.params.id);
+            if (!campaign) {
+                return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+            }
+            
+            // Check access
+            if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+                return res.status(403).json({ status: 'error', message: 'Access denied' });
+            }
+            
+            const updated = campaignManager.updateCampaign(req.params.id, req.body);
+            res.json(updated);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    router.delete('/campaigns/:id', checkCampaignAccess, async (req, res) => {
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        
+        // Check access
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
+        
+        campaignManager.deleteCampaign(req.params.id);
+        
+        // Log activity
+        await activityLogger.logCampaignDelete(
+            req.currentUser.email,
+            req.params.id,
+            campaign.name
+        );
+        
+        res.json({ status: 'success', message: 'Campaign deleted' });
+    });
+    
+    router.post('/campaigns/:id/clone', checkCampaignAccess, async (req, res) => {
+        try {
+            const cloned = campaignManager.cloneCampaign(req.params.id, req.currentUser.email);
+            res.status(201).json(cloned);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    router.post('/campaigns/:id/send', checkCampaignAccess, async (req, res) => {
+        try {
+            const result = await campaignSender.startCampaign(req.params.id, req.currentUser.email);
+            res.json(result);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    router.post('/campaigns/:id/pause', checkCampaignAccess, async (req, res) => {
+        const result = campaignSender.pauseCampaign(req.params.id);
+        if (result) {
+            await activityLogger.logCampaignPause(
+                req.currentUser.email,
+                req.params.id,
+                'Campaign paused by user'
+            );
+            res.json({ status: 'success', message: 'Campaign paused' });
+        } else {
+            res.status(400).json({ status: 'error', message: 'Campaign not running' });
+        }
+    });
+    
+    router.post('/campaigns/:id/resume', checkCampaignAccess, async (req, res) => {
+        try {
+            const result = await campaignSender.resumeCampaign(req.params.id, req.currentUser.email);
+            res.json({ status: 'success', message: 'Campaign resumed' });
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    router.post('/campaigns/:id/retry', checkCampaignAccess, async (req, res) => {
+        try {
+            const result = await campaignSender.retryFailed(req.params.id, req.currentUser.email);
+            res.json(result);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    router.get('/campaigns/:id/status', checkCampaignAccess, (req, res) => {
+        const status = campaignSender.getCampaignStatus(req.params.id);
+        if (!status) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        res.json(status);
+    });
+    
+    router.get('/campaigns/:id/export', checkCampaignAccess, (req, res) => {
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        
+        // Check access
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
+        
+        const csv = campaignManager.exportResults(req.params.id);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${campaign.name}_results.csv"`);
+        res.send(csv);
+    });
+    
+    router.post('/campaigns/preview-csv', checkCampaignAccess, upload.single('file'), (req, res) => {
+        if (!req.file) {
+            return res.status(400).json({ status: 'error', message: 'No file uploaded' });
+        }
+        
+        try {
+            const csvContent = fs.readFileSync(req.file.path, 'utf-8');
+            const result = campaignManager.parseCSV(csvContent);
+            
+            // Clean up uploaded file
+            fs.unlinkSync(req.file.path);
+            
+            res.json(result);
+        } catch (error) {
+            // Clean up uploaded file
+            if (req.file && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+
+
+
+    // Export the function for use by the main scheduler
+    router.checkAndStartScheduledCampaigns = checkAndStartScheduledCampaigns;
+
+    // Recipient List Management Endpoints (Session-based auth, not token-based)
+    
+    // Get all recipient lists
+    router.get('/recipient-lists', checkCampaignAccess, (req, res) => {
+        const lists = recipientListManager.getAllLists(
+            req.currentUser.email,
+            req.currentUser.role === 'admin'
+        );
+        res.json(lists);
+    });
+    
+    // Get specific recipient list
+    router.get('/recipient-lists/:id', checkCampaignAccess, (req, res) => {
+        const list = recipientListManager.loadList(req.params.id);
+        if (!list) {
+            return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+        }
+        
+        // Check access
+        if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
+        
+        res.json(list);
+    });
+    
+    // Create new recipient list
+    router.post('/recipient-lists', checkCampaignAccess, (req, res) => {
+        try {
+            const listData = {
+                ...req.body,
+                createdBy: req.currentUser.email
+            };
+            
+            const list = recipientListManager.createList(listData);
+            res.status(201).json(list);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    // Update recipient list
+    router.put('/recipient-lists/:id', checkCampaignAccess, (req, res) => {
+        try {
+            const list = recipientListManager.loadList(req.params.id);
+            if (!list) {
+                return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+            }
+            
+            // Check access
+            if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+                return res.status(403).json({ status: 'error', message: 'Access denied' });
+            }
+            
+            const updated = recipientListManager.updateList(req.params.id, req.body);
+            res.json(updated);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    // Delete recipient list
+    router.delete('/recipient-lists/:id', checkCampaignAccess, (req, res) => {
+        const list = recipientListManager.loadList(req.params.id);
+        if (!list) {
+            return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+        }
+        
+        // Check access
+        if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
+        
+        const success = recipientListManager.deleteList(req.params.id);
+        if (success) {
+            res.json({ status: 'success', message: 'Recipient list deleted' });
+        } else {
+            res.status(500).json({ status: 'error', message: 'Failed to delete recipient list' });
+        }
+    });
+    
+    // Clone recipient list
+    router.post('/recipient-lists/:id/clone', checkCampaignAccess, (req, res) => {
+        try {
+            const cloned = recipientListManager.cloneList(req.params.id, req.currentUser.email, req.body.name);
+            res.status(201).json(cloned);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    // Add recipient to list
+    router.post('/recipient-lists/:id/recipients', checkCampaignAccess, (req, res) => {
+        try {
+            const list = recipientListManager.loadList(req.params.id);
+            if (!list) {
+                return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+            }
+            
+            // Check access
+            if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+                return res.status(403).json({ status: 'error', message: 'Access denied' });
+            }
+            
+            const updated = recipientListManager.addRecipient(req.params.id, req.body);
+            res.status(201).json(updated);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    // Update recipient in list
+    router.put('/recipient-lists/:id/recipients/:number', checkCampaignAccess, (req, res) => {
+        try {
+            const list = recipientListManager.loadList(req.params.id);
+            if (!list) {
+                return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+            }
+            
+            // Check access
+            if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+                return res.status(403).json({ status: 'error', message: 'Access denied' });
+            }
+            
+            const updated = recipientListManager.updateRecipient(req.params.id, req.params.number, req.body);
+            res.json(updated);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    // Remove recipient from list
+    router.delete('/recipient-lists/:id/recipients/:number', checkCampaignAccess, (req, res) => {
+        try {
+            const list = recipientListManager.loadList(req.params.id);
+            if (!list) {
+                return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+            }
+            
+            // Check access
+            if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+                return res.status(403).json({ status: 'error', message: 'Access denied' });
+            }
+            
+            const updated = recipientListManager.removeRecipient(req.params.id, req.params.number);
+            res.json(updated);
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+    
+    // Search recipients across all lists
+    router.get('/recipient-lists/search/:query', checkCampaignAccess, (req, res) => {
+        const results = recipientListManager.searchRecipients(
+            req.params.query,
+            req.currentUser.email,
+            req.currentUser.role === 'admin'
+        );
+        res.json(results);
+    });
+    
+    // Get recipient lists statistics
+    router.get('/recipient-lists-stats', checkCampaignAccess, (req, res) => {
+        const stats = recipientListManager.getStatistics(
+            req.currentUser.email,
+            req.currentUser.role === 'admin'
+        );
+        res.json(stats);
+    });
+    
+    // Mark recipient list as used
+    router.post('/recipient-lists/:id/mark-used', checkCampaignAccess, (req, res) => {
+        const list = recipientListManager.loadList(req.params.id);
+        if (!list) {
+            return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+        }
+        
+        // Check access
+        if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
+        
+        recipientListManager.markAsUsed(req.params.id);
+        res.json({ status: 'success', message: 'List marked as used' });
+    });
+    
+    // Debug endpoint to check session status
+    router.get('/debug/sessions', checkCampaignAccess, (req, res) => {
+        const debugInfo = {};
+        sessions.forEach((session, sessionId) => {
+            debugInfo[sessionId] = {
+                status: session.status,
+                hasSock: !!session.sock,
+                sockConnected: session.sock ? 'yes' : 'no',
+                owner: session.owner,
+                detail: session.detail
+            };
+        });
+        res.json(debugInfo);
+    });
+    
     // All routes below this are protected by token
     router.use(validateToken);
 
@@ -460,6 +1018,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
     });
 
+    // Make campaign sender available for WebSocket updates
+    router.campaignSender = campaignSender;
+    
     return router;
 }
 

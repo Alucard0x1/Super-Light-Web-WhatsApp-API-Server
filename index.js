@@ -347,6 +347,11 @@ app.get('/admin/activities.html', requireAdminAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'admin', 'activities.html'));
 });
 
+// Protect campaigns page
+app.get('/admin/campaigns.html', requireAdminAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin', 'campaigns.html'));
+});
+
 // Admin logout endpoint
 app.post('/admin/logout', requireAdminAuth, (req, res) => {
     req.session.destroy(() => {
@@ -420,7 +425,11 @@ app.delete('/api/v1/users/:email', requireAdminRole, async (req, res) => {
 });
 
 // Get current user info
-app.get('/api/v1/me', requireAdminAuth, (req, res) => {
+app.get('/api/v1/me', (req, res) => {
+    if (!req.session || !req.session.adminAuthed) {
+        return res.status(401).json({ error: 'Authentication required' });
+    }
+    
     const currentUser = getCurrentUser(req);
     const user = userManager.getUser(currentUser.email);
     res.json(user);
@@ -535,6 +544,39 @@ const v1ApiRouter = initializeApi(sessions, sessionTokens, createSession, getSes
 const legacyApiRouter = initializeLegacyApi(sessions, sessionTokens);
 app.use('/api/v1', v1ApiRouter);
 app.use('/api', legacyApiRouter); // Mount legacy routes at /api
+
+// Set up campaign sender event listeners for WebSocket updates
+if (v1ApiRouter.campaignSender) {
+    v1ApiRouter.campaignSender.on('progress', (data) => {
+        // Broadcast campaign progress to authenticated WebSocket clients
+        wss.clients.forEach(client => {
+            if (client.readyState === client.OPEN) {
+                const userInfo = wsClients.get(client);
+                if (userInfo) {
+                    client.send(JSON.stringify({
+                        type: 'campaign-progress',
+                        ...data
+                    }));
+                }
+            }
+        });
+    });
+    
+    v1ApiRouter.campaignSender.on('status', (data) => {
+        // Broadcast campaign status updates
+        wss.clients.forEach(client => {
+            if (client.readyState === client.OPEN) {
+                const userInfo = wsClients.get(client);
+                if (userInfo) {
+                    client.send(JSON.stringify({
+                        type: 'campaign-status',
+                        ...data
+                    }));
+                }
+            }
+        });
+    });
+}
 // Prevent serving sensitive files
 app.use((req, res, next) => {
     if (req.path.includes('session_tokens.json') || req.path.endsWith('.bak')) {
@@ -915,4 +957,28 @@ server.listen(PORT, () => {
     log('Admin dashboard available at http://localhost:3000/admin/dashboard.html');
     loadTokens(); // Load tokens at startup
     initializeExistingSessions();
+    
+    // Start campaign scheduler
+    startCampaignScheduler();
 });
+
+// Campaign scheduler to automatically start campaigns at their scheduled time
+function startCampaignScheduler() {
+    console.log('📅 Campaign scheduler started - checking every minute for scheduled campaigns');
+    
+    setInterval(async () => {
+        await checkAndStartScheduledCampaigns();
+    }, 60000); // Check every minute (60,000 ms)
+}
+
+// Use the scheduler function from the API router
+async function checkAndStartScheduledCampaigns() {
+    if (v1ApiRouter && v1ApiRouter.checkAndStartScheduledCampaigns) {
+        return await v1ApiRouter.checkAndStartScheduledCampaigns();
+    } else {
+        console.log('⏳ API router not initialized yet, skipping scheduler check');
+        return { error: 'API router not initialized' };
+    }
+}
+
+

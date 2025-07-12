@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Campaigns - Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #25D366;
+            --secondary-color: #075E54;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+        }
+
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background-color: var(--secondary-color) !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+
+        .navbar-brand, .nav-link {
+            color: white !important;
+        }
+
+        .nav-link:hover {
+            opacity: 0.8;
+        }
+
+        .campaign-card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .campaign-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .campaign-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .campaign-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .campaign-stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .campaign-actions {
+            padding: 15px 20px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .wizard-container {
+            display: none;
+        }
+
+        .wizard-container.active {
+            display: block;
+        }
+
+        .wizard-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .wizard-step {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            position: relative;
+            color: #6c757d;
+        }
+
+        .wizard-step::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -50%;
+            width: 100%;
+            height: 2px;
+            background: #dee2e6;
+            transform: translateY(-50%);
+        }
+
+        .wizard-step:last-child::after {
+            display: none;
+        }
+
+        .wizard-step.active {
+            color: var(--primary-color);
+        }
+
+        .wizard-step.completed {
+            color: var(--success-color);
+        }
+
+        .wizard-step .step-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #dee2e6;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .wizard-step.active .step-icon {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .wizard-step.completed .step-icon {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .csv-preview-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .csv-preview-table table {
+            font-size: 0.9rem;
+        }
+
+        #messageEditor {
+            height: 200px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+
+        .placeholder-btn {
+            margin: 2px;
+            padding: 4px 8px;
+            font-size: 0.85rem;
+        }
+
+        .progress-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 20px;
+            display: none;
+            z-index: 1050;
+        }
+
+        .recipients-table {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-badge.sent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.sending {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        /* Recipient List Styles */
+        .list-card {
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+
+        .list-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .list-card .card-body {
+            padding: 1.25rem;
+        }
+
+        .list-card .list-meta {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+
+        .list-card .tags {
+            margin-top: 0.5rem;
+        }
+
+        .list-card .badge {
+            font-size: 0.75rem;
+            padding: 0.25em 0.5em;
+            margin-right: 0.25rem;
+        }
+
+        .list-stats {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .list-stats .stat {
+            flex: 1;
+        }
+
+        .list-stats .stat-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #0b5ed7;
+        }
+
+        .list-stats .stat-label {
+            font-size: 0.75rem;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+
+        /* Tab Styles - Force visibility */
+        .nav-tabs .nav-link {
+            color: #495057 !important;
+            font-weight: 500 !important;
+            border: 1px solid transparent;
+            border-radius: 0.375rem 0.375rem 0 0;
+            background-color: transparent !important;
+            text-decoration: none !important;
+            display: inline-block !important;
+            padding: 0.5rem 1rem !important;
+        }
+
+        .nav-tabs .nav-link:hover {
+            color: #0d6efd !important;
+            border-color: #e9ecef #e9ecef #dee2e6 !important;
+            background-color: #f8f9fa !important;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #0d6efd !important;
+            background-color: #fff !important;
+            border-color: #dee2e6 #dee2e6 #fff !important;
+        }
+
+        .nav-tabs .nav-link i {
+            margin-right: 0.5rem !important;
+            opacity: 1 !important;
+        }
+
+        /* Ensure tab content is visible */
+        .nav-tabs .nav-link span,
+        .nav-tabs .nav-link {
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        /* Debug styles - temporary fix for visibility */
+        #mainTabs .nav-link {
+            min-height: 40px !important;
+            line-height: 1.5 !important;
+            font-size: 14px !important;
+            border: 2px solid #dee2e6 !important;
+            margin-right: 5px !important;
+        }
+
+        #mainTabs .nav-link.active {
+            border-bottom: 2px solid #fff !important;
+            border-top: 2px solid #0d6efd !important;
+            border-left: 2px solid #0d6efd !important;
+            border-right: 2px solid #0d6efd !important;
+        }
+
+        @media (max-width: 768px) {
+            .campaign-stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .wizard-steps {
+                flex-direction: column;
+            }
+            
+            .wizard-step::after {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/admin/dashboard.html">
+                <i class="bi bi-whatsapp"></i> WhatsApp Gateway
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/dashboard.html">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/admin/campaigns.html">Campaigns</a>
+                    </li>
+                    <li class="nav-item" id="usersNavItem" style="display: none;">
+                        <a class="nav-link" href="/admin/users.html">Users</a>
+                    </li>
+                    <li class="nav-item" id="activitiesNavItem" style="display: none;">
+                        <a class="nav-link" href="/admin/activities.html">Activities</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav">
+                    <span class="nav-link">
+                        <i class="bi bi-person-circle"></i> <span id="currentUserEmail">Loading...</span>
+                    </span>
+                    <a class="nav-link" href="#" onclick="logout()">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="campaigns-tab" data-bs-toggle="tab" data-bs-target="#campaigns-content" type="button" role="tab">
+                    <i class="bi bi-megaphone"></i> Campaigns
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="lists-tab" data-bs-toggle="tab" data-bs-target="#lists-content" type="button" role="tab" onclick="loadRecipientListsPage()">
+                    <i class="bi bi-people"></i> Recipient Lists
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="mainTabContent">
+            <!-- Campaigns Tab -->
+            <div class="tab-pane fade show active" id="campaigns-content" role="tabpanel">
+                <!-- Campaign List View -->
+                <div id="campaignListView">
+                    <div class="row mb-4">
+                        <div class="col">
+                            <h2>WhatsApp Campaigns</h2>
+                            <p class="text-muted">Create and manage bulk WhatsApp messaging campaigns</p>
+                        </div>
+                        <div class="col-auto">
+                            <div class="btn-group me-2" role="group">
+                                <button class="btn btn-outline-warning" onclick="checkOverdueCampaigns()" title="Check for campaigns that should have started automatically">
+                                    <i class="bi bi-clock-history"></i> Check Overdue
+                                </button>
+                                <button class="btn btn-outline-info" onclick="manuallyTriggerScheduler()" title="Manually trigger the campaign scheduler">
+                                    <i class="bi bi-play-circle"></i> Run Scheduler
+                                </button>
+                            </div>
+                            <button class="btn btn-success" onclick="showCreateCampaign()">
+                                <i class="bi bi-plus-circle"></i> New Campaign
+                            </button>
+                        </div>
+                    </div>
+
+            <!-- Campaign Filters -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="searchCampaigns" placeholder="Search campaigns...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filterStatus">
+                        <option value="">All Status</option>
+                        <option value="draft">Draft</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="sending">Sending</option>
+                        <option value="paused">Paused</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Campaigns Grid -->
+            <div class="row" id="campaignsGrid">
+                <!-- Campaign cards will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Campaign Detail View -->
+        <div id="campaignDetailView" style="display: none;">
+            <!-- Campaign details will be loaded here -->
+        </div>
+
+        <!-- Create/Edit Campaign Wizard -->
+        <div id="campaignWizard" style="display: none;">
+            <div class="row">
+                <div class="col-lg-10 mx-auto">
+                    <div class="card">
+                        <div class="card-body">
+                            <h3 id="wizardTitle">Create New Campaign</h3>
+                            
+                            <!-- Wizard Steps -->
+                            <div class="wizard-steps">
+                                <div class="wizard-step active" data-step="1">
+                                    <div class="step-icon">1</div>
+                                    <div>Basic Info</div>
+                                </div>
+                                <div class="wizard-step" data-step="2">
+                                    <div class="step-icon">2</div>
+                                    <div>Recipients</div>
+                                </div>
+                                <div class="wizard-step" data-step="3">
+                                    <div class="step-icon">3</div>
+                                    <div>Message</div>
+                                </div>
+                                <div class="wizard-step" data-step="4">
+                                    <div class="step-icon">4</div>
+                                    <div>Review</div>
+                                </div>
+                            </div>
+
+                            <!-- Step 1: Basic Info -->
+                            <div class="wizard-container active" data-step="1">
+                                <form id="basicInfoForm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Campaign Name</label>
+                                        <input type="text" class="form-control" id="campaignName" required>
+                                        <small class="text-muted">Give your campaign a memorable name</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">WhatsApp Session</label>
+                                        <select class="form-select" id="sessionId" required>
+                                            <option value="">Select a session...</option>
+                                        </select>
+                                        <small class="text-muted">Choose which WhatsApp account to send from</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Schedule Send (Optional)</label>
+                                        <input type="datetime-local" class="form-control" id="scheduledAt">
+                                        <small class="text-muted">Leave empty to send immediately</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Delay Between Messages (seconds)</label>
+                                        <input type="number" class="form-control" id="delayBetweenMessages" value="3" min="1" max="60">
+                                        <small class="text-muted">Recommended: 3-5 seconds to avoid being marked as spam</small>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Step 2: Recipients -->
+                            <div class="wizard-container" data-step="2">
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5>Select Recipients</h5>
+                                        <div>
+                                            <button type="button" class="btn btn-success btn-sm" onclick="showCreateListModal()">
+                                                <i class="bi bi-plus-circle"></i> Create New List
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadRecipientLists()">
+                                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Existing Lists -->
+                                    <div class="mb-4">
+                                        <label class="form-label">Choose from existing lists:</label>
+                                        <div id="recipientListsContainer">
+                                            <!-- Recipient lists will be loaded here -->
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- CSV Upload Option (fallback) -->
+                                    <div class="mb-4">
+                                        <div class="card">
+                                            <div class="card-header">
+                                                <h6 class="mb-0">
+                                                    <i class="bi bi-upload"></i> Or Upload CSV
+                                                    <button class="btn btn-sm btn-link p-0 ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#csvUploadCollapse">
+                                                        <i class="bi bi-chevron-down"></i>
+                                                    </button>
+                                                </h6>
+                                            </div>
+                                            <div class="collapse" id="csvUploadCollapse">
+                                                <div class="card-body">
+                                                    <div class="alert alert-info">
+                                                        <i class="bi bi-info-circle"></i> CSV should contain columns: WhatsApp Number, Name, Job Title, Company Name
+                                                        <button type="button" class="btn btn-sm btn-info ms-3" onclick="downloadCSVTemplate()">
+                                                            <i class="bi bi-download"></i> Download Template
+                                                        </button>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <input type="file" class="form-control" id="csvFile" accept=".csv">
+                                                    </div>
+                                                    <div class="mb-2">
+                                                        <button type="button" class="btn btn-sm btn-warning" onclick="debugCSVUpload()">
+                                                            <i class="bi bi-bug"></i> Debug CSV Upload
+                                                        </button>
+                                                        <small class="text-muted ms-2">Click to check console for debug info</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Selected Recipients Preview -->
+                                    <div id="selectedRecipientsPreview" style="display: none;">
+                                        <h6>Selected Recipients</h6>
+                                        <div class="alert alert-success">
+                                            <i class="bi bi-check-circle"></i> <span id="selectedRecipientCount">0</span> recipients selected
+                                        </div>
+                                        <div class="csv-preview-table">
+                                            <table class="table table-sm table-striped" id="selectedRecipientsTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Number</th>
+                                                        <th>Name</th>
+                                                        <th>Job Title</th>
+                                                        <th>Company</th>
+                                                        <th>Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="selectedRecipientsBody">
+                                                    <!-- Selected recipients will be shown here -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Legacy CSV Preview (keep for backward compatibility) -->
+                                    <div id="csvPreview" style="display: none;">
+                                        <h6>CSV Preview (showing first 10 rows)</h6>
+                                        <div class="csv-preview-table">
+                                            <table class="table table-sm table-striped" id="csvPreviewTable">
+                                                <!-- CSV preview will be loaded here -->
+                                            </table>
+                                        </div>
+                                        <div class="alert alert-success mt-3">
+                                            <i class="bi bi-check-circle"></i> <span id="recipientCount">0</span> valid recipients found
+                                        </div>
+                                        <div id="csvErrors" class="alert alert-danger mt-3" style="display: none;">
+                                            <!-- CSV errors will be shown here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 3: Message -->
+                            <div class="wizard-container" data-step="3">
+                                <div class="mb-3">
+                                    <label class="form-label">Message Type</label>
+                                    <select class="form-select" id="messageType">
+                                        <option value="text">Text Message</option>
+                                        <option value="image">Image with Caption</option>
+                                        <option value="document">Document</option>
+                                    </select>
+                                </div>
+                                
+                                <div id="mediaUploadSection" style="display: none;" class="mb-3">
+                                    <label class="form-label">Upload Media</label>
+                                    <input type="file" class="form-control" id="mediaFile">
+                                    <small class="text-muted">For images: JPEG, PNG, GIF, WebP. For documents: PDF, DOC, DOCX, XLS, XLSX</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Message Content</label>
+                                    <div class="mb-2">
+                                        <strong>Insert Placeholder:</strong>
+                                        <button type="button" class="btn btn-sm btn-outline-primary placeholder-btn" onclick="insertPlaceholder('{{Name}}')">{{Name}}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary placeholder-btn" onclick="insertPlaceholder('{{Company}}')">{{Company}}</button>
+                                        <button type="button" class="btn btn-sm btn-outline-primary placeholder-btn" onclick="insertPlaceholder('{{JobTitle}}')">{{Job Title}}</button>
+                                    </div>
+                                    <div id="messageEditor"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <h6>Preview with sample data:</h6>
+                                    <div class="card">
+                                        <div class="card-body" id="messagePreview">
+                                            <!-- Message preview will be shown here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 4: Review -->
+                            <div class="wizard-container" data-step="4">
+                                <h5>Campaign Summary</h5>
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <dl class="row">
+                                            <dt class="col-sm-3">Campaign Name:</dt>
+                                            <dd class="col-sm-9" id="reviewName"></dd>
+                                            
+                                            <dt class="col-sm-3">WhatsApp Session:</dt>
+                                            <dd class="col-sm-9" id="reviewSession"></dd>
+                                            
+                                            <dt class="col-sm-3">Recipients:</dt>
+                                            <dd class="col-sm-9" id="reviewRecipients"></dd>
+                                            
+                                            <dt class="col-sm-3">Message Type:</dt>
+                                            <dd class="col-sm-9" id="reviewMessageType"></dd>
+                                            
+                                            <dt class="col-sm-3">Schedule:</dt>
+                                            <dd class="col-sm-9" id="reviewSchedule"></dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                                
+                                <div class="alert alert-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> Please review all details before sending. Once started, the campaign will send messages to all recipients.
+                                </div>
+                            </div>
+
+                            <!-- Wizard Navigation -->
+                            <div class="d-flex justify-content-between mt-4">
+                                <div>
+                                    <button class="btn btn-secondary" onclick="previousStep()" id="prevBtn" style="display: none;">
+                                        <i class="bi bi-arrow-left"></i> Previous
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="saveDraft()" id="saveDraftBtn">
+                                        <i class="bi bi-save"></i> Save Draft
+                                    </button>
+                                </div>
+                                <div>
+                                    <button class="btn btn-primary" onclick="nextStep()" id="nextBtn">
+                                        Next <i class="bi bi-arrow-right"></i>
+                                    </button>
+                                    <button class="btn btn-success" onclick="createCampaign()" id="createBtn" style="display: none;">
+                                        <i class="bi bi-send"></i> Create Campaign
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+            </div>
+            <!-- End Campaigns Tab -->
+            
+            <!-- Recipient Lists Tab -->
+            <div class="tab-pane fade" id="lists-content" role="tabpanel">
+                <div class="row mb-4">
+                    <div class="col">
+                        <h2>Recipient Lists</h2>
+                        <p class="text-muted">Manage reusable recipient lists for your campaigns</p>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-success" onclick="showCreateListModal()">
+                            <i class="bi bi-plus-circle"></i> New List
+                        </button>
+                    </div>
+                </div>
+
+                <!-- List Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="searchLists" placeholder="Search lists..." onkeyup="filterRecipientLists()">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterTags" onchange="filterRecipientLists()">
+                            <option value="">All Tags</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Lists Grid -->
+                <div class="row" id="recipientListsGrid">
+                    <!-- Recipient list cards will be loaded here -->
+                </div>
+            </div>
+            <!-- End Recipient Lists Tab -->
+        </div>
+        <!-- End Tab Content -->
+    </div>
+
+    <!-- Progress Container -->
+    <div class="progress-container" id="progressContainer">
+        <h6 class="mb-3">Campaign Progress</h6>
+        <div class="mb-2">
+            <strong id="progressCampaignName"></strong>
+        </div>
+        <div class="progress mb-3">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width: 0%"></div>
+        </div>
+        <div class="small text-muted">
+            <div>Sent: <span id="progressSent">0</span> / <span id="progressTotal">0</span></div>
+            <div>Failed: <span id="progressFailed">0</span></div>
+            <div>Speed: <span id="progressSpeed">0</span> msgs/min</div>
+        </div>
+        <div class="mt-3">
+            <button class="btn btn-sm btn-warning" onclick="pauseCampaign()">
+                <i class="bi bi-pause"></i> Pause
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="hideProgress()">
+                <i class="bi bi-x"></i> Hide
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="js/auth-check.js"></script>
+    <script src="js/campaigns.js"></script>
+
+    <!-- Create Recipient List Modal -->
+    <div class="modal fade" id="createListModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Recipient List</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createListForm">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">List Name *</label>
+                                    <input type="text" class="form-control" id="listName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Tags</label>
+                                    <input type="text" class="form-control" id="listTags" placeholder="e.g., customers, leads">
+                                    <small class="text-muted">Separate with commas</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="listDescription" rows="2" placeholder="Optional description"></textarea>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Add Recipients</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRecipientRow()">
+                                <i class="bi bi-plus"></i> Add Recipient
+                            </button>
+                        </div>
+                        
+                        <div id="recipientsContainer">
+                            <!-- Recipient rows will be added here -->
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-outline-secondary" onclick="addMultipleRecipients()">
+                                <i class="bi bi-people"></i> Add Multiple Recipients
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-success" onclick="saveRecipientList()">
+                        <i class="bi bi-save"></i> Save List
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Recipient List Modal -->
+    <div class="modal fade" id="editListModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Recipient List</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editListForm">
+                        <input type="hidden" id="editListId">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">List Name *</label>
+                                    <input type="text" class="form-control" id="editListName" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Tags</label>
+                                    <input type="text" class="form-control" id="editListTags">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="editListDescription" rows="2"></textarea>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Recipients</h6>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRecipientToEditList()">
+                                    <i class="bi bi-plus"></i> Add Recipient
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addMultipleRecipientsToEditList()">
+                                    <i class="bi bi-people"></i> Add Multiple
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshEditListRecipients()">
+                                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>WhatsApp Number</th>
+                                        <th>Name</th>
+                                        <th>Job Title</th>
+                                        <th>Company</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="editListRecipientsBody">
+                                    <!-- Recipients will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-success" onclick="updateRecipientList()">
+                        <i class="bi bi-save"></i> Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Multiple Recipients Modal -->
+    <div class="modal fade" id="addMultipleModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Multiple Recipients</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Enter recipients data, one per line. Format: <code>Number, Name, Job Title, Company</code></p>
+                    <textarea class="form-control" id="bulkRecipientsText" rows="10" placeholder="628123456789, John Doe, Manager, ABC Corp
+628987654321, Jane Smith, Director, XYZ Ltd"></textarea>
+                    <small class="text-muted">At minimum, provide the phone number. Other fields are optional.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="processBulkRecipients()">
+                        <i class="bi bi-plus-circle"></i> Add Recipients
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html> 

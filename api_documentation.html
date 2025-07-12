@@ -373,6 +373,8 @@
                 <li><a href="#webhook-management" class="nav-link">Webhook Management</a></li>
                 <li><a href="#media-management" class="nav-link">Media Management</a></li>
                 <li><a href="#message-management" class="nav-link">Message Management</a></li>
+                <li><a href="#campaign-management" class="nav-link">Campaign Management</a></li>
+                <li><a href="#recipient-lists" class="nav-link">Recipient Lists</a></li>
                 <li><a href="#legacy-api" class="nav-link">Legacy API</a></li>
             </ul>
         </aside>
@@ -889,6 +891,375 @@ curl -X POST 'http://localhost:3000/api/v1/media' \
     "sessionId": "mySession",
     "remoteJid": "6281234567890@s.whatsapp.net",
     "messageId": "3EB0D8E8D8F9A7B6"
+}'</div>
+                </div>
+            </section>
+
+            <!-- Campaign Management -->
+            <section class="section" id="campaign-management">
+                <h2>Campaign Management</h2>
+                <p>Create and manage bulk WhatsApp messaging campaigns with scheduling, real-time progress tracking, and recipient list integration.</p>
+                
+                <!-- Create Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns</span>
+                    </div>
+                    
+                    <h4>Create Campaign</h4>
+                    <p>Creates a new campaign with recipients and message content. Supports scheduling and various message types.</p>
+                    
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+{
+    "name": "Product Launch Campaign",
+    "sessionId": "mySession",
+    "scheduledAt": "2024-12-20T10:00:00.000Z", // Optional
+    "message": {
+        "type": "text", // "text", "image", "document"
+        "content": "Hello {{Name}}, check out our new product at {{Company}}!"
+    },
+    "recipients": [
+        {
+            "number": "6281234567890",
+            "name": "John Doe",
+            "companyName": "Tech Corp"
+        }
+    ],
+    "settings": {
+        "delayBetweenMessages": 3000, // milliseconds
+        "maxRetries": 3
+    }
+}
+                    </div>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/campaigns' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "name": "Test Campaign",
+    "sessionId": "mySession",
+    "message": {
+        "type": "text",
+        "content": "Hello {{Name}}!"
+    },
+    "recipients": [
+        {"number": "6281234567890", "name": "John"}
+    ]
+}'</div>
+                </div>
+
+                <!-- List Campaigns -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns</span>
+                    </div>
+                    
+                    <h4>List Campaigns</h4>
+                    <p>Retrieves all campaigns created by the authenticated user (or all campaigns for admin users).</p>
+                    
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+[
+    {
+        "id": "campaign_1234567890_abc123",
+        "name": "Product Launch Campaign",
+        "status": "completed",
+        "createdAt": "2024-12-20T09:00:00.000Z",
+        "scheduledAt": "2024-12-20T10:00:00.000Z",
+        "recipientCount": 100,
+        "statistics": {
+            "total": 100,
+            "sent": 95,
+            "failed": 5,
+            "pending": 0
+        }
+    }
+]
+                    </div>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/campaigns' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Get Campaign Details -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/:campaignId</span>
+                    </div>
+                    
+                    <h4>Get Campaign Details</h4>
+                    <p>Retrieves detailed information about a specific campaign, including full recipient list and delivery status.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Start Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/start</span>
+                    </div>
+                    
+                    <h4>Start Campaign</h4>
+                    <p>Manually starts a campaign immediately, regardless of its scheduled time.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/start' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Pause/Resume Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/pause</span>
+                    </div>
+                    
+                    <h4>Pause Campaign</h4>
+                    <p>Pauses an active campaign. Can be resumed later.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/pause' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/resume</span>
+                    </div>
+                    
+                    <h4>Resume Campaign</h4>
+                    <p>Resumes a paused campaign from where it left off.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/resume' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Delete Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/campaigns/:campaignId</span>
+                    </div>
+                    
+                    <h4>Delete Campaign</h4>
+                    <p>Permanently deletes a campaign and all its data.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE 'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+            </section>
+
+            <!-- Recipient Lists -->
+            <section class="section" id="recipient-lists">
+                <h2>Recipient Lists</h2>
+                <p>Manage reusable recipient lists for campaigns. Create named lists that can be used across multiple campaigns.</p>
+                
+                <!-- Create Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/recipient-lists</span>
+                    </div>
+                    
+                    <h4>Create Recipient List</h4>
+                    <p>Creates a new named recipient list that can be reused in multiple campaigns.</p>
+                    
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+{
+    "name": "VIP Customers",
+    "description": "High-value customers for exclusive offers",
+    "tags": ["VIP", "Premium"],
+    "recipients": [
+        {
+            "number": "6281234567890",
+            "name": "John Doe",
+            "jobTitle": "CEO",
+            "companyName": "Tech Corp"
+        },
+        {
+            "number": "6289876543210",
+            "name": "Jane Smith",
+            "jobTitle": "Marketing Director",
+            "companyName": "Digital Agency"
+        }
+    ]
+}
+                    </div>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/recipient-lists' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "name": "Test List",
+    "recipients": [
+        {"number": "6281234567890", "name": "John Doe"}
+    ]
+}'</div>
+                </div>
+
+                <!-- List Recipient Lists -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/recipient-lists</span>
+                    </div>
+                    
+                    <h4>List Recipient Lists</h4>
+                    <p>Retrieves all recipient lists created by the authenticated user.</p>
+                    
+                    <h5>Query Parameters:</h5>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>search</code></td>
+                                <td>string</td>
+                                <td>Search lists by name or description</td>
+                            </tr>
+                            <tr>
+                                <td><code>tag</code></td>
+                                <td>string</td>
+                                <td>Filter lists by tag</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+[
+    {
+        "id": "list_1234567890_abc123",
+        "name": "VIP Customers",
+        "description": "High-value customers",
+        "tags": ["VIP", "Premium"],
+        "recipientCount": 50,
+        "createdAt": "2024-12-20T09:00:00.000Z",
+        "lastUsed": "2024-12-20T10:30:00.000Z",
+        "usageCount": 5
+    }
+]
+                    </div>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/recipient-lists?search=VIP' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Get Recipient List Details -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/recipient-lists/:listId</span>
+                    </div>
+                    
+                    <h4>Get Recipient List Details</h4>
+                    <p>Retrieves detailed information about a specific recipient list, including all recipients.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Update Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method put">PUT</span>
+                        <span class="endpoint-path">/recipient-lists/:listId</span>
+                    </div>
+                    
+                    <h4>Update Recipient List</h4>
+                    <p>Updates an existing recipient list. Can modify name, description, tags, and recipients.</p>
+                    
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+{
+    "name": "Updated VIP Customers",
+    "description": "Updated description",
+    "tags": ["VIP", "Premium", "Updated"],
+    "recipients": [
+        {
+            "number": "6281234567890",
+            "name": "John Doe Updated",
+            "jobTitle": "Senior CEO",
+            "companyName": "Tech Corp Ltd"
+        }
+    ]
+}
+                    </div>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X PUT 'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "name": "Updated List Name"
+}'</div>
+                </div>
+
+                <!-- Delete Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/recipient-lists/:listId</span>
+                    </div>
+                    
+                    <h4>Delete Recipient List</h4>
+                    <p>Permanently deletes a recipient list. This action cannot be undone.</p>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE 'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123' \
+-H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Clone Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/recipient-lists/:listId/clone</span>
+                    </div>
+                    
+                    <h4>Clone Recipient List</h4>
+                    <p>Creates a copy of an existing recipient list with a new name.</p>
+                    
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+{
+    "newName": "VIP Customers Copy"
+}
+                    </div>
+                    
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123/clone' \
+-H 'Authorization: Bearer your_api_token' \
+-H 'Content-Type: application/json' \
+-d '{
+    "newName": "VIP Customers Copy"
 }'</div>
                 </div>
             </section>

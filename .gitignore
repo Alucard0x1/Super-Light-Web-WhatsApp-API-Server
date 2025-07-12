@@ -1,25 +1,54 @@
+# Authentication & Session Data
 auth_info_*
-media/
-node_modules/
-npm-debug.log
-.idea/
-.vscode/
 auth_info_baileys/
+sessions/
 session_tokens.json
 session_tokens.enc
+
+# User & Security Data
 users.enc
-activity_logs/
-sessions/
-*.bak
+users.json
 .env
-plan.md
-SECURITY_IMPROVEMENTS.md
+.env.production
+.env.local
+
+# Campaign & Recipient Data (contains encrypted user data)
+campaigns/
+recipient_lists/
+campaign_media/
+
+# Activity & Log Files
+activity_logs/
 logs/
 *.log
+system.log
+
+# Dependencies & Build
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Media Files (user uploads)
+media/
+
+# IDE & Editor Files
+.idea/
+.vscode/
+Super-Light-Web-WhatsApp-API-Server.code-workspace
+
+# Backup & Temporary Files
+*.bak
 .pm2/
+
+# Development & Testing Files
+plan.md
+SECURITY_IMPROVEMENTS.md
 test_api_readme.md
 test_whatsapp_api.py
 test-encryption.js
 requirements.txt
-Super-Light-Web-WhatsApp-API-Server.code-workspace
-.env.production
+whatsapp_campaign_plan.md
+
+# OS Files
+.DS_Store
+Thumbs.db

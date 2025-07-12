@@ -130,7 +130,6 @@ Admins can view all activities at `/admin/activities.html`
 
 -   Node.js (v16 or higher recommended)
 -   npm (Node Package Manager)
--   Python (optional - only needed for bcrypt on local development)
 
 ## Installation
 
@@ -146,14 +145,12 @@ Admins can view all activities at `/admin/activities.html`
     ```bash
     npm install
     ```
-
-### Note on Bcrypt Compatibility
-
-This application includes automatic fallback compatibility for password hashing:
-- **Local Development**: Will use `bcrypt` if Python is available (better performance)
-- **cPanel/Shared Hosting**: Automatically falls back to `bcryptjs` (pure JavaScript)
-- You'll see a message in the console indicating which implementation is being used
-- Both provide the same security level, bcrypt is just slightly faster
+    
+    **For cPanel or environments without Python:**
+    ```bash
+    npm run install:smart
+    ```
+    This will automatically handle bcrypt compatibility issues.
 
 ## Usage
 

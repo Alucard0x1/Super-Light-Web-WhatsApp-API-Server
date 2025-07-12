@@ -1,4 +1,4 @@
-const bcrypt = require('./bcrypt-wrapper');
+const bcrypt = require('./bcrypt-compat');
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');

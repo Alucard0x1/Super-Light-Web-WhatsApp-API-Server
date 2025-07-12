@@ -244,6 +244,21 @@ app.use(session({
     }
 }));
 
+// Serve homepage
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Serve API documentation
+app.get('/api-documentation', (req, res) => {
+    res.sendFile(path.join(__dirname, 'api_documentation.html'));
+});
+
+// Redirect old URL to new one
+app.get('/api_documentation.md', (req, res) => {
+    res.redirect('/api-documentation');
+});
+
 // Admin login endpoint - supports both legacy password and new email/password
 app.post('/admin/login', express.json(), async (req, res) => {
     const { email, password } = req.body;

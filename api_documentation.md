@@ -5,8 +5,17 @@ This document provides detailed, developer-focused instructions for using the AP
 ## Making API Requests
 
 ### Base URLs
-- **V1 API:** `http://<your_server_address>:<port>/api/v1`
-- **Legacy API:** `http://<your_server_address>:<port>/api`
+
+**Important:** The base URL format depends on your deployment environment:
+
+| Environment | V1 API Base URL | Legacy API Base URL |
+|------------|-----------------|---------------------|
+| **Local Development** | `http://localhost:3000/api/v1` | `http://localhost:3000/api` |
+| **cPanel (HTTP)** | `http://yourdomain.com/api/v1` | `http://yourdomain.com/api` |
+| **cPanel (HTTPS)** | `https://yourdomain.com/api/v1` | `https://yourdomain.com/api` |
+| **Custom Port** | `http://yourdomain.com:8080/api/v1` | `http://yourdomain.com:8080/api` |
+
+**Note for cPanel users:** Most cPanel deployments use standard HTTP/HTTPS ports (80/443), so you don't need to specify a port in your API calls. Just use your domain name directly.
 
 ### Content-Type
 For most endpoints, you will be sending data in JSON format. Ensure your requests include the `Content-Type: application/json` header. For file uploads, the API expects `multipart/form-data`.
@@ -33,6 +42,11 @@ curl ... -H "Authorization: Bearer your_api_token"
 ---
 
 ## V1 API Endpoints
+
+**About the Examples:** Most examples in this documentation use `localhost:3000` for local development. If you're using cPanel or a production deployment:
+- Replace `http://localhost:3000` with `https://yourdomain.com`
+- No port number is needed for standard HTTP/HTTPS deployments
+- Use HTTPS for production environments for better security
 
 ### **Session Management**
 

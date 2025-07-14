@@ -161,6 +161,9 @@ if (!fs.existsSync(mediaDir)) {
 }
 
 app.use(express.json());
+// Trust proxy for cPanel and other reverse proxy environments
+app.set('trust proxy', true);
+
 app.use(bodyParser.json());
 app.use('/admin', express.static(path.join(__dirname, 'admin')));
 app.use('/media', express.static(mediaDir)); // Serve uploaded media
@@ -178,7 +181,11 @@ app.use(
 app.use(rateLimit({
     windowMs: 1 * 60 * 1000,
     max: 100,
-    message: { status: 'error', message: 'Too many requests, please try again later.' }
+    message: { status: 'error', message: 'Too many requests, please try again later.' },
+    // Trust proxy headers for proper IP detection
+    trustProxy: true,
+    standardHeaders: true,
+    legacyHeaders: false
 }));
 
 const ADMIN_PASSWORD = process.env.ADMIN_DASHBOARD_PASSWORD;
@@ -810,7 +817,14 @@ async function connectToWhatsApp(sessionId) {
         }
     });
 
-    sessions.get(sessionId).sock = sock;
+    // Ensure session exists before setting sock property
+    const session = sessions.get(sessionId);
+    if (session) {
+        session.sock = sock;
+        sessions.set(sessionId, session);
+    } else {
+        log(`Warning: Session ${sessionId} not found when trying to set socket`, sessionId);
+    }
 }
 
 function getSessionsDetails(userEmail = null, isAdmin = false) {
@@ -870,13 +884,15 @@ async function createSession(sessionId, createdBy = null) {
     }
     
     // Auto-cleanup inactive sessions after timeout
+    // Fix for timeout overflow on 32-bit systems - cap at 24 hours max
+    const timeoutMs = Math.min(SESSION_TIMEOUT_HOURS * 60 * 60 * 1000, 24 * 60 * 60 * 1000);
     setTimeout(async () => {
         const session = sessions.get(sessionId);
         if (session && session.status !== 'CONNECTED') {
             await deleteSession(sessionId);
             log(`Auto-deleted inactive session after ${SESSION_TIMEOUT_HOURS} hours: ${sessionId}`, 'SYSTEM');
         }
-    }, SESSION_TIMEOUT_HOURS * 60 * 60 * 1000);
+    }, timeoutMs);
     
     connectToWhatsApp(sessionId);
     return { status: 'success', message: `Session ${sessionId} created.`, token };

@@ -41,7 +41,11 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         skip: (req) => {
             // Skip rate limiting for authenticated admin users
             return req.session && req.session.adminAuthed;
-        }
+        },
+        // Trust proxy headers for proper IP detection
+        trustProxy: true,
+        standardHeaders: true,
+        legacyHeaders: false
     });
     
     router.use(apiLimiter);

@@ -1,8 +1,22 @@
 # Production Deployment Guide for cPanel
 
-## Current Production Readiness Status: **85%**
+## Current Production Readiness Status: **90%**
 
 The project is mostly production-ready but needs a few configurations and considerations for cPanel deployment.
+
+## 🔧 Recent Fixes for cPanel Deployment
+
+### Trust Proxy Configuration
+The application now properly handles reverse proxy environments (like cPanel) with:
+- Express trust proxy enabled
+- Rate limiting configured to work behind proxies
+- Proper IP detection for security features
+
+### Timeout Overflow Fix
+Fixed 32-bit integer overflow issue that prevented session creation on some hosting environments.
+
+### Session Management
+Enhanced session handling to prevent undefined errors during WhatsApp connection initialization.
 
 ## ✅ What's Already Production-Ready
 
@@ -248,12 +262,81 @@ app.use((req, res, next) => {
 4. Update dependencies monthly
 5. Test backup restoration
 
-## Common cPanel Issues
+## 🚨 Troubleshooting Common cPanel Issues
+
+### 1. Express Rate Limit - X-Forwarded-For Error
+**Error**: `ValidationError: The 'X-Forwarded-For' header is set but the Express 'trust proxy' setting is false`
+
+**Solution**: Already fixed in the code. The app now has `app.set('trust proxy', true)` configured.
+
+### 2. Timeout Overflow Warning
+**Error**: `TimeoutOverflowWarning: 30240000000 does not fit into a 32-bit signed integer`
+
+**Solution**: Already fixed. Session cleanup timeout is now capped at 24 hours maximum to prevent 32-bit overflow.
+
+### 3. Cannot Set Properties of Undefined (sock)
+**Error**: `TypeError: Cannot set properties of undefined (setting 'sock')`
+
+**Solution**: Already fixed with proper session existence checks before setting socket properties.
+
+### 4. Node.js Version Issues
+Ensure your cPanel Node.js version is 18.x or higher:
+```bash
+node --version
+```
+
+### 5. Permission Issues
+```bash
+# Fix file permissions
+chmod 755 index.js
+chmod -R 755 admin/
+chmod -R 777 auth_info_baileys/
+chmod -R 777 logs/
+chmod -R 777 media/
+chmod -R 777 campaign_media/
+```
+
+### 6. Memory Issues
+If you encounter memory errors, add to your `.env`:
+```env
+NODE_OPTIONS=--max-old-space-size=1024
+```
+
+### 7. Session Not Connecting
+- Check firewall rules (ports 80, 443, and your app port)
+- Verify WebSocket connections are allowed
+- Check proxy_websockets is enabled in cPanel
+- Ensure no ModSecurity rules are blocking WhatsApp connections
+
+### 8. Error Logs Location
+Check these logs for issues:
+- Application logs: `logs/system.log`
+- PM2 logs: `~/.pm2/logs/`
+- cPanel error logs: `~/public_html/error_log`
+- Node.js logs: Check cPanel's Node.js app error output
+
+### 9. Environment Variables Not Loading
+Ensure `.env` file:
+- Is in the root directory
+- Has correct permissions (644 or 600)
+- Uses LF line endings (not CRLF)
+- No spaces around `=` in variables
+
+### 10. WebSocket Connection Issues
+Add to your `.htaccess` if WebSockets fail:
+```apache
+RewriteEngine On
+RewriteCond %{HTTP:Upgrade} websocket [NC]
+RewriteCond %{HTTP:Connection} upgrade [NC]
+RewriteRule ^/?(.*) "ws://localhost:3000/$1" [P,L]
+```
+
+### Additional Common Issues
 
 1. **Port conflicts**: cPanel usually assigns ports automatically
-2. **Memory limits**: Monitor and adjust in cPanel
+2. **Memory limits**: Monitor and adjust in cPanel  
 3. **File permissions**: May need to adjust after upload
-4. **Node version**: Ensure cPanel supports your required version
+4. **Node version**: Ensure cPanel supports Node.js 18.x or higher
 
 ## Support
 

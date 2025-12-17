@@ -18,7 +18,7 @@
   "dependencies": {
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "^6.7.9",
-    "axios": "^1.10.0",
+    "axios": "^1.12.0",
     "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
     "csurf": "^1.11.0",
@@ -34,7 +34,7 @@
     "qrcode-terminal": "^0.12.0",
     "sanitize-html": "^2.17.0",
     "session-file-store": "^1.5.0",
-    "validator": "^13.15.20",
+    "validator": "^13.15.22",
     "ws": "^8.18.3"
   },
   "optionalDependencies": {

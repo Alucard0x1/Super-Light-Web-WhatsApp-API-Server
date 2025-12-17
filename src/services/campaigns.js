@@ -31,26 +31,26 @@ class CampaignManager {
         const algorithm = 'aes-256-cbc';
         const key = Buffer.from(this.encryptionKey.slice(0, 64), 'hex');
         const iv = crypto.randomBytes(16);
-        
+
         const cipher = crypto.createCipheriv(algorithm, key, iv);
         let encrypted = cipher.update(JSON.stringify(text), 'utf8', 'hex');
         encrypted += cipher.final('hex');
-        
+
         return iv.toString('hex') + ':' + encrypted;
     }
 
     decrypt(text) {
         const algorithm = 'aes-256-cbc';
         const key = Buffer.from(this.encryptionKey.slice(0, 64), 'hex');
-        
+
         const parts = text.split(':');
         const iv = Buffer.from(parts[0], 'hex');
         const encryptedText = parts[1];
-        
+
         const decipher = crypto.createDecipheriv(algorithm, key, iv);
         let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
-        
+
         return JSON.parse(decrypted);
     }
 
@@ -59,7 +59,7 @@ class CampaignManager {
         const filePath = path.join(this.campaignsDir, `${campaign.id}.json`);
         const encrypted = this.encrypt(campaign);
         fs.writeFileSync(filePath, encrypted, 'utf-8');
-        
+
         // Set file permissions (read/write for owner only)
         if (process.platform !== 'win32') {
             fs.chmodSync(filePath, 0o600);
@@ -68,12 +68,16 @@ class CampaignManager {
 
     // Load campaign from file
     loadCampaign(campaignId) {
+        if (!require('../utils/validation').isValidId(campaignId)) {
+            console.error('Invalid campaign ID:', campaignId);
+            return null;
+        }
         try {
             const filePath = path.join(this.campaignsDir, `${campaignId}.json`);
             if (!fs.existsSync(filePath)) {
                 return null;
             }
-            
+
             const encrypted = fs.readFileSync(filePath, 'utf-8');
             return this.decrypt(encrypted);
         } catch (error) {
@@ -87,7 +91,7 @@ class CampaignManager {
         try {
             const files = fs.readdirSync(this.campaignsDir);
             const campaigns = [];
-            
+
             for (const file of files) {
                 if (file.endsWith('.json')) {
                     const campaign = this.loadCampaign(file.replace('.json', ''));
@@ -105,7 +109,7 @@ class CampaignManager {
                     }
                 }
             }
-            
+
             // Sort by creation date (newest first)
             return campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         } catch (error) {
@@ -157,7 +161,7 @@ class CampaignManager {
                 maxRetries: data.settings?.maxRetries || 3
             }
         };
-        
+
         this.saveCampaign(campaign);
         return campaign;
     }
@@ -168,7 +172,7 @@ class CampaignManager {
         if (!campaign) {
             throw new Error('Campaign not found');
         }
-        
+
         // Update allowed fields
         if (updates.name) campaign.name = sanitizeHtml(updates.name, { allowedTags: [] });
         if (updates.scheduledAt !== undefined) campaign.scheduledAt = updates.scheduledAt;
@@ -206,7 +210,7 @@ class CampaignManager {
                 ...updates.settings
             };
         }
-        
+
         campaign.updatedAt = new Date().toISOString();
         this.saveCampaign(campaign);
         return campaign;
@@ -214,18 +218,21 @@ class CampaignManager {
 
     // Delete campaign
     deleteCampaign(campaignId) {
+        if (!require('../utils/validation').isValidId(campaignId)) {
+            return false;
+        }
         try {
             const filePath = path.join(this.campaignsDir, `${campaignId}.json`);
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
-            
+
             // Delete associated media
             const mediaDir = path.join(this.campaignMediaDir, campaignId);
             if (fs.existsSync(mediaDir)) {
                 fs.rmSync(mediaDir, { recursive: true, force: true });
             }
-            
+
             return true;
         } catch (error) {
             console.error('Error deleting campaign:', error);
@@ -239,7 +246,7 @@ class CampaignManager {
         if (!original) {
             throw new Error('Campaign not found');
         }
-        
+
         const cloned = {
             ...original,
             id: this.generateId(),
@@ -260,7 +267,7 @@ class CampaignManager {
                 pending: original.recipients.length
             }
         };
-        
+
         this.saveCampaign(cloned);
         return cloned;
     }
@@ -271,22 +278,22 @@ class CampaignManager {
             // First, try to detect the delimiter
             const firstLine = csvContent.split(/\r?\n/)[0];
             let delimiter = ',';
-            
+
             // Check if semicolon is more common than comma in the first line
             const commaCount = (firstLine.match(/,/g) || []).length;
             const semicolonCount = (firstLine.match(/;/g) || []).length;
-            
+
             if (semicolonCount > commaCount) {
                 delimiter = ';';
                 console.log('Detected semicolon delimiter in CSV');
             }
-            
+
             // Remove BOM if present
             if (csvContent.charCodeAt(0) === 0xFEFF) {
                 csvContent = csvContent.substr(1);
                 console.log('Removed BOM from CSV');
             }
-            
+
             const records = parse(csvContent, {
                 columns: true,
                 skip_empty_lines: true,
@@ -295,27 +302,27 @@ class CampaignManager {
                 relax_column_count: true,  // Allow variable column count
                 skip_records_with_empty_values: true
             });
-            
+
             console.log('Parsed CSV records:', records.length);
             if (records.length > 0) {
                 console.log('First record:', records[0]);
                 console.log('Headers found:', Object.keys(records[0]));
             }
-            
+
             const recipients = [];
             const errors = [];
-            
+
             records.forEach((record, index) => {
                 // Default column names - be more flexible with variations
-                let number = record['WhatsApp Number'] || record['WhatsApp number'] || record['Phone'] || record['Number'] || 
-                           record['phone'] || record['number'] || record['Mobile'] || record['mobile'] || 
-                           record['Contact'] || record['contact'];
+                let number = record['WhatsApp Number'] || record['WhatsApp number'] || record['Phone'] || record['Number'] ||
+                    record['phone'] || record['number'] || record['Mobile'] || record['mobile'] ||
+                    record['Contact'] || record['contact'];
                 let name = record['Name'] || record['name'] || record['Full Name'] || record['full name'] || '';
-                let jobTitle = record['Job Title'] || record['job_title'] || record['Title'] || record['title'] || 
-                              record['Position'] || record['position'] || '';
-                let companyName = record['Company Name'] || record['company_name'] || record['Company'] || record['company'] || 
-                                 record['Organization'] || record['organization'] || '';
-                
+                let jobTitle = record['Job Title'] || record['job_title'] || record['Title'] || record['title'] ||
+                    record['Position'] || record['position'] || '';
+                let companyName = record['Company Name'] || record['company_name'] || record['Company'] || record['company'] ||
+                    record['Organization'] || record['organization'] || '';
+
                 // Apply custom column mapping if provided
                 if (columnMapping) {
                     number = record[columnMapping.number] || number;
@@ -323,32 +330,32 @@ class CampaignManager {
                     jobTitle = record[columnMapping.jobTitle] || jobTitle;
                     companyName = record[columnMapping.companyName] || companyName;
                 }
-                
+
                 // Validate phone number
                 if (!number) {
                     errors.push(`Row ${index + 2}: Missing phone number. Available columns: ${Object.keys(record).join(', ')}`);
                     return;
                 }
-                
+
                 // Clean phone number (remove spaces, dashes, plus sign, parentheses)
                 number = number.toString().replace(/[\s\-\+\(\)]/g, '');
-                
+
                 // Basic phone validation
                 if (!/^\d{10,15}$/.test(number)) {
                     errors.push(`Row ${index + 2}: Invalid phone number format: ${number} (should be 10-15 digits)`);
                     return;
                 }
-                
+
                 // Collect all other fields as custom fields
                 const customFields = {};
                 Object.keys(record).forEach(key => {
                     const keyLower = key.toLowerCase();
-                    if (!['whatsapp number', 'phone', 'number', 'mobile', 'contact', 'name', 'full name', 
-                          'job title', 'title', 'position', 'company name', 'company', 'organization'].includes(keyLower)) {
+                    if (!['whatsapp number', 'phone', 'number', 'mobile', 'contact', 'name', 'full name',
+                        'job title', 'title', 'position', 'company name', 'company', 'organization'].includes(keyLower)) {
                         customFields[key] = record[key];
                     }
                 });
-                
+
                 recipients.push({
                     number,
                     name: sanitizeHtml(name || '', { allowedTags: [] }),
@@ -360,7 +367,7 @@ class CampaignManager {
                     error: null
                 });
             });
-            
+
             return {
                 success: errors.length === 0,
                 recipients,
@@ -381,7 +388,7 @@ class CampaignManager {
     // Process message template with placeholders
     processTemplate(template, recipient) {
         let processed = template;
-        
+
         // Replace standard placeholders
         processed = processed.replace(/\{\{Name\}\}/g, recipient.name || '');
         processed = processed.replace(/\{\{name\}\}/g, recipient.name || '');
@@ -391,7 +398,7 @@ class CampaignManager {
         processed = processed.replace(/\{\{company\}\}/g, recipient.companyName || '');
         processed = processed.replace(/\{\{CompanyName\}\}/g, recipient.companyName || '');
         processed = processed.replace(/\{\{company_name\}\}/g, recipient.companyName || '');
-        
+
         // Replace custom field placeholders
         if (recipient.customFields) {
             Object.keys(recipient.customFields).forEach(key => {
@@ -399,7 +406,7 @@ class CampaignManager {
                 processed = processed.replace(regex, recipient.customFields[key] || '');
             });
         }
-        
+
         return processed;
     }
 
@@ -407,30 +414,30 @@ class CampaignManager {
     updateRecipientStatus(campaignId, recipientNumber, status, error = null) {
         const campaign = this.loadCampaign(campaignId);
         if (!campaign) return;
-        
+
         const recipient = campaign.recipients.find(r => r.number === recipientNumber);
         if (recipient) {
             const oldStatus = recipient.status;
             recipient.status = status;
             recipient.error = error;
-            
+
             if (status === 'sent') {
                 recipient.sentAt = new Date().toISOString();
             }
-            
+
             // Update statistics - treat undefined/null as 'pending'
             if (oldStatus !== status) {
                 // Decrement old status count
                 if (oldStatus === 'sent') campaign.statistics.sent--;
                 else if (oldStatus === 'failed') campaign.statistics.failed--;
                 else if (oldStatus === 'pending' || oldStatus === undefined || oldStatus === null) campaign.statistics.pending--;
-                
+
                 // Increment new status count
                 if (status === 'sent') campaign.statistics.sent++;
                 else if (status === 'failed') campaign.statistics.failed++;
                 else if (status === 'pending') campaign.statistics.pending++;
             }
-            
+
             this.saveCampaign(campaign);
         }
     }
@@ -439,14 +446,14 @@ class CampaignManager {
     updateCampaignStatus(campaignId, status) {
         const campaign = this.loadCampaign(campaignId);
         if (!campaign) return;
-        
+
         campaign.status = status;
         if (status === 'sending') {
             campaign.startedAt = new Date().toISOString();
         } else if (status === 'completed') {
             campaign.completedAt = new Date().toISOString();
         }
-        
+
         this.saveCampaign(campaign);
         return campaign;
     }
@@ -458,7 +465,7 @@ class CampaignManager {
             console.log(`⚠️ Campaign not found: ${campaignId}`);
             return [];
         }
-        
+
         console.log(`🔍 Getting pending recipients for campaign ${campaignId}:`, {
             totalRecipients: campaign.recipients.length,
             recipientDetails: campaign.recipients.map(r => ({
@@ -468,18 +475,18 @@ class CampaignManager {
             })),
             maxRetries: campaign.settings.maxRetries
         });
-        
+
         const pendingRecipients = campaign.recipients
-            .filter(r => 
-                r.status === 'pending' || 
-                r.status === undefined || 
-                r.status === null || 
+            .filter(r =>
+                r.status === 'pending' ||
+                r.status === undefined ||
+                r.status === null ||
                 (r.status === 'failed' && (!r.retryCount || r.retryCount < campaign.settings.maxRetries))
             )
             .slice(0, limit);
-            
+
         console.log(`📊 Found ${pendingRecipients.length} pending recipients`);
-        
+
         return pendingRecipients;
     }
 
@@ -487,17 +494,17 @@ class CampaignManager {
     markForRetry(campaignId, recipientNumber) {
         const campaign = this.loadCampaign(campaignId);
         if (!campaign) return;
-        
+
         const recipient = campaign.recipients.find(r => r.number === recipientNumber);
         if (recipient) {
             recipient.retryCount = (recipient.retryCount || 0) + 1;
             recipient.status = 'pending';
             recipient.error = null;
-            
+
             // Update statistics
             campaign.statistics.failed--;
             campaign.statistics.pending++;
-            
+
             this.saveCampaign(campaign);
         }
     }
@@ -506,10 +513,10 @@ class CampaignManager {
     exportResults(campaignId) {
         const campaign = this.loadCampaign(campaignId);
         if (!campaign) return null;
-        
+
         const headers = ['Number', 'Name', 'Job Title', 'Company', 'Status', 'Sent At', 'Error'];
         const rows = [headers];
-        
+
         campaign.recipients.forEach(recipient => {
             rows.push([
                 recipient.number,
@@ -521,7 +528,7 @@ class CampaignManager {
                 recipient.error || ''
             ]);
         });
-        
+
         return rows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
     }
 }

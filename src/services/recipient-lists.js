@@ -25,26 +25,26 @@ class RecipientListManager {
         const algorithm = 'aes-256-cbc';
         const key = Buffer.from(this.encryptionKey.slice(0, 64), 'hex');
         const iv = crypto.randomBytes(16);
-        
+
         const cipher = crypto.createCipheriv(algorithm, key, iv);
         let encrypted = cipher.update(JSON.stringify(text), 'utf8', 'hex');
         encrypted += cipher.final('hex');
-        
+
         return iv.toString('hex') + ':' + encrypted;
     }
 
     decrypt(text) {
         const algorithm = 'aes-256-cbc';
         const key = Buffer.from(this.encryptionKey.slice(0, 64), 'hex');
-        
+
         const parts = text.split(':');
         const iv = Buffer.from(parts[0], 'hex');
         const encryptedText = parts[1];
-        
+
         const decipher = crypto.createDecipheriv(algorithm, key, iv);
         let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
-        
+
         return JSON.parse(decrypted);
     }
 
@@ -53,7 +53,7 @@ class RecipientListManager {
         const filePath = path.join(this.listsDir, `${list.id}.json`);
         const encrypted = this.encrypt(list);
         fs.writeFileSync(filePath, encrypted, 'utf-8');
-        
+
         // Set file permissions (read/write for owner only)
         if (process.platform !== 'win32') {
             fs.chmodSync(filePath, 0o600);
@@ -62,12 +62,16 @@ class RecipientListManager {
 
     // Load recipient list from file
     loadList(listId) {
+        if (!require('../utils/validation').isValidId(listId)) {
+            console.error('Invalid list ID:', listId);
+            return null;
+        }
         try {
             const filePath = path.join(this.listsDir, `${listId}.json`);
             if (!fs.existsSync(filePath)) {
                 return null;
             }
-            
+
             const encrypted = fs.readFileSync(filePath, 'utf-8');
             return this.decrypt(encrypted);
         } catch (error) {
@@ -81,7 +85,7 @@ class RecipientListManager {
         try {
             const files = fs.readdirSync(this.listsDir);
             const lists = [];
-            
+
             for (const file of files) {
                 if (file.endsWith('.json')) {
                     const list = this.loadList(file.replace('.json', ''));
@@ -99,7 +103,7 @@ class RecipientListManager {
                     }
                 }
             }
-            
+
             // Sort by last used date, then creation date (newest first)
             return lists.sort((a, b) => {
                 const aDate = new Date(a.lastUsed || a.createdAt);
@@ -125,10 +129,10 @@ class RecipientListManager {
             recipients: data.recipients || [],
             tags: data.tags || []
         };
-        
+
         // Validate and sanitize recipients
         list.recipients = list.recipients.map(recipient => this.validateRecipient(recipient)).filter(Boolean);
-        
+
         this.saveList(list);
         return list;
     }
@@ -139,7 +143,7 @@ class RecipientListManager {
         if (!list) {
             throw new Error('Recipient list not found');
         }
-        
+
         // Update allowed fields
         if (updates.name) list.name = sanitizeHtml(updates.name, { allowedTags: [] });
         if (updates.description !== undefined) list.description = sanitizeHtml(updates.description, { allowedTags: [] });
@@ -147,7 +151,7 @@ class RecipientListManager {
             list.recipients = updates.recipients.map(recipient => this.validateRecipient(recipient)).filter(Boolean);
         }
         if (updates.tags) list.tags = updates.tags;
-        
+
         list.updatedAt = new Date().toISOString();
         this.saveList(list);
         return list;
@@ -155,6 +159,9 @@ class RecipientListManager {
 
     // Delete recipient list
     deleteList(listId) {
+        if (!require('../utils/validation').isValidId(listId)) {
+            return false;
+        }
         try {
             const filePath = path.join(this.listsDir, `${listId}.json`);
             if (fs.existsSync(filePath)) {
@@ -173,7 +180,7 @@ class RecipientListManager {
         if (!original) {
             throw new Error('Recipient list not found');
         }
-        
+
         const cloned = {
             ...original,
             id: this.generateId(),
@@ -183,7 +190,7 @@ class RecipientListManager {
             lastUsed: null,
             usageCount: 0
         };
-        
+
         this.saveList(cloned);
         return cloned;
     }
@@ -194,18 +201,18 @@ class RecipientListManager {
         if (!list) {
             throw new Error('Recipient list not found');
         }
-        
+
         const recipient = this.validateRecipient(recipientData);
         if (!recipient) {
             throw new Error('Invalid recipient data');
         }
-        
+
         // Check for duplicates
         const exists = list.recipients.find(r => r.number === recipient.number);
         if (exists) {
             throw new Error('Recipient with this number already exists in the list');
         }
-        
+
         list.recipients.push(recipient);
         list.updatedAt = new Date().toISOString();
         this.saveList(list);
@@ -218,12 +225,12 @@ class RecipientListManager {
         if (!list) {
             throw new Error('Recipient list not found');
         }
-        
+
         const index = list.recipients.findIndex(r => r.number === recipientNumber);
         if (index === -1) {
             throw new Error('Recipient not found in list');
         }
-        
+
         list.recipients.splice(index, 1);
         list.updatedAt = new Date().toISOString();
         this.saveList(list);
@@ -236,18 +243,18 @@ class RecipientListManager {
         if (!list) {
             throw new Error('Recipient list not found');
         }
-        
+
         const recipient = list.recipients.find(r => r.number === recipientNumber);
         if (!recipient) {
             throw new Error('Recipient not found in list');
         }
-        
+
         // Update fields
         if (updates.name !== undefined) recipient.name = sanitizeHtml(updates.name, { allowedTags: [] });
         if (updates.jobTitle !== undefined) recipient.jobTitle = sanitizeHtml(updates.jobTitle, { allowedTags: [] });
         if (updates.companyName !== undefined) recipient.companyName = sanitizeHtml(updates.companyName, { allowedTags: [] });
         if (updates.customFields) recipient.customFields = updates.customFields;
-        
+
         list.updatedAt = new Date().toISOString();
         this.saveList(list);
         return list;
@@ -257,7 +264,7 @@ class RecipientListManager {
     markAsUsed(listId) {
         const list = this.loadList(listId);
         if (!list) return;
-        
+
         list.lastUsed = new Date().toISOString();
         list.usageCount = (list.usageCount || 0) + 1;
         this.saveList(list);
@@ -268,15 +275,15 @@ class RecipientListManager {
         if (!data || !data.number) {
             return null;
         }
-        
+
         // Clean phone number (remove spaces, dashes, plus sign, parentheses)
         let number = data.number.toString().replace(/[\s\-\+\(\)]/g, '');
-        
+
         // Basic phone validation
         if (!/^\d{10,15}$/.test(number)) {
             return null;
         }
-        
+
         return {
             number,
             name: sanitizeHtml(data.name || '', { allowedTags: [] }),
@@ -291,9 +298,9 @@ class RecipientListManager {
     searchRecipients(query, userEmail = null, isAdmin = false) {
         const lists = this.getAllLists(userEmail, isAdmin);
         const results = [];
-        
+
         const queryLower = query.toLowerCase();
-        
+
         lists.forEach(listSummary => {
             const list = this.loadList(listSummary.id);
             if (list) {
@@ -313,7 +320,7 @@ class RecipientListManager {
                 });
             }
         });
-        
+
         return results;
     }
 
@@ -322,7 +329,7 @@ class RecipientListManager {
         const lists = this.getAllLists(userEmail, isAdmin);
         let totalRecipients = 0;
         let totalUsage = 0;
-        
+
         lists.forEach(listSummary => {
             const list = this.loadList(listSummary.id);
             if (list) {
@@ -330,7 +337,7 @@ class RecipientListManager {
                 totalUsage += list.usageCount || 0;
             }
         });
-        
+
         return {
             totalLists: lists.length,
             totalRecipients,

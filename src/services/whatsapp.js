@@ -47,6 +47,10 @@ function ensureAuthDir() {
  * @returns {object} Socket connection
  */
 async function connect(sessionId, onUpdate, onMessage) {
+    if (!require('../utils/validation').isValidId(sessionId)) {
+        throw new Error('Invalid session ID');
+    }
+
     ensureAuthDir();
 
     const sessionDir = path.join(AUTH_DIR, sessionId);
@@ -212,6 +216,10 @@ function isConnected(sessionId) {
  * @param {string} sessionId - Session ID
  */
 function deleteSessionData(sessionId) {
+    if (!require('../utils/validation').isValidId(sessionId)) {
+        return;
+    }
+
     disconnect(sessionId);
 
     const sessionDir = path.join(AUTH_DIR, sessionId);

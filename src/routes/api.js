@@ -136,8 +136,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             return res.status(400).json({ status: 'error', message: 'sessionId is required' });
         }
 
-        // Convert spaces to underscores
-        const sanitizedSessionId = sessionId.trim().replace(/\s+/g, '_');
+        // Sanitize and validate session ID
+        const { sanitizeId, isValidId } = require('../utils/validation');
+        const sanitizedSessionId = sanitizeId(sessionId);
+
+        if (!isValidId(sanitizedSessionId)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid session ID format' });
+        }
 
         try {
             // Pass the creator email to createSession

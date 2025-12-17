@@ -55,6 +55,8 @@ const upload = multer({
 });
 
 function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log, userManager, activityLogger) {
+    const { isValidId, sanitizeId } = require('../utils/validation');
+
     // Security middlewares
     router.use(helmet());
 
@@ -84,6 +86,10 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
 
         const sessionId = req.query.sessionId || req.body.sessionId || req.params.sessionId;
+        if (sessionId && !isValidId(sessionId)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid session ID format' });
+        }
+
         if (sessionId) {
             const expectedToken = sessionTokens.get(sessionId);
             if (expectedToken && token === expectedToken) {
@@ -137,7 +143,6 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         }
 
         // Sanitize and validate session ID
-        const { sanitizeId, isValidId } = require('../utils/validation');
         const sanitizedSessionId = sanitizeId(sessionId);
 
         if (!isValidId(sanitizedSessionId)) {
@@ -269,6 +274,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.put('/users/:email', checkCampaignAccess, requireAdminRole, async (req, res) => {
         const targetEmail = decodeURIComponent(req.params.email);
+        if (!validator.isEmail(targetEmail)) {
+            return res.status(400).json({ status: 'error', error: 'Invalid email format' });
+        }
         const user = User.findByEmail(targetEmail);
 
         if (!user) {
@@ -291,6 +299,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.delete('/users/:email', checkCampaignAccess, requireAdminRole, async (req, res) => {
         const targetEmail = decodeURIComponent(req.params.email);
+        if (!validator.isEmail(targetEmail)) {
+            return res.status(400).json({ status: 'error', error: 'Invalid email format' });
+        }
         const user = User.findByEmail(targetEmail);
 
         if (!user) {
@@ -474,6 +485,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.get('/campaigns/:id', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         const campaign = campaignManager.loadCampaign(req.params.id);
         if (!campaign) {
             return res.status(404).json({ status: 'error', message: 'Campaign not found' });
@@ -511,6 +525,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.put('/campaigns/:id', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         try {
             const campaign = campaignManager.loadCampaign(req.params.id);
             if (!campaign) {
@@ -530,6 +547,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.delete('/campaigns/:id', checkCampaignAccess, async (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         const campaign = campaignManager.loadCampaign(req.params.id);
         if (!campaign) {
             return res.status(404).json({ status: 'error', message: 'Campaign not found' });
@@ -553,6 +573,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.post('/campaigns/:id/clone', checkCampaignAccess, async (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         try {
             const cloned = campaignManager.cloneCampaign(req.params.id, req.currentUser.email);
             res.status(201).json(cloned);
@@ -562,6 +585,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.post('/campaigns/:id/send', checkCampaignAccess, async (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         try {
             const result = await campaignSender.startCampaign(req.params.id, req.currentUser.email);
             res.json(result);
@@ -571,6 +597,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.post('/campaigns/:id/pause', checkCampaignAccess, async (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         const result = campaignSender.pauseCampaign(req.params.id);
         if (result) {
             await activityLogger.logCampaignPause(
@@ -585,6 +614,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.post('/campaigns/:id/resume', checkCampaignAccess, async (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         try {
             const result = await campaignSender.resumeCampaign(req.params.id, req.currentUser.email);
             res.json({ status: 'success', message: 'Campaign resumed' });
@@ -594,6 +626,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.post('/campaigns/:id/retry', checkCampaignAccess, async (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         try {
             const result = await campaignSender.retryFailed(req.params.id, req.currentUser.email);
             res.json(result);
@@ -603,6 +638,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.get('/campaigns/:id/status', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         const status = campaignSender.getCampaignStatus(req.params.id);
         if (!status) {
             return res.status(404).json({ status: 'error', message: 'Campaign not found' });
@@ -611,6 +649,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     });
 
     router.get('/campaigns/:id/export', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
         const campaign = campaignManager.loadCampaign(req.params.id);
         if (!campaign) {
             return res.status(404).json({ status: 'error', message: 'Campaign not found' });
@@ -667,6 +708,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Get specific recipient list
     router.get('/recipient-lists/:id', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
         const list = recipientListManager.loadList(req.params.id);
         if (!list) {
             return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
@@ -697,6 +741,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Update recipient list
     router.put('/recipient-lists/:id', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
         try {
             const list = recipientListManager.loadList(req.params.id);
             if (!list) {
@@ -717,6 +764,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Delete recipient list
     router.delete('/recipient-lists/:id', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
         const list = recipientListManager.loadList(req.params.id);
         if (!list) {
             return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
@@ -737,6 +787,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Clone recipient list
     router.post('/recipient-lists/:id/clone', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
         try {
             const cloned = recipientListManager.cloneList(req.params.id, req.currentUser.email, req.body.name);
             res.status(201).json(cloned);
@@ -747,6 +800,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Add recipient to list
     router.post('/recipient-lists/:id/recipients', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
         try {
             const list = recipientListManager.loadList(req.params.id);
             if (!list) {
@@ -767,6 +823,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Update recipient in list
     router.put('/recipient-lists/:id/recipients/:number', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
+        // Basic number format check (allow +, digits, and reasonable length)
+        if (!/^\+?\d{5,15}$/.test(req.params.number)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid recipient number format' });
+        }
         try {
             const list = recipientListManager.loadList(req.params.id);
             if (!list) {
@@ -787,6 +850,12 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Remove recipient from list
     router.delete('/recipient-lists/:id/recipients/:number', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
+        if (!/^\+?\d{5,15}$/.test(req.params.number)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid recipient number format' });
+        }
         try {
             const list = recipientListManager.loadList(req.params.id);
             if (!list) {
@@ -826,6 +895,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     // Mark recipient list as used
     router.post('/recipient-lists/:id/mark-used', checkCampaignAccess, (req, res) => {
+        if (!isValidId(req.params.id)) {
+            return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
+        }
         const list = recipientListManager.loadList(req.params.id);
         if (!list) {
             return res.status(404).json({ status: 'error', message: 'Recipient list not found' });

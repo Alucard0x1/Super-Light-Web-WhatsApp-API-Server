@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp API Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --bg-light: #f8f9fa;
+            --bg-dark: #1a1a1a;
+            --text-dark: #333;
+            --text-light: #666;
+            --border: #e0e0e0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text-dark);
+            line-height: 1.6;
+            background: white;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 2rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 2rem;
+            padding: 2rem;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+            background: var(--bg-light);
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .sidebar h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            color: var(--text-light);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar a {
+            color: var(--text-dark);
+            text-decoration: none;
+            display: block;
+            padding: 0.5rem 0.75rem;
+            border-radius: 5px;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+
+        .sidebar a:hover {
+            background: white;
+            padding-left: 1rem;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .sidebar a.active {
+            background: white;
+            color: var(--primary);
+            font-weight: 600;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .section h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 0.5rem;
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .section h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.75rem;
+            color: var(--text-dark);
+        }
+
+        .section p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+        }
+
+        /* Endpoint Blocks */
+        .endpoint {
+            background: var(--bg-light);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid var(--primary);
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .method {
+            padding: 0.25rem 0.75rem;
+            border-radius: 5px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+        }
+
+        .method.get {
+            background: #22c55e;
+        }
+
+        .method.post {
+            background: #3b82f6;
+        }
+
+        .method.put {
+            background: #f59e0b;
+        }
+
+        .method.delete {
+            background: #ef4444;
+        }
+
+        .endpoint-path {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: var(--bg-dark);
+            color: #e0e0e0;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .code-block.json {
+            position: relative;
+        }
+
+        .code-lang {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        /* Inline Code */
+        code {
+            background: var(--bg-light);
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: var(--primary);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-light);
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .alert-icon {
+            font-size: 1.25rem;
+        }
+
+        /* Lists */
+        ul,
+        ol {
+            margin: 1rem 0 1rem 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                position: static;
+                margin-bottom: 2rem;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+        }
+
+        /* Back to top button */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-3px);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header" id="top">
+        <div class="header-content">
+            <h1>WhatsApp API Documentation</h1>
+            <nav class="nav-links">
+                <a href="/">Home</a>
+                <a href="/admin/login.html">Admin Dashboard</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <h3>Contents</h3>
+            <ul>
+                <li><a href="#overview" class="nav-link">Overview</a></li>
+                <li><a href="#authentication" class="nav-link">Authentication</a></li>
+                <li><a href="#v1-api" class="nav-link">V1 API Endpoints</a></li>
+                <li><a href="#session-management" class="nav-link">Session Management</a></li>
+                <li><a href="#webhook-management" class="nav-link">Webhook Management</a></li>
+                <li><a href="#media-management" class="nav-link">Media Management</a></li>
+                <li><a href="#message-management" class="nav-link">Message Management</a></li>
+                <li><a href="#campaign-management" class="nav-link">Campaign Management</a></li>
+                <li><a href="#recipient-lists" class="nav-link">Recipient Lists</a></li>
+                <li><a href="#user-management" class="nav-link">User Management</a></li>
+                <li><a href="#activity-logs" class="nav-link">Activity Logs</a></li>
+                <li><a href="#legacy-api" class="nav-link">Legacy API</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Section -->
+            <section class="section" id="overview">
+                <h2>Overview</h2>
+                <p>This document provides detailed, developer-focused instructions for using the WhatsApp API. For
+                    interactive testing, we recommend using the <strong>API Control Center</strong> on the Admin
+                    Dashboard.</p>
+
+                <h3>Making API Requests</h3>
+
+                <h4>Base URLs</h4>
+                <div class="alert alert-info">
+                    <span class="alert-icon">💡</span>
+                    <div>
+                        <p><strong>Important:</strong> The base URL format depends on your deployment environment:</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Environment</th>
+                            <th>V1 API Base URL</th>
+                            <th>Legacy API Base URL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Local Development</strong></td>
+                            <td><code>http://localhost:3000/api/v1</code></td>
+                            <td><code>http://localhost:3000/api</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>cPanel (HTTP)</strong></td>
+                            <td><code>http://yourdomain.com/api/v1</code></td>
+                            <td><code>http://yourdomain.com/api</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>cPanel (HTTPS)</strong></td>
+                            <td><code>https://yourdomain.com/api/v1</code></td>
+                            <td><code>https://yourdomain.com/api</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Custom Port</strong></td>
+                            <td><code>http://yourdomain.com:8080/api/v1</code></td>
+                            <td><code>http://yourdomain.com:8080/api</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="alert alert-warning">
+                    <span class="alert-icon">⚠️</span>
+                    <div>
+                        <p><strong>Note for cPanel users:</strong> Most cPanel deployments use standard HTTP/HTTPS ports
+                            (80/443), so you don't need to specify a port in your API calls. Just use your domain name
+                            directly.</p>
+                    </div>
+                </div>
+
+                <h4>Content-Type</h4>
+                <p>For most endpoints, you will be sending data in JSON format. Ensure your requests include the
+                    <code>Content-Type: application/json</code> header. For file uploads, the API expects
+                    <code>multipart/form-data</code>.
+                </p>
+            </section>
+
+            <!-- Authentication Section -->
+            <section class="section" id="authentication">
+                <h2>Authentication</h2>
+
+                <div class="alert alert-info">
+                    <span class="alert-icon">ℹ️</span>
+                    <div>
+                        <p>All API requests to the <code>/api/v1/*</code> endpoints <strong>must</strong> be
+                            authenticated using a Bearer Token, with these exceptions:</p>
+                        <ul>
+                            <li><code>POST /api/v1/sessions</code> - Requires Master API Key OR admin authentication
+                            </li>
+                            <li><code>GET /api/v1/sessions</code> - Lists all sessions (public endpoint)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <p>The token is unique per session and is returned when you create a session. You can also view tokens
+                    in the Admin Dashboard.</p>
+
+                <h4>Header Format</h4>
+                <div class="code-block">Authorization: Bearer &lt;your_api_token&gt;</div>
+
+                <div class="alert alert-warning">
+                    <span class="alert-icon">⚠️</span>
+                    <p>Legacy endpoints at <code>/api/*</code> do not require authentication.</p>
+                </div>
+
+                <h4>cURL Example</h4>
+                <div class="code-block">curl ... -H "Authorization: Bearer your_api_token"</div>
+            </section>
+
+            <!-- V1 API Section -->
+            <section class="section" id="v1-api">
+                <h2>V1 API Endpoints</h2>
+                <p>The V1 API provides comprehensive functionality for managing WhatsApp sessions, sending messages, and
+                    handling media.</p>
+
+                <div class="alert alert-info">
+                    <span class="alert-icon">📌</span>
+                    <div>
+                        <p><strong>About the Examples:</strong> Most examples in this documentation use
+                            <code>localhost:3000</code> for local development. If you're using cPanel or a production
+                            deployment:
+                        </p>
+                        <ul>
+                            <li>Replace <code>http://localhost:3000</code> with <code>https://yourdomain.com</code></li>
+                            <li>No port number is needed for standard HTTP/HTTPS deployments</li>
+                            <li>Use HTTPS for production environments for better security</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Session Management -->
+            <section class="section" id="session-management">
+                <h2>Session Management</h2>
+
+                <!-- Create Session -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/sessions</span>
+                    </div>
+
+                    <h4>Create Session</h4>
+                    <p>Creates a new WhatsApp session with a unique ID. <strong>Requires Master API Key OR admin
+                            dashboard authentication.</strong></p>
+
+                    <h5>Authentication:</h5>
+                    <ul>
+                        <li><strong>Via API:</strong> Include <code>X-Master-Key</code> header with your master API key
+                        </li>
+                        <li><strong>Via Dashboard:</strong> Automatic when logged in as admin</li>
+                    </ul>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession"
+                        }
+                    </div>
+
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "status": "success",
+                        "message": "Session mySession created.",
+                        "token": "your-bearer-token-for-this-session"
+                        }
+                    </div>
+
+                    <div class="alert alert-info">
+                        <span class="alert-icon">💡</span>
+                        <p><strong>Note:</strong> Save the returned token - it's required for all other API calls for
+                            this session.</p>
+                    </div>
+
+                    <h5>cURL Examples:</h5>
+                    <p><strong>Local Development:</strong></p>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/sessions' \
+                        -H 'X-Master-Key: your-master-api-key-from-env' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "sessionId": "mySession"
+                        }'</div>
+
+                    <p><strong>cPanel Deployment:</strong></p>
+                    <div class="code-block">curl -X POST 'https://yourdomain.com/api/v1/sessions' \
+                        -H 'X-Master-Key: your-master-api-key-from-env' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "sessionId": "mySession"
+                        }'</div>
+                </div>
+
+                <!-- List Sessions -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/sessions</span>
+                    </div>
+
+                    <h4>List Sessions</h4>
+                    <p>Retrieves all sessions with their current status. <strong>No authentication required.</strong>
+                    </p>
+
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        [
+                        {
+                        "sessionId": "mySession",
+                        "status": "CONNECTED",
+                        "detail": "Connected as John Doe",
+                        "qr": null,
+                        "token": "session-token-here"
+                        },
+                        {
+                        "sessionId": "anotherSession",
+                        "status": "DISCONNECTED",
+                        "detail": "Connection closed.",
+                        "qr": null,
+                        "token": "another-token-here"
+                        }
+                        ]
+                    </div>
+
+                    <h5>cURL Examples:</h5>
+                    <p><strong>Local Development:</strong></p>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/sessions'</div>
+
+                    <p><strong>cPanel Deployment:</strong></p>
+                    <div class="code-block">curl -X GET 'https://yourdomain.com/api/v1/sessions'</div>
+                </div>
+
+                <!-- Delete Session -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/sessions/:sessionId</span>
+                    </div>
+
+                    <h4>Delete Session</h4>
+                    <p>Deletes a specific session and all its data. <strong>Requires authentication.</strong></p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE 'http://localhost:3000/api/v1/sessions/mySession' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+            </section>
+
+            <!-- Webhook Management -->
+            <section class="section" id="webhook-management">
+                <h2>Webhook Management</h2>
+
+                <!-- Set Webhook -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/webhook</span>
+                    </div>
+
+                    <h4>Set Webhook URL</h4>
+                    <p>Configures or updates the URL where the server will send event notifications for a specific
+                        session.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession",
+                        "url": "https://your-webhook-receiver.com/events"
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/webhook' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "sessionId": "mySession",
+                        "url": "https://your-webhook-receiver.com/events"
+                        }'</div>
+                </div>
+
+                <!-- Get Webhook -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/webhook?sessionId=&lt;your_session_id&gt;</span>
+                    </div>
+
+                    <h4>Get Webhook URL</h4>
+                    <p>Retrieves the configured webhook URL for a specific session.</p>
+
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "status": "success",
+                        "sessionId": "mySession",
+                        "url": "https://your-webhook-receiver.com/events"
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/webhook?sessionId=mySession' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Delete Webhook -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/webhook</span>
+                    </div>
+
+                    <h4>Delete Webhook</h4>
+                    <p>Removes the webhook URL for a specific session. No events will be sent until a new webhook is
+                        set.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession"
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE 'http://localhost:3000/api/v1/webhook' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "sessionId": "mySession"
+                        }'</div>
+                </div>
+            </section>
+
+            <!-- Media Management -->
+            <section class="section" id="media-management">
+                <h2>Media Management</h2>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/media</span>
+                    </div>
+
+                    <h4>Upload Media</h4>
+                    <p>Uploads an image or document to the server's <code>media</code> directory. The server returns a
+                        <code>mediaId</code> which can be used to send the file in a subsequent API call.
+                    </p>
+
+                    <div class="alert alert-warning">
+                        <span class="alert-icon">⚠️</span>
+                        <div>
+                            <strong>File Restrictions:</strong>
+                            <ul>
+                                <li><strong>Allowed types:</strong> JPEG, PNG, GIF, WebP, PDF, Word, Excel only</li>
+                                <li><strong>Maximum size:</strong> 25MB</li>
+                                <li><strong>MIME types:</strong> <code>image/jpeg</code>, <code>image/png</code>,
+                                    <code>image/gif</code>, <code>image/webp</code>, <code>application/pdf</code>,
+                                    <code>application/msword</code>,
+                                    <code>application/vnd.openxmlformats-officedocument.wordprocessingml.document</code>,
+                                    <code>application/vnd.ms-excel</code>,
+                                    <code>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</code>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h5>Request Body (form-data):</h5>
+                    <ul>
+                        <li><code>file</code>: The media file to upload (must be JPEG, PNG, GIF, WebP, PDF, Word, or
+                            Excel; max 25MB).</li>
+                    </ul>
+
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "status": "success",
+                        "message": "File uploaded successfully.",
+                        "mediaId": "f7e3e7a0-5e7a-4b0f-8b9a-9e7d6e6e2c3d.jpg",
+                        "url": "/media/f7e3e7a0-5e7a-4b0f-8b9a-9e7d6e6e2c3d.jpg"
+                        }
+                    </div>
+
+                    <h5>Error Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "status": "error",
+                        "message": "Invalid file type. Only JPEG, PNG, GIF, WebP, PDF, Word, and Excel allowed."
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block"># Replace /path/to/your/file.jpg with the actual file path
+                        curl -X POST 'http://localhost:3000/api/v1/media' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -F 'file=@/path/to/your/file.jpg'</div>
+                </div>
+            </section>
+
+            <!-- Message Management -->
+            <section class="section" id="message-management">
+                <h2>Message Management</h2>
+
+                <!-- Send Messages -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/messages?sessionId=&lt;your_session_id&gt;</span>
+                    </div>
+
+                    <h4>Send Messages</h4>
+                    <p>A powerful and flexible endpoint to send various types of messages. You must specify the
+                        <code>sessionId</code> as a query parameter. You can send a single message (as a JSON object) or
+                        multiple messages in a batch (as a JSON array).
+                    </p>
+
+                    <h5>Common Body Fields (JSON):</h5>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                <th>Type</th>
+                                <th>Required</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>recipient_type</code></td>
+                                <td>string</td>
+                                <td>Yes</td>
+                                <td><code>individual</code> or <code>group</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>to</code></td>
+                                <td>string</td>
+                                <td>Yes</td>
+                                <td>Phone number (e.g., <code>628123...</code>) or group ID</td>
+                            </tr>
+                            <tr>
+                                <td><code>type</code></td>
+                                <td>string</td>
+                                <td>Yes</td>
+                                <td><code>text</code>, <code>image</code>, or <code>document</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5>Type-Specific Fields:</h5>
+
+                    <h6>Text Message:</h6>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "text": {
+                        "body": "Your message content here"
+                        }
+                        }
+                    </div>
+
+                    <h6>Image Message:</h6>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "image": {
+                        "link": "https://example.com/image.jpg", // OR
+                        "id": "mediaId-from-upload",
+                        "caption": "Optional caption"
+                        }
+                        }
+                    </div>
+
+                    <h6>Document Message:</h6>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "document": {
+                        "link": "https://example.com/document.pdf", // OR
+                        "id": "mediaId-from-upload",
+                        "mimetype": "application/pdf",
+                        "filename": "Optional_filename.pdf"
+                        }
+                        }
+                    </div>
+
+                    <h5>cURL Example (Single Text Message):</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/messages?sessionId=mySession' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "recipient_type": "individual",
+                        "to": "6281234567890",
+                        "type": "text",
+                        "text": { "body": "Hello from the API!" }
+                        }'</div>
+
+                    <h5>cURL Example (Bulk Mixed Messages):</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/messages?sessionId=mySession' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '[
+                        {
+                        "recipient_type": "individual",
+                        "to": "6281234567890",
+                        "type": "text",
+                        "text": { "body": "First message" }
+                        },
+                        {
+                        "recipient_type": "individual",
+                        "to": "6289876543210",
+                        "type": "image",
+                        "image": {
+                        "link": "https://picsum.photos/200",
+                        "caption": "This is a test image."
+                        }
+                        }
+                        ]'</div>
+                </div>
+
+                <!-- Delete Message -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/message</span>
+                    </div>
+
+                    <h4>Delete Message</h4>
+                    <p>Deletes a message that you have previously sent. You must provide the session ID, the recipient's
+                        JID, and the ID of the message to be deleted.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession",
+                        "remoteJid": "6281234567890@s.whatsapp.net",
+                        "messageId": "3EB0D8E8D8F9A7B6"
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE 'http://localhost:3000/api/v1/message' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "sessionId": "mySession",
+                        "remoteJid": "6281234567890@s.whatsapp.net",
+                        "messageId": "3EB0D8E8D8F9A7B6"
+                        }'</div>
+                </div>
+            </section>
+
+            <!-- Campaign Management -->
+            <section class="section" id="campaign-management">
+                <h2>Campaign Management</h2>
+                <p>Create and manage bulk WhatsApp messaging campaigns with scheduling, real-time progress tracking, and
+                    recipient list integration.</p>
+
+                <!-- Create Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns</span>
+                    </div>
+
+                    <h4>Create Campaign</h4>
+                    <p>Creates a new campaign with recipients and message content. Supports scheduling and various
+                        message types.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "name": "Product Launch Campaign",
+                        "sessionId": "mySession",
+                        "scheduledAt": "2024-12-20T10:00:00.000Z", // Optional
+                        "message": {
+                        "type": "text", // "text", "image", "document"
+                        "content": "Hello {{Name}}, check out our new product at {{Company}}!"
+                        },
+                        "recipients": [
+                        {
+                        "number": "6281234567890",
+                        "name": "John Doe",
+                        "companyName": "Tech Corp"
+                        }
+                        ],
+                        "settings": {
+                        "delayBetweenMessages": 3000, // milliseconds
+                        "maxRetries": 3
+                        }
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/campaigns' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "name": "Test Campaign",
+                        "sessionId": "mySession",
+                        "message": {
+                        "type": "text",
+                        "content": "Hello {{Name}}!"
+                        },
+                        "recipients": [
+                        {"number": "6281234567890", "name": "John"}
+                        ]
+                        }'</div>
+                </div>
+
+                <!-- List Campaigns -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns</span>
+                    </div>
+
+                    <h4>List Campaigns</h4>
+                    <p>Retrieves all campaigns created by the authenticated user (or all campaigns for admin users).</p>
+
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        [
+                        {
+                        "id": "campaign_1234567890_abc123",
+                        "name": "Product Launch Campaign",
+                        "status": "completed",
+                        "createdAt": "2024-12-20T09:00:00.000Z",
+                        "scheduledAt": "2024-12-20T10:00:00.000Z",
+                        "recipientCount": 100,
+                        "statistics": {
+                        "total": 100,
+                        "sent": 95,
+                        "failed": 5,
+                        "pending": 0
+                        }
+                        }
+                        ]
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/campaigns' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Get Campaign Details -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/:campaignId</span>
+                    </div>
+
+                    <h4>Get Campaign Details</h4>
+                    <p>Retrieves detailed information about a specific campaign, including full recipient list and
+                        delivery status.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Start Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/start</span>
+                    </div>
+
+                    <h4>Start Campaign</h4>
+                    <p>Manually starts a campaign immediately, regardless of its scheduled time.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/start' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Pause/Resume Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/pause</span>
+                    </div>
+
+                    <h4>Pause Campaign</h4>
+                    <p>Pauses an active campaign. Can be resumed later.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/pause' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/resume</span>
+                    </div>
+
+                    <h4>Resume Campaign</h4>
+                    <p>Resumes a paused campaign from where it left off.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/resume' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Delete Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/campaigns/:campaignId</span>
+                    </div>
+
+                    <h4>Delete Campaign</h4>
+                    <p>Permanently deletes a campaign and all its data.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+            </section>
+
+            <!-- Recipient Lists -->
+            <section class="section" id="recipient-lists">
+                <h2>Recipient Lists</h2>
+                <p>Manage reusable recipient lists for campaigns. Create named lists that can be used across multiple
+                    campaigns.</p>
+
+                <!-- Create Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/recipient-lists</span>
+                    </div>
+
+                    <h4>Create Recipient List</h4>
+                    <p>Creates a new named recipient list that can be reused in multiple campaigns.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "name": "VIP Customers",
+                        "description": "High-value customers for exclusive offers",
+                        "tags": ["VIP", "Premium"],
+                        "recipients": [
+                        {
+                        "number": "6281234567890",
+                        "name": "John Doe",
+                        "jobTitle": "CEO",
+                        "companyName": "Tech Corp"
+                        },
+                        {
+                        "number": "6289876543210",
+                        "name": "Jane Smith",
+                        "jobTitle": "Marketing Director",
+                        "companyName": "Digital Agency"
+                        }
+                        ]
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/recipient-lists' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "name": "Test List",
+                        "recipients": [
+                        {"number": "6281234567890", "name": "John Doe"}
+                        ]
+                        }'</div>
+                </div>
+
+                <!-- List Recipient Lists -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/recipient-lists</span>
+                    </div>
+
+                    <h4>List Recipient Lists</h4>
+                    <p>Retrieves all recipient lists created by the authenticated user.</p>
+
+                    <h5>Query Parameters:</h5>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>search</code></td>
+                                <td>string</td>
+                                <td>Search lists by name or description</td>
+                            </tr>
+                            <tr>
+                                <td><code>tag</code></td>
+                                <td>string</td>
+                                <td>Filter lists by tag</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h5>Success Response (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        [
+                        {
+                        "id": "list_1234567890_abc123",
+                        "name": "VIP Customers",
+                        "description": "High-value customers",
+                        "tags": ["VIP", "Premium"],
+                        "recipientCount": 50,
+                        "createdAt": "2024-12-20T09:00:00.000Z",
+                        "lastUsed": "2024-12-20T10:30:00.000Z",
+                        "usageCount": 5
+                        }
+                        ]
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/recipient-lists?search=VIP' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Get Recipient List Details -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/recipient-lists/:listId</span>
+                    </div>
+
+                    <h4>Get Recipient List Details</h4>
+                    <p>Retrieves detailed information about a specific recipient list, including all recipients.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET
+                        'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Update Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method put">PUT</span>
+                        <span class="endpoint-path">/recipient-lists/:listId</span>
+                    </div>
+
+                    <h4>Update Recipient List</h4>
+                    <p>Updates an existing recipient list. Can modify name, description, tags, and recipients.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "name": "Updated VIP Customers",
+                        "description": "Updated description",
+                        "tags": ["VIP", "Premium", "Updated"],
+                        "recipients": [
+                        {
+                        "number": "6281234567890",
+                        "name": "John Doe Updated",
+                        "jobTitle": "Senior CEO",
+                        "companyName": "Tech Corp Ltd"
+                        }
+                        ]
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X PUT
+                        'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "name": "Updated List Name"
+                        }'</div>
+                </div>
+
+                <!-- Delete Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/recipient-lists/:listId</span>
+                    </div>
+
+                    <h4>Delete Recipient List</h4>
+                    <p>Permanently deletes a recipient list. This action cannot be undone.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X DELETE
+                        'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Clone Recipient List -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/recipient-lists/:listId/clone</span>
+                    </div>
+
+                    <h4>Clone Recipient List</h4>
+                    <p>Creates a copy of an existing recipient list with a new name.</p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "newName": "VIP Customers Copy"
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST
+                        'http://localhost:3000/api/v1/recipient-lists/list_1234567890_abc123/clone' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "newName": "VIP Customers Copy"
+                        }'</div>
+                </div>
+            </section>
+
+            <!-- User Management -->
+            <section class="section" id="user-management">
+                <h2>User Management</h2>
+                <p>Manage dashboard users. <strong>Requires Admin Session Authentication</strong> (these endpoints are
+                    primarily for the Dashboard).</p>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/users</span>
+                    </div>
+                    <h4>List Users</h4>
+                    <p>Retrieves a list of all users (Admin) or the current user (Non-Admin).</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/users</span>
+                    </div>
+                    <h4>Create User</h4>
+                    <p>Creates a new user. <strong>Admin only.</strong></p>
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "email": "newuser@example.com",
+                        "password": "securepassword",
+                        "role": "user"
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Logs -->
+            <section class="section" id="activity-logs">
+                <h2>Activity Logs</h2>
+                <p>View system activity history. <strong>Requires Admin Session Authentication.</strong></p>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/activities</span>
+                    </div>
+                    <h4>List Activities</h4>
+                    <p>Retrieves recent system activities.</p>
+                </div>
+            </section>
+
+            <!-- Legacy API -->
+            <section class="section" id="legacy-api">
+                <h2>Legacy API Endpoints</h2>
+
+                <div class="alert alert-warning">
+                    <span class="alert-icon">⚠️</span>
+                    <div>
+                        <p><strong>Updated:</strong> Legacy endpoints now <strong>require Bearer token
+                                authentication</strong> and have moved to <code>/api/v1/legacy/*</code>. They are
+                            simpler but less flexible than the main API.</p>
+                    </div>
+                </div>
+
+                <h4>Base URL Examples:</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Environment</th>
+                            <th>Base URL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Local Development</strong></td>
+                            <td><code>http://localhost:3000/api/v1/legacy</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>cPanel (HTTPS)</strong></td>
+                            <td><code>https://yourdomain.com/api/v1/legacy</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Send Text (JSON) -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/legacy/send-message</span>
+                    </div>
+
+                    <h4>Send Text (JSON)</h4>
+                    <p>Simple endpoint to send a text message. <strong>Requires authentication.</strong></p>
+
+                    <h5>Request Body (JSON):</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession",
+                        "number": "6281234567890",
+                        "message": "This is a legacy message."
+                        }
+                    </div>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/legacy/send-message' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -H 'Content-Type: application/json' \
+                        -d '{
+                        "sessionId": "mySession",
+                        "number": "6281234567890",
+                        "message": "This is a legacy message."
+                        }'</div>
+                </div>
+
+                <!-- Send Text (Form Data) -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/legacy/message</span>
+                    </div>
+
+                    <h4>Send Text (Form Data)</h4>
+                    <p>Simple endpoint to send a text message using form data. <strong>Requires authentication.</strong>
+                    </p>
+
+                    <h5>Request Body (form-data):</h5>
+                    <ul>
+                        <li><code>phone</code>: The recipient's phone number (8-15 digits).</li>
+                        <li><code>message</code>: The text message content (max 4096 chars).</li>
+                        <li><code>sessionId</code> (optional): The session to use. Defaults to <code>putra</code>.</li>
+                    </ul>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST 'http://localhost:3000/api/v1/legacy/message' \
+                        -H 'Authorization: Bearer your_api_token' \
+                        -F 'phone=6281234567890' \
+                        -F 'message=Hello from a form' \
+                        -F 'sessionId=mySession'</div>
+                </div>
+
+                <div class="alert alert-info">
+                    <span class="alert-icon">💡</span>
+                    <div>
+                        <p><strong>Rate Limiting:</strong> Legacy endpoints are limited to 10 requests per minute per IP
+                            address.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Back to Top Button -->
+    <a href="#top" class="back-to-top" id="backToTop">↑</a>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Active navigation highlighting
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        function updateActiveNav() {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (scrollY >= (sectionTop - 200)) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === '#' + current) {
+                    link.classList.add('active');
+                }
+            });
+        }
+
+        // Back to top button visibility
+        const backToTop = document.getElementById('backToTop');
+
+        function toggleBackToTop() {
+            if (window.scrollY > 300) {
+                backToTop.classList.add('visible');
+            } else {
+                backToTop.classList.remove('visible');
+            }
+        }
+
+        // Event listeners
+        window.addEventListener('scroll', () => {
+            updateActiveNav();
+            toggleBackToTop();
+        });
+
+        // Initialize
+        updateActiveNav();
+    </script>
+</body>
+
+</html>

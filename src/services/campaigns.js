@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-const { parse } = require('csv-parse/sync');
 const sanitizeHtml = require('sanitize-html');
 const { format } = require('date-fns');
+const { encrypt, decrypt } = require('../utils/crypto');
+const { isValidId } = require('../utils/validation');
 
 class CampaignManager {
     constructor(encryptionKey) {
@@ -23,39 +23,29 @@ class CampaignManager {
     }
 
     generateId() {
-        return `campaign_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        return `campaign_${Date.now()}_${require('crypto').randomBytes(4).toString('hex')}`;
     }
 
     // Encryption functions
     encrypt(text) {
-        const algorithm = 'aes-256-cbc';
-        const key = Buffer.from(this.encryptionKey.slice(0, 64), 'hex');
-        const iv = crypto.randomBytes(16);
-
-        const cipher = crypto.createCipheriv(algorithm, key, iv);
-        let encrypted = cipher.update(JSON.stringify(text), 'utf8', 'hex');
-        encrypted += cipher.final('hex');
-
-        return iv.toString('hex') + ':' + encrypted;
+        return encrypt(text, this.encryptionKey);
     }
 
     decrypt(text) {
-        const algorithm = 'aes-256-cbc';
-        const key = Buffer.from(this.encryptionKey.slice(0, 64), 'hex');
-
-        const parts = text.split(':');
-        const iv = Buffer.from(parts[0], 'hex');
-        const encryptedText = parts[1];
-
-        const decipher = crypto.createDecipheriv(algorithm, key, iv);
-        let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-        decrypted += decipher.final('utf8');
-
-        return JSON.parse(decrypted);
+        const decrypted = decrypt(text, this.encryptionKey);
+        try {
+            return JSON.parse(decrypted);
+        } catch (e) {
+            console.error('Failed to parse decrypted campaign data:', e);
+            return null;
+        }
     }
 
     // Save campaign to file
     saveCampaign(campaign) {
+        if (!isValidId(campaign.id)) {
+            throw new Error('Invalid campaign ID');
+        }
         const filePath = path.join(this.campaignsDir, `${campaign.id}.json`);
         const encrypted = this.encrypt(campaign);
         fs.writeFileSync(filePath, encrypted, 'utf-8');

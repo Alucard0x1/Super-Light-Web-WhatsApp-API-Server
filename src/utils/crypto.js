@@ -9,11 +9,13 @@ const ALGORITHM = 'aes-256-cbc';
 
 /**
  * Encrypt text using AES-256-CBC
- * @param {string} text - Text to encrypt
+ * @param {any} data - Data to encrypt (string or object)
  * @param {string} encryptionKey - 64 hex character key
  * @returns {string} - Encrypted string in format "iv:encrypted"
  */
-function encrypt(text, encryptionKey) {
+function encrypt(data, encryptionKey) {
+    if (!data) return '';
+    const text = typeof data === 'string' ? data : JSON.stringify(data);
     const key = Buffer.from(encryptionKey.slice(0, 64), 'hex');
     const iv = crypto.randomBytes(16);
 

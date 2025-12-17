@@ -149,6 +149,19 @@
             }
         }
 
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
         async function loadActivities() {
             try {
                 const response = await fetch('/api/v1/activities?limit=100');
@@ -199,13 +212,13 @@
                 return `
                     <tr>
                         <td>${new Date(activity.timestamp).toLocaleString()}</td>
-                        <td>${activity.userEmail}</td>
+                        <td>${escapeHtml(activity.userEmail)}</td>
                         <td>
                             ${actionIcon} ${formatAction(activity.action)}
                         </td>
                         <td>
-                            ${resourceIcon} ${activity.resource}
-                            ${activity.resourceId ? `<br><small class="text-muted">${activity.resourceId}</small>` : ''}
+                            ${resourceIcon} ${escapeHtml(activity.resource)}
+                            ${activity.resourceId ? `<br><small class="text-muted">${escapeHtml(activity.resourceId)}</small>` : ''}
                         </td>
                         <td>${details}</td>
                         <td><small>${activity.ip || 'N/A'}</small></td>
@@ -253,18 +266,18 @@
             let details = [];
 
             if (activity.action === 'send_message' && activity.details.recipient) {
-                details.push(`To: ${activity.details.recipient}`);
-                details.push(`Type: ${activity.details.messageType}`);
+                details.push(`To: ${escapeHtml(activity.details.recipient)}`);
+                details.push(`Type: ${escapeHtml(activity.details.messageType)}`);
             } else if (activity.action === 'create_user' && activity.details.newUserEmail) {
-                details.push(`Email: ${activity.details.newUserEmail}`);
-                details.push(`Role: ${activity.details.role}`);
+                details.push(`Email: ${escapeHtml(activity.details.newUserEmail)}`);
+                details.push(`Role: ${escapeHtml(activity.details.role)}`);
             } else if (activity.action === 'update_user' && activity.details.changes) {
                 const changes = Object.entries(activity.details.changes)
-                    .map(([key, value]) => `${key}: ${value}`)
+                    .map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`)
                     .join(', ');
                 details.push(changes);
             } else if (activity.details.sessionId) {
-                details.push(`Session: ${activity.details.sessionId}`);
+                details.push(`Session: ${escapeHtml(activity.details.sessionId)}`);
             }
 
             return details.join('<br>') || '-';

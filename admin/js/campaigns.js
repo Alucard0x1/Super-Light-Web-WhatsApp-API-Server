@@ -222,7 +222,7 @@ function createCampaignCard(campaign) {
                         <h5 class="mb-0">${escapeHtml(campaign.name)}</h5>
                         <small>${new Date(campaign.createdAt).toLocaleDateString()}</small>
                     </div>
-                    <span class="campaign-status">${campaign.status.toUpperCase()}</span>
+                    <span class="campaign-status">${escapeHtml(campaign.status.toUpperCase())}</span>
                 </div>
                 
                 ${campaign.status === 'draft' ? `
@@ -1041,19 +1041,19 @@ function createCampaignDetailView(campaign) {
                     <div class="card-body">
                         <dl class="row">
                             <dt class="col-sm-3">Status:</dt>
-                            <dd class="col-sm-9"><span class="badge bg-primary">${campaign.status}</span></dd>
+                            <dd class="col-sm-9"><span class="badge bg-primary">${escapeHtml(campaign.status)}</span></dd>
                             
                             <dt class="col-sm-3">Created:</dt>
                             <dd class="col-sm-9">${new Date(campaign.createdAt).toLocaleString()}</dd>
                             
                             <dt class="col-sm-3">Created By:</dt>
-                            <dd class="col-sm-9">${campaign.createdBy}</dd>
+                            <dd class="col-sm-9">${escapeHtml(campaign.createdBy)}</dd>
                             
                             <dt class="col-sm-3">Session:</dt>
-                            <dd class="col-sm-9">${campaign.sessionId}</dd>
+                            <dd class="col-sm-9">${escapeHtml(campaign.sessionId)}</dd>
                             
                             <dt class="col-sm-3">Message Type:</dt>
-                            <dd class="col-sm-9">${campaign.message.type}</dd>
+                            <dd class="col-sm-9">${escapeHtml(campaign.message.type)}</dd>
                             
                             ${campaign.scheduledAt ? `
                                 <dt class="col-sm-3">Scheduled At:</dt>
@@ -1107,7 +1107,7 @@ function createCampaignDetailView(campaign) {
                                         <tr data-number="${r.number}">
                                             <td>${escapeHtml(r.number)}</td>
                                             <td>${escapeHtml(r.name || '-')}</td>
-                                            <td><span class="status-badge ${r.status || 'pending'}">${r.status || 'pending'}</span></td>
+                                            <td><span class="status-badge ${escapeHtml(r.status || 'pending')}">${escapeHtml(r.status || 'pending')}</span></td>
                                             <td>${r.sentAt ? new Date(r.sentAt).toLocaleString() : '-'}</td>
                                             <td>${r.error ? `<small class="text-danger">${escapeHtml(r.error)}</small>` : '-'}</td>
                                         </tr>
@@ -1315,7 +1315,7 @@ function escapeHtml(text) {
 function formatMessageContentForDisplay(content) {
     if (!content) return '';
 
-    let formatted = content;
+    let formatted = escapeHtml(content);
 
     // Replace common placeholders with user-friendly versions
     formatted = formatted.replace(/\{\{Name\}\}/g, '<span class="badge bg-info">Name</span>');

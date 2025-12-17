@@ -190,6 +190,19 @@
             }
         }
 
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
         async function loadUsers() {
             try {
                 const response = await fetch('/api/v1/users');
@@ -216,14 +229,14 @@
 
             tbody.innerHTML = users.map(user => `
                 <tr>
-                    <td>${user.email}</td>
+                    <td>${escapeHtml(user.email)}</td>
                     <td>
                         <span class="badge bg-${user.role === 'admin' ? 'danger' : 'primary'}">
-                            ${user.role}
+                            ${escapeHtml(user.role)}
                         </span>
                     </td>
                     <td>${user.sessions ? user.sessions.length : 0}</td>
-                    <td>${user.createdBy || 'System'}</td>
+                    <td>${escapeHtml(user.createdBy || 'System')}</td>
                     <td>${new Date(user.createdAt).toLocaleString()}</td>
                     <td>${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</td>
                     <td>

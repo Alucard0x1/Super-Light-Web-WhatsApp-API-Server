@@ -48,19 +48,153 @@
         }
 
         .log-box {
-            height: 400px;
-            background-color: #212529;
-            color: #f8f9fa;
-            font-family: 'Menlo', 'Courier New', Courier, monospace;
-            padding: 1.25rem;
+            height: 450px;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Menlo', 'Courier New', Courier, monospace;
+            padding: 1rem;
             overflow-y: scroll;
-            border-radius: 0.375rem;
-            font-size: 0.9em;
-            line-height: 1.6;
+            border-radius: 0 0 0.5rem 0.5rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            border: 1px solid #1e293b;
+            box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
         }
 
-        .log-box p {
-            margin-bottom: 0.25rem;
+        .log-entry {
+            display: flex;
+            margin-bottom: 0.15rem;
+            border-left: 3px solid transparent;
+            padding-left: 0.5rem;
+            transition: background-color 0.1s ease;
+        }
+
+        .log-entry:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .log-time {
+            color: #64748b;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .log-context {
+            color: #38bdf8;
+            font-weight: 600;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .log-context:hover {
+            text-decoration: underline;
+        }
+
+        .log-level {
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+            font-weight: bold;
+            width: 45px;
+            text-align: center;
+            border-radius: 3px;
+            font-size: 0.7rem;
+        }
+
+        .level-info {
+            color: #10b981;
+            border-left-color: #10b981;
+        }
+
+        .lvl-info-badge {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .level-warn {
+            color: #f59e0b;
+            border-left-color: #f59e0b;
+        }
+
+        .lvl-warn-badge {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .level-error {
+            color: #ef4444;
+            border-left-color: #ef4444;
+        }
+
+        .lvl-error-badge {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .level-debug {
+            color: #94a3b8;
+            border-left-color: #94a3b8;
+        }
+
+        .lvl-debug-badge {
+            background: rgba(148, 163, 184, 0.2);
+            color: #94a3b8;
+        }
+
+        .log-msg {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-details-toggle {
+            color: #94a3b8;
+            cursor: pointer;
+            margin-left: 0.5rem;
+        }
+
+        .log-details-toggle:hover {
+            color: #f8fafc;
+        }
+
+        .log-details-content {
+            background: #1e293b;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
+            border-radius: 4px;
+            display: none;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+        }
+
+        .terminal-toolbar {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-bottom: none;
+            border-radius: 0.5rem 0.5rem 0 0;
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .terminal-search {
+            flex-grow: 1;
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #f8fafc;
+            padding: 0.2rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        .terminal-filter {
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #f1f5f9;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
         }
 
         [data-bs-theme="dark"] .card-header {
@@ -616,13 +750,41 @@
                 });
             }
         </script>
-        <section id="logging" class="mb-4">
-            <div class="card shadow-sm">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">Live Logs</h5>
+        <section id="logging" class="mb-5">
+            <div class="card shadow-sm border-0 bg-transparent">
+                <div class="terminal-toolbar">
+                    <div class="d-flex align-items-center me-2">
+                        <span class="badge bg-success bullet pulse me-2"></span>
+                        <span class="text-light fw-bold small">LIVE TERMINAL</span>
+                    </div>
+
+                    <select id="log-session-filter" class="terminal-filter" style="max-width: 150px;">
+                        <option value="all">All Sessions</option>
+                        <option value="SYSTEM">SYSTEM</option>
+                    </select>
+
+                    <select id="log-level-filter" class="terminal-filter">
+                        <option value="all">All Levels</option>
+                        <option value="INFO">Info</option>
+                        <option value="WARN">Warnings</option>
+                        <option value="ERROR">Errors</option>
+                    </select>
+
+                    <input type="text" id="log-search" class="terminal-search" placeholder="Search logs...">
+
+                    <div class="btn-group">
+                        <button id="pause-logs-btn" class="btn btn-sm btn-outline-light border-secondary">
+                            <i class="bi bi-pause-fill"></i> Pause
+                        </button>
+                        <button id="clear-logs-btn" class="btn btn-sm btn-outline-light border-secondary">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div id="log-box" class="log-box">Connecting to log stream...</div>
+                <div id="log-box" class="log-box">
+                    <div class="log-entry level-info">
+                        <span class="log-msg">Connecting to live feed...</span>
+                    </div>
                 </div>
             </div>
         </section>
@@ -734,17 +896,28 @@
         const sessionsContainer = document.getElementById('sessions-container');
         const createSessionBtn = document.getElementById('createSessionBtn');
         const sessionIdInput = document.getElementById('sessionIdInput');
-        const logBox = document.getElementById('log-box');
 
         const sessionsData = new Map(); // Store full session data including token
 
-        // New API Control Elements
         const apiSessionIdSelect = document.getElementById('api-session-id');
         const apiRecipientInput = document.getElementById('api-recipient');
         const apiUsageExample = document.getElementById('api-usage-example');
         const apiResponseDiv = document.getElementById('api-response');
         const imageUploadInput = document.getElementById('image-upload');
         const imagePreview = document.getElementById('image-preview');
+
+        // --- Terminal UI Elements & State ---
+        const logBox = document.getElementById('log-box');
+        const logSearchInput = document.getElementById('log-search');
+        const logLevelFilter = document.getElementById('log-level-filter');
+        const logSessionFilter = document.getElementById('log-session-filter');
+        const pauseLogsBtn = document.getElementById('pause-logs-btn');
+        const clearLogsBtn = document.getElementById('clear-logs-btn');
+
+        let logsPaused = false;
+        let logBuffer = [];
+        const MAX_LOGS = 500;
+        let allLogs = []; // In-memory store for filtering
 
 
         function createSessionCard(session) {
@@ -1365,7 +1538,6 @@
         });
 
         function initializeWebSocket() {
-            // First get a WebSocket auth token
             fetch('/admin/ws-token')
                 .then(res => res.json())
                 .then(response => {
@@ -1377,33 +1549,36 @@
                     const ws = new WebSocket(`${protocol}//${window.location.host}?token=${data.token}`);
 
                     ws.onopen = () => {
-                        logBox.innerHTML = ''; // Clear previous logs
-                        logBox.innerHTML += '<p class="text-success">Log stream connected.</p>';
+                        appendLogEntry({
+                            timestamp: new Date().toISOString(),
+                            level: 'INFO',
+                            sessionId: 'SYSTEM',
+                            message: 'Live log stream connected.'
+                        });
                     };
 
                     ws.onmessage = (event) => {
                         const logData = JSON.parse(event.data);
                         if (logData.type === 'log') {
-                            const logEntry = document.createElement('div');
-                            logEntry.textContent = `[${new Date(logData.timestamp).toLocaleTimeString()}] [${logData.sessionId || 'SYSTEM'}] ${logData.message}`;
-                            logBox.appendChild(logEntry);
-                            logBox.scrollTop = logBox.scrollHeight;
+                            if (logsPaused) {
+                                logBuffer.push(logData);
+                            } else {
+                                appendLogEntry(logData);
+                            }
                         } else if (logData.type === 'session-update') {
                             const sessions = logData.data;
                             updateSessionCards(sessions);
                             updateApiSessionSelect(sessions);
-
-                            // Check if any session has a new QR code
-                            sessions.forEach(session => {
-                                if (session.status === 'GENERATING_QR' && session.qr) {
-                                    console.log(`QR code ready for session ${session.sessionId}`);
-                                }
-                            });
                         }
                     };
 
                     ws.onclose = () => {
-                        logBox.innerHTML += '<p class="text-danger">Log stream disconnected. Reconnecting in 5 seconds...</p>';
+                        appendLogEntry({
+                            timestamp: new Date().toISOString(),
+                            level: 'ERROR',
+                            sessionId: 'SYSTEM',
+                            message: 'Log stream disconnected. Reconnecting in 5s...'
+                        });
                         setTimeout(initializeWebSocket, 5000);
                     };
 
@@ -1417,6 +1592,112 @@
                     setTimeout(initializeWebSocket, 5000);
                 });
         }
+
+        function appendLogEntry(log) {
+            allLogs.push(log);
+            if (allLogs.length > MAX_LOGS) allLogs.shift();
+
+            // Check if it passes current filters
+            if (!shouldShowLog(log)) return;
+
+            renderLogEntry(log);
+        }
+
+        function shouldShowLog(log) {
+            const level = logLevelFilter.value;
+            const session = logSessionFilter.value;
+            const search = logSearchInput.value.toLowerCase();
+
+            if (level !== 'all' && log.level !== level) return false;
+            if (session !== 'all' && log.sessionId !== session) return false;
+            if (search && !log.message.toLowerCase().includes(search) && !log.sessionId.toLowerCase().includes(search)) return false;
+
+            return true;
+        }
+
+        function renderLogEntry(log) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry level-${log.level.toLowerCase()}`;
+
+            const time = new Date(log.timestamp).toLocaleTimeString();
+            const detailsHtml = log.details ? `
+                <i class="bi bi-info-circle log-details-toggle" onclick="toggleLogDetails(this)"></i>
+                <div class="log-details-content"><pre class="mb-0">${JSON.stringify(log.details, null, 2)}</pre></div>
+            ` : '';
+
+            entry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-level lvl-${log.level.toLowerCase()}-badge">${log.level}</span>
+                <span class="log-context" onclick="filterBySession('${sanitize(log.sessionId)}')">[${sanitize(log.sessionId)}]</span>
+                <span class="log-msg">${sanitize(log.message)}</span>
+                ${detailsHtml}
+            `;
+
+            logBox.appendChild(entry);
+
+            // Keep scroll at bottom unless user has scrolled up
+            const isScrolledToBottom = logBox.scrollHeight - logBox.clientHeight <= logBox.scrollTop + 50;
+            if (isScrolledToBottom) {
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+
+            // Prune DOM entries
+            if (logBox.children.length > MAX_LOGS) {
+                logBox.removeChild(logBox.firstChild);
+            }
+        }
+
+        function toggleLogDetails(el) {
+            const content = el.nextElementSibling;
+            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+            el.classList.toggle('bi-info-circle');
+            el.classList.toggle('bi-info-circle-fill');
+        }
+
+        function filterBySession(sessionId) {
+            logSessionFilter.value = sessionId;
+            refreshLogs();
+        }
+
+        function refreshLogs() {
+            logBox.innerHTML = '';
+            allLogs.forEach(log => {
+                if (shouldShowLog(log)) renderLogEntry(log);
+            });
+        }
+
+        // --- Event Listeners for Terminal ---
+        logSearchInput.addEventListener('input', refreshLogs);
+        logLevelFilter.addEventListener('change', refreshLogs);
+        logSessionFilter.addEventListener('change', refreshLogs);
+
+        clearLogsBtn.addEventListener('click', () => {
+            allLogs = [];
+            logBox.innerHTML = '';
+            appendLogEntry({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                sessionId: 'SYSTEM',
+                message: 'Terminal cleared.'
+            });
+        });
+
+        pauseLogsBtn.addEventListener('click', () => {
+            logsPaused = !logsPaused;
+            if (logsPaused) {
+                pauseLogsBtn.innerHTML = '<i class="bi bi-play-fill"></i> Resume';
+                pauseLogsBtn.classList.replace('btn-outline-light', 'btn-warning');
+                pauseLogsBtn.classList.add('text-dark');
+            } else {
+                pauseLogsBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Pause';
+                pauseLogsBtn.classList.replace('btn-warning', 'btn-outline-light');
+                pauseLogsBtn.classList.remove('text-dark');
+
+                // Flush buffer
+                logBuffer.forEach(appendLogEntry);
+                logBuffer = [];
+            }
+        });
 
         function loadSessions() {
             // Initial load of sessions via HTTP, then rely on websocket
@@ -1439,14 +1720,30 @@
 
         function updateApiSessionSelect(sessions) {
             apiSessionIdSelect.innerHTML = '';
+
+            // Sync log session filter too
+            const currentFilter = logSessionFilter.value;
+            logSessionFilter.innerHTML = '<option value="all">All Sessions</option><option value="SYSTEM">SYSTEM</option>';
+
             sessions.forEach(session => {
+                // Populate session select for messaging
                 if (session.status === 'CONNECTED') {
                     const option = document.createElement('option');
                     option.value = session.sessionId;
                     option.textContent = session.sessionId;
                     apiSessionIdSelect.appendChild(option);
                 }
+
+                // Populate log filter (all sessions regardless of status)
+                const filterOption = document.createElement('option');
+                filterOption.value = session.sessionId;
+                filterOption.textContent = session.sessionId;
+                logSessionFilter.appendChild(filterOption);
             });
+
+            // Restore filter selection
+            logSessionFilter.value = currentFilter || 'all';
+
             // Optionally, select the first session if available
             if (apiSessionIdSelect.options.length > 0) {
                 apiSessionIdSelect.selectedIndex = 0;
@@ -2040,6 +2337,16 @@
             // Check authentication first
             const isAuthenticated = await checkAuth();
             if (!isAuthenticated) return;
+
+            function sanitize(str) {
+                if (!str) return '';
+                return str
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
 
             initializeWebSocket();
             loadSessions();

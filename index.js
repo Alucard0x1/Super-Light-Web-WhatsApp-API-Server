@@ -156,8 +156,29 @@ app.get('/admin/dashboard.html', (req, res) => {
 // Initialize wrappers for API
 const sessionTokens = new Map();
 
-const log = (message, context, details) => {
-    console.log(`[${context || 'SYSTEM'}] ${message}`, details || '');
+const log = (message, context, details, level) => {
+    // Determine level if not provided (heuristic)
+    if (!level) {
+        const lowerMsg = message.toLowerCase();
+        if (lowerMsg.includes('error') || lowerMsg.includes('fail')) level = 'ERROR';
+        else if (lowerMsg.includes('warn')) level = 'WARN';
+        else level = 'INFO';
+    }
+
+    const logObject = {
+        type: 'log',
+        timestamp: new Date().toISOString(),
+        sessionId: context || 'SYSTEM',
+        message: message,
+        level: level,
+        details: details || null
+    };
+
+    // Print to console
+    console.log(`[${logObject.timestamp}] [${logObject.level}] [${logObject.sessionId}] ${message}`, details || '');
+
+    // Broadcast to all connected dashboard clients
+    broadcastToClients(logObject);
 };
 
 const userManager = {
@@ -183,6 +204,12 @@ const sessionsProxy = {
             };
         }
         return null;
+    },
+    has: (sessionId) => {
+        return whatsappService.getActiveSessions().has(sessionId);
+    },
+    keys: () => {
+        return Array.from(whatsappService.getActiveSessions().keys());
     },
     forEach: (callback) => {
         whatsappService.getActiveSessions().forEach((sock, sessionId) => {
@@ -312,8 +339,14 @@ User.ensureAdmin(process.env.ADMIN_DASHBOARD_PASSWORD);
             sessionTokens.set(session.id, session.token);
         }
 
-        if (session.status === 'CONNECTED' || session.status === 'DISCONNECTED') {
-            console.log(`[SYSTEM] Re-initializing session: ${session.id}`);
+        // Re-initialize any session that was previously connected, disconnected, or stuck in connecting
+        const statusesToReinit = ['CONNECTED', 'DISCONNECTED', 'CONNECTING', 'INITIALIZING'];
+        if (statusesToReinit.includes(session.status)) {
+            console.log(`[SYSTEM] Re-initializing session: ${session.id} (last status: ${session.status})`);
+
+            // Reset status to DISCONNECTED briefly to ensure a clean slate for Baileys
+            Session.updateStatus(session.id, 'DISCONNECTED', 'Restarting...');
+
             whatsappService.connect(session.id, (id, status, detail, qr) => {
                 Session.updateStatus(id, status, detail);
                 broadcastToClients({

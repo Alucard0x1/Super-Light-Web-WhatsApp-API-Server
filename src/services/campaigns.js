@@ -43,12 +43,23 @@ class CampaignManager {
 
     // Save campaign to file
     saveCampaign(campaign) {
+        console.log(`[CampaignManager] Saving campaign: ${campaign.id}`);
         if (!isValidId(campaign.id)) {
+            console.error(`[CampaignManager] Invalid campaign ID during save: ${campaign.id}`);
             throw new Error('Invalid campaign ID');
         }
         const filePath = path.join(this.campaignsDir, `${campaign.id}.json`);
-        const encrypted = this.encrypt(campaign);
-        fs.writeFileSync(filePath, encrypted, 'utf-8');
+        console.log(`[CampaignManager] Writing to: ${filePath}`);
+
+        try {
+            const encrypted = this.encrypt(campaign);
+            console.log(`[CampaignManager] Data encrypted for ${campaign.id}`);
+            fs.writeFileSync(filePath, encrypted, 'utf-8');
+            console.log(`[CampaignManager] File written successfully: ${campaign.id}`);
+        } catch (error) {
+            console.error(`[CampaignManager] Error during encryption or file write for ${campaign.id}:`, error);
+            throw error;
+        }
 
         // Set file permissions (read/write for owner only)
         if (process.platform !== 'win32') {
@@ -110,6 +121,7 @@ class CampaignManager {
 
     // Create new campaign
     createCampaign(data) {
+        console.log('[CampaignManager] Creating new campaign:', data.name);
         // Ensure all recipients have proper status initialization
         const recipients = (data.recipients || []).map(recipient => ({
             ...recipient,
@@ -128,15 +140,15 @@ class CampaignManager {
             status: data.status || 'draft',
             sessionId: data.sessionId,
             message: {
-                type: data.message.type || 'text',
-                content: sanitizeHtml(data.message.content, {
+                type: data.message?.type || 'text',
+                content: data.message?.content ? sanitizeHtml(data.message.content, {
                     allowedTags: ['p', 'br', 'strong', 'em', 'u', 'a'],
                     allowedAttributes: {
                         'a': ['href', 'target']
                     }
-                }),
-                mediaUrl: data.message.mediaUrl || null,
-                mediaCaption: data.message.mediaCaption || null
+                }) : '',
+                mediaUrl: data.message?.mediaUrl || null,
+                mediaCaption: data.message?.mediaCaption || null
             },
             recipients: recipients,
             statistics: {
@@ -152,7 +164,9 @@ class CampaignManager {
             }
         };
 
+        console.log(`[CampaignManager] Generated ID: ${campaign.id}`);
         this.saveCampaign(campaign);
+        console.log(`[CampaignManager] Campaign ${campaign.id} created and saved`);
         return campaign;
     }
 

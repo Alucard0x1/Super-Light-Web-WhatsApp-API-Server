@@ -58,8 +58,6 @@ async function connect(sessionId, onUpdate, onMessage) {
         fs.mkdirSync(sessionDir, { recursive: true });
     }
 
-    console.log(`[${sessionId}] Starting WhatsApp connection...`);
-
     // Update session status
     Session.updateStatus(sessionId, 'CONNECTING', 'Initializing...');
     if (onUpdate) onUpdate(sessionId, 'CONNECTING', 'Initializing...', null);
@@ -111,7 +109,6 @@ async function connect(sessionId, onUpdate, onMessage) {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log(`[${sessionId}] QR code generated`);
             Session.updateStatus(sessionId, 'GENERATING_QR', 'Scan QR code');
             if (onUpdate) onUpdate(sessionId, 'GENERATING_QR', 'Scan QR code', qr);
         }

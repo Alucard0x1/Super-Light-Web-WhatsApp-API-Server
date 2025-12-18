@@ -85,37 +85,64 @@ class ActivityLog {
      * @returns {object} Summary statistics
      */
     static getSummary(userEmail = null, days = 7) {
-        const dateLimit = `datetime('now', '-${days} days')`;
+        // Calculate date limit in JS to ensure cross-env consistency
+        const date = new Date();
+        date.setDate(date.getDate() - (parseInt(days) || 7));
+        const dateLimit = date.toISOString().replace('T', ' ').split('.')[0];
 
-        let sql = `
-            SELECT 
-                action,
-                COUNT(*) as count,
-                SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success_count,
-                SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failure_count
-            FROM activity_logs 
-            WHERE created_at >= ${dateLimit}
-        `;
+        console.log(`[ActivityLog] Generating summary for ${days} days (since ${dateLimit} UTC)`);
 
-        const params = [];
+        let sqlBase = `FROM activity_logs WHERE created_at >= ?`;
+        const params = [dateLimit];
         if (userEmail) {
-            sql += ' AND user_email = ?';
+            sqlBase += ' AND user_email = ?';
             params.push(userEmail);
         }
 
-        sql += ' GROUP BY action';
+        try {
+            // 1. Total activities in range
+            const totalStmt = db.prepare(`SELECT COUNT(*) as count ${sqlBase}`);
+            const totalResult = totalStmt.get(...params);
+            const totalActivities = totalResult ? totalResult.count : 0;
 
-        const stmt = db.prepare(sql);
-        const rows = stmt.all(...params);
+            console.log(`[ActivityLog] Total activities in range: ${totalActivities}`);
 
-        return rows.reduce((acc, row) => {
-            acc[row.action] = {
-                total: row.count,
-                success: row.success_count,
-                failed: row.failure_count
+            // 2. Group by action (with normalization for cards)
+            const actionStmt = db.prepare(`SELECT action, COUNT(*) as count ${sqlBase} GROUP BY action`);
+            const actionRows = actionStmt.all(...params);
+
+            const byAction = actionRows.reduce((acc, row) => {
+                let key = row.action.toLowerCase();
+                // Normalized keys for standard frontend cards
+                if (key.includes('message_send') || key.includes('campaign_message')) {
+                    acc['send_message'] = (acc['send_message'] || 0) + row.count;
+                }
+                if (key.includes('session_create') || key === 'create') {
+                    acc['create'] = (acc['create'] || 0) + row.count;
+                }
+
+                // Keep the raw key for details
+                acc[key] = (acc[key] || 0) + row.count;
+                return acc;
+            }, {});
+
+            // 3. Group by user
+            const userStmt = db.prepare(`SELECT user_email, COUNT(*) as count ${sqlBase} GROUP BY user_email`);
+            const userRows = userStmt.all(...params);
+            const byUser = userRows.reduce((acc, row) => {
+                acc[row.user_email || 'anonymous'] = row.count;
+                return acc;
+            }, {});
+
+            return {
+                totalActivities,
+                byUser,
+                byAction
             };
-            return acc;
-        }, {});
+        } catch (error) {
+            console.error('[ActivityLog] ERROR in getSummary:', error);
+            return { totalActivities: 0, byUser: {}, byAction: {} };
+        }
     }
 
     /**
@@ -186,6 +213,42 @@ class ActivityLog {
             resourceId: campaignId,
             details
         });
+    }
+
+    static logCampaignCreate(userEmail, campaignId, name, recipientCount) {
+        return this.logCampaign(userEmail, 'CREATE', campaignId, { name, recipientCount });
+    }
+
+    static logCampaignUpdate(userEmail, campaignId, name, changes) {
+        return this.logCampaign(userEmail, 'UPDATE', campaignId, { name, changes });
+    }
+
+    static logCampaignDelete(userEmail, campaignId, name) {
+        return this.logCampaign(userEmail, 'DELETE', campaignId, { name });
+    }
+
+    static logCampaignStart(userEmail, campaignId, name, recipientCount) {
+        return this.logCampaign(userEmail, 'START', campaignId, { name, recipientCount });
+    }
+
+    static logCampaignPause(userEmail, campaignId, reason) {
+        return this.logCampaign(userEmail, 'PAUSE', campaignId, { reason });
+    }
+
+    static logCampaignResume(userEmail, campaignId, name) {
+        return this.logCampaign(userEmail, 'RESUME', campaignId, { name });
+    }
+
+    static logCampaignComplete(userEmail, campaignId, name, statistics) {
+        return this.logCampaign(userEmail, 'COMPLETE', campaignId, { name, statistics });
+    }
+
+    static logCampaignRetry(userEmail, campaignId, name, retryCount) {
+        return this.logCampaign(userEmail, 'RETRY', campaignId, { name, retryCount });
+    }
+
+    static logCampaignMessage(userEmail, campaignId, recipient, status, error = null) {
+        return this.logCampaign(userEmail, 'MESSAGE', campaignId, { recipient, status, error });
     }
 
     /**

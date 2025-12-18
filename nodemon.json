@@ -1,6 +1,17 @@
 {
-  "watch": ["*.js"],
+  "watch": [
+    "*.js",
+    "src/**/*.js",
+    "admin/**/*.js"
+  ],
   "ext": "js,json",
-  "ignore": ["auth_info_baileys/*"],
+  "ignore": [
+    "auth_info_baileys/*",
+    "data/*",
+    "sessions/*",
+    "src/services/campaigns/*",
+    "recipient_lists/*",
+    "media/*"
+  ],
   "exec": "node index.js"
-} 
+}

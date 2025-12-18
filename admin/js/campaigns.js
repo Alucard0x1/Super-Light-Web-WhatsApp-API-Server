@@ -16,14 +16,34 @@ let activeCampaignId = null;
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Campaigns page loaded');
 
+    // Configure axios to include credentials (cookies) with requests
+    axios.defaults.withCredentials = true;
+
+    // Initialize Quill editor FIRST (before async calls) to avoid race conditions
+    const editorEl = document.getElementById('messageEditor');
+    if (editorEl && !quillEditor) {
+        quillEditor = new Quill('#messageEditor', {
+            theme: 'snow',
+            placeholder: 'Enter your message here...',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline'],
+                    ['link'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    ['clean']
+                ]
+            }
+        });
+
+        quillEditor.on('text-change', updateMessagePreview);
+        console.log('Quill editor initialized');
+    }
+
     // Clean up any existing intervals on page load
     if (window.campaignUpdateInterval) {
         clearInterval(window.campaignUpdateInterval);
         window.campaignUpdateInterval = null;
     }
-
-    // Configure axios to include credentials (cookies) with requests
-    axios.defaults.withCredentials = true;
 
     // Add axios interceptor for rate limit handling
     axios.interceptors.response.use(
@@ -61,22 +81,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     document.getElementById('messageType').addEventListener('change', handleMessageTypeChange);
     document.getElementById('searchCampaigns').addEventListener('input', filterCampaigns);
     document.getElementById('filterStatus').addEventListener('change', filterCampaigns);
-
-    // Initialize Quill editor
-    quillEditor = new Quill('#messageEditor', {
-        theme: 'snow',
-        placeholder: 'Enter your message here...',
-        modules: {
-            toolbar: [
-                ['bold', 'italic', 'underline'],
-                ['link'],
-                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                ['clean']
-            ]
-        }
-    });
-
-    quillEditor.on('text-change', updateMessagePreview);
 
     // Fix tab visibility if needed
     fixTabVisibility();
@@ -313,7 +317,30 @@ function showCreateCampaign() {
     document.getElementById('basicInfoForm').reset();
     document.getElementById('csvFile').value = '';
     document.getElementById('csvPreview').style.display = 'none';
-    quillEditor.setText('');
+
+    // Safety check for quillEditor
+    if (quillEditor) {
+        quillEditor.setText('');
+    } else {
+        console.warn('quillEditor not initialized, attempting to initialize now...');
+        const editorEl = document.getElementById('messageEditor');
+        if (editorEl) {
+            quillEditor = new Quill('#messageEditor', {
+                theme: 'snow',
+                placeholder: 'Enter your message here...',
+                modules: {
+                    toolbar: [
+                        ['bold', 'italic', 'underline'],
+                        ['link'],
+                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                        ['clean']
+                    ]
+                }
+            });
+            quillEditor.on('text-change', updateMessagePreview);
+            quillEditor.setText('');
+        }
+    }
 
     // Remove any media notes
     const mediaNote = document.getElementById('mediaNote');

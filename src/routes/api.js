@@ -338,15 +338,14 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         const limit = parseInt(req.query.limit) || 50;
         // ActivityLog.getRecent(limit) - need to check ActivityLog model methods
         // Assuming ActivityLog has getRecent or getAll
-        const logs = ActivityLog.getAll ? ActivityLog.getAll(limit) : [];
+        const logs = ActivityLog.getAll ? ActivityLog.getAll({ limit }) : [];
         res.json({ status: 'success', data: logs });
     });
 
     router.get('/activities/summary', checkCampaignAccess, requireAdminRole, async (req, res) => {
-        // Assuming ActivityLog.getSummary exists or we simply aggregate logs
-        // If not exists, return dummy or calculate simple stats from getAll
         const days = parseInt(req.query.days) || 7;
-        const summary = ActivityLog.getSummary ? ActivityLog.getSummary(days) : { totalActivities: 0 };
+        // Correctly pass (userEmail, days) to getSummary
+        const summary = ActivityLog.getSummary ? ActivityLog.getSummary(null, days) : { totalActivities: 0 };
         res.json({ status: 'success', data: summary });
     });
 
@@ -503,32 +502,57 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
 
     router.post('/campaigns', checkCampaignAccess, async (req, res) => {
         try {
+            console.log('Campaign POST request received:', {
+                name: req.body.name,
+                recipientsCount: req.body.recipients ? req.body.recipients.length : 0,
+                user: req.currentUser.email
+            });
+
             const campaignData = {
                 ...req.body,
                 createdBy: req.currentUser.email
             };
 
             const campaign = campaignManager.createCampaign(campaignData);
+            console.log('Campaign object created successfully:', campaign.id);
 
             // Log activity
-            await activityLogger.logCampaignCreate(
-                req.currentUser.email,
-                campaign.id,
-                campaign.name,
-                campaign.recipients.length
-            );
+            if (activityLogger && activityLogger.logCampaignCreate) {
+                await activityLogger.logCampaignCreate(
+                    req.currentUser.email,
+                    campaign.id,
+                    campaign.name,
+                    campaign.recipients.length
+                );
+                console.log('Activity log entry created for campaign creation');
+            } else if (activityLogger && activityLogger.logCampaign) {
+                await activityLogger.logCampaign(
+                    req.currentUser.email,
+                    'create',
+                    campaign.id,
+                    { name: campaign.name, recipientCount: campaign.recipients.length }
+                );
+                console.log('Activity log entry created (CAMPAIGN_CREATE)');
+            }
 
             res.status(201).json(campaign);
         } catch (error) {
+            console.error('ERROR in POST /campaigns:', error);
+            log(`Error creating campaign: ${error.message}`, 'SYSTEM', {
+                error: error.message,
+                stack: error.stack,
+                body: req.body
+            }, 'ERROR');
             res.status(400).json({ status: 'error', message: error.message });
         }
     });
 
-    router.put('/campaigns/:id', checkCampaignAccess, (req, res) => {
+    router.put('/campaigns/:id', checkCampaignAccess, async (req, res) => {
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
         }
         try {
+            console.log(`Campaign PUT request received for ${req.params.id}`);
             const campaign = campaignManager.loadCampaign(req.params.id);
             if (!campaign) {
                 return res.status(404).json({ status: 'error', message: 'Campaign not found' });
@@ -540,8 +564,15 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             }
 
             const updated = campaignManager.updateCampaign(req.params.id, req.body);
+            console.log('Campaign updated successfully:', updated.id);
             res.json(updated);
         } catch (error) {
+            console.error(`ERROR in PUT /campaigns/${req.params.id}:`, error);
+            log(`Error updating campaign ${req.params.id}: ${error.message}`, 'SYSTEM', {
+                error: error.message,
+                stack: error.stack,
+                body: req.body
+            }, 'ERROR');
             res.status(400).json({ status: 'error', message: error.message });
         }
     });
@@ -589,9 +620,16 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
         }
         try {
+            console.log(`Starting campaign ${req.params.id} via API request by ${req.currentUser.email}`);
             const result = await campaignSender.startCampaign(req.params.id, req.currentUser.email);
             res.json(result);
         } catch (error) {
+            console.error(`ERROR starting campaign ${req.params.id}:`, error);
+            log(`Failed to start campaign ${req.params.id}: ${error.message}`, 'SYSTEM', {
+                error: error.message,
+                stack: error.stack,
+                campaignId: req.params.id
+            }, 'ERROR');
             res.status(400).json({ status: 'error', message: error.message });
         }
     });

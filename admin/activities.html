@@ -235,15 +235,28 @@
         function getActionIcon(action) {
             const icons = {
                 'login': '<i class="bi bi-box-arrow-in-right text-primary"></i>',
+                'session_create': '<i class="bi bi-plus-circle text-success"></i>',
+                'session_delete': '<i class="bi bi-trash text-danger"></i>',
                 'create': '<i class="bi bi-plus-circle text-success"></i>',
                 'delete': '<i class="bi bi-trash text-danger"></i>',
                 'update': '<i class="bi bi-pencil text-warning"></i>',
+                'message_send': '<i class="bi bi-send text-info"></i>',
                 'send_message': '<i class="bi bi-send text-info"></i>',
                 'create_user': '<i class="bi bi-person-plus text-success"></i>',
                 'update_user': '<i class="bi bi-person-gear text-warning"></i>',
-                'delete_user': '<i class="bi bi-person-x text-danger"></i>'
+                'delete_user': '<i class="bi bi-person-x text-danger"></i>',
+                'campaign_create': '<i class="bi bi-megaphone text-success"></i>',
+                'campaign_update': '<i class="bi bi-megaphone text-warning"></i>',
+                'campaign_delete': '<i class="bi bi-megaphone text-danger"></i>',
+                'campaign_start': '<i class="bi bi-play-circle text-primary"></i>',
+                'campaign_pause': '<i class="bi bi-pause-circle text-warning"></i>',
+                'campaign_resume': '<i class="bi bi-play-circle text-info"></i>',
+                'campaign_complete': '<i class="bi bi-check-circle text-success"></i>',
+                'campaign_retry': '<i class="bi bi-arrow-clockwise text-warning"></i>',
+                'campaign_message': '<i class="bi bi-chat-left-text text-info"></i>'
             };
-            return icons[action] || '<i class="bi bi-circle"></i>';
+            const key = action.toLowerCase();
+            return icons[key] || '<i class="bi bi-circle"></i>';
         }
 
         function getResourceIcon(resource) {
@@ -251,33 +264,58 @@
                 'auth': '<i class="bi bi-shield-lock"></i>',
                 'session': '<i class="bi bi-phone"></i>',
                 'message': '<i class="bi bi-chat-dots"></i>',
-                'user': '<i class="bi bi-person"></i>'
+                'user': '<i class="bi bi-person"></i>',
+                'campaign': '<i class="bi bi-megaphone"></i>',
+                'list': '<i class="bi bi-people"></i>'
             };
-            return icons[resource] || '<i class="bi bi-folder"></i>';
+            return icons[resource.toLowerCase()] || '<i class="bi bi-folder"></i>';
         }
 
         function formatAction(action) {
-            return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            // Remove common prefixes for cleaner display if needed
+            let display = action.replace(/_/g, ' ');
+            if (display.startsWith('CAMPAIGN ')) display = display.substring(9);
+            if (display.startsWith('SESSION ')) display = display.substring(8);
+            return display.replace(/\b\w/g, l => l.toUpperCase());
         }
 
         function formatDetails(activity) {
             if (!activity.details) return '-';
 
             let details = [];
+            const action = activity.action.toUpperCase();
 
-            if (activity.action === 'send_message' && activity.details.recipient) {
+            if (action === 'MESSAGE_SEND' || action === 'SEND_MESSAGE') {
                 details.push(`To: ${escapeHtml(activity.details.recipient)}`);
                 details.push(`Type: ${escapeHtml(activity.details.messageType)}`);
-            } else if (activity.action === 'create_user' && activity.details.newUserEmail) {
-                details.push(`Email: ${escapeHtml(activity.details.newUserEmail)}`);
-                details.push(`Role: ${escapeHtml(activity.details.role)}`);
-            } else if (activity.action === 'update_user' && activity.details.changes) {
-                const changes = Object.entries(activity.details.changes)
-                    .map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`)
-                    .join(', ');
-                details.push(changes);
+            } else if (action === 'CREATE_USER' || action === 'UPDATE_USER') {
+                if (activity.details.newUserEmail) details.push(`Email: ${escapeHtml(activity.details.newUserEmail)}`);
+                if (activity.details.role) details.push(`Role: ${escapeHtml(activity.details.role)}`);
+                if (activity.details.changes) {
+                    const changes = Object.entries(activity.details.changes)
+                        .map(([key, value]) => `${escapeHtml(key)}: ${escapeHtml(value)}`)
+                        .join(', ');
+                    details.push(`Changes: ${changes}`);
+                }
+            } else if (action === 'CAMPAIGN_CREATE' || action === 'CAMPAIGN_START') {
+                details.push(`Name: ${escapeHtml(activity.details.name)}`);
+                details.push(`Recipients: ${activity.details.recipientCount}`);
+            } else if (action === 'CAMPAIGN_MESSAGE') {
+                details.push(`To: ${escapeHtml(activity.details.recipient)}`);
+                details.push(`Status: ${escapeHtml(activity.details.status)}`);
+                if (activity.details.error) details.push(`Error: ${escapeHtml(activity.details.error)}`);
+            } else if (activity.details.name) {
+                details.push(`Name: ${escapeHtml(activity.details.name)}`);
             } else if (activity.details.sessionId) {
                 details.push(`Session: ${escapeHtml(activity.details.sessionId)}`);
+            } else if (typeof activity.details === 'string') {
+                details.push(escapeHtml(activity.details));
+            } else {
+                // Fallback for generic objects
+                try {
+                    const str = JSON.stringify(activity.details);
+                    if (str !== '{}') details.push(escapeHtml(str));
+                } catch (e) { }
             }
 
             return details.join('<br>') || '-';

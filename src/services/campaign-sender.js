@@ -12,9 +12,11 @@ class CampaignSender extends EventEmitter {
 
     // Start sending a campaign
     async startCampaign(campaignId, userEmail) {
+        console.log(`[CampaignSender] Loading campaign ${campaignId} for ${userEmail}`);
         const campaign = this.campaignManager.loadCampaign(campaignId);
         if (!campaign) {
-            throw new Error('Campaign not found');
+            console.error(`[CampaignSender] Failed to load campaign ${campaignId}. File may be missing or decryption failed.`);
+            throw new Error('Campaign not found or could not be loaded');
         }
 
         // Check if campaign is already running
@@ -30,9 +32,11 @@ class CampaignSender extends EventEmitter {
             sessionStatus: session?.status,
             hasSock: !!session?.sock,
             sockType: session?.sock ? typeof session.sock : 'undefined',
-            availableSessions: Array.from(this.sessions.keys())
+            availableSessions: typeof this.sessions.keys === 'function' ?
+                Array.from(this.sessions.keys()) :
+                (this.sessions.getActiveSessions ? Array.from(this.sessions.getActiveSessions().keys()) : 'N/A')
         });
-        
+
         if (!session || session.status !== 'CONNECTED' || !session.sock) {
             console.error(`Session validation failed for ${campaign.sessionId}:`, {
                 exists: !!session,
@@ -94,7 +98,7 @@ class CampaignSender extends EventEmitter {
             sessionStatus: session?.status,
             hasSock: !!session?.sock
         });
-        
+
         if (!session || session.status !== 'CONNECTED' || !session.sock) {
             console.error(`Session ${campaign.sessionId} not available or not connected`);
             this.pauseCampaign(campaignId, 'Session disconnected or not available');
@@ -103,14 +107,14 @@ class CampaignSender extends EventEmitter {
 
         // Get next batch of recipients
         const pendingRecipients = this.campaignManager.getPendingRecipients(campaignId, 1);
-        
+
         console.log(`📋 Pending recipients check:`, {
             campaignId: campaignId,
             pendingRecipientsCount: pendingRecipients.length,
             totalRecipients: campaign.recipients.length,
             recipientStatuses: campaign.recipients.map(r => ({ number: r.number, status: r.status }))
         });
-        
+
         if (pendingRecipients.length === 0) {
             console.log(`⚠️ No pending recipients found, completing campaign`);
             // Campaign completed
@@ -119,11 +123,11 @@ class CampaignSender extends EventEmitter {
         }
 
         const recipient = pendingRecipients[0];
-        
+
         try {
             // Process template
             let messageContent = this.campaignManager.processTemplate(campaign.message.content, recipient);
-            
+
             // Remove HTML tags for WhatsApp (keep line breaks)
             messageContent = messageContent
                 .replace(/<br\s*\/?>/gi, '\n')
@@ -143,26 +147,26 @@ class CampaignSender extends EventEmitter {
                         text: messageContent
                     };
                     break;
-                    
+
                 case 'image':
                     messageData = {
                         image: { url: campaign.message.mediaUrl },
-                        caption: campaign.message.mediaCaption ? 
-                            this.campaignManager.processTemplate(campaign.message.mediaCaption, recipient) : 
+                        caption: campaign.message.mediaCaption ?
+                            this.campaignManager.processTemplate(campaign.message.mediaCaption, recipient) :
                             messageContent
                     };
                     break;
-                    
+
                 case 'document':
                     messageData = {
                         document: { url: campaign.message.mediaUrl },
                         fileName: campaign.message.fileName || 'document.pdf',
-                        caption: campaign.message.mediaCaption ? 
-                            this.campaignManager.processTemplate(campaign.message.mediaCaption, recipient) : 
+                        caption: campaign.message.mediaCaption ?
+                            this.campaignManager.processTemplate(campaign.message.mediaCaption, recipient) :
                             messageContent
                     };
                     break;
-                    
+
                 default:
                     throw new Error(`Unsupported message type: ${campaign.message.type}`);
             }
@@ -174,12 +178,12 @@ class CampaignSender extends EventEmitter {
                 messageType: campaign.message.type,
                 contentLength: messageContent.length
             });
-            
+
             await session.sock.sendMessage(jid, messageData);
-            
+
             // Update recipient status
             this.campaignManager.updateRecipientStatus(campaignId, recipient.number, 'sent');
-            
+
             // Update stats
             queue.processedCount++;
             const stats = this.sendingStats.get(campaignId);
@@ -213,12 +217,12 @@ class CampaignSender extends EventEmitter {
 
         } catch (error) {
             console.error(`❌ Error sending to ${recipient.number}:`, error.message);
-            
+
             // Update recipient status with error
             this.campaignManager.updateRecipientStatus(
-                campaignId, 
-                recipient.number, 
-                'failed', 
+                campaignId,
+                recipient.number,
+                'failed',
                 error.message
             );
 
@@ -248,7 +252,7 @@ class CampaignSender extends EventEmitter {
         // Schedule next message
         if (queue.status === 'running') {
             const delay = campaign.settings.delayBetweenMessages || 3000;
-            console.log(`⏳ Waiting ${delay}ms (${delay/1000} seconds) before next message at ${new Date().toISOString()}`);
+            console.log(`⏳ Waiting ${delay}ms (${delay / 1000} seconds) before next message at ${new Date().toISOString()}`);
             setTimeout(() => {
                 console.log(`⏰ Delay complete, processing next message at ${new Date().toISOString()}`);
                 this.processQueue(campaignId);
@@ -282,7 +286,7 @@ class CampaignSender extends EventEmitter {
     async resumeCampaign(campaignId, userEmail) {
         const queue = this.activeQueues.get(campaignId);
         const campaign = this.campaignManager.loadCampaign(campaignId);
-        
+
         if (!campaign) {
             throw new Error('Campaign not found');
         }
@@ -353,14 +357,14 @@ class CampaignSender extends EventEmitter {
     async completeCampaign(campaignId) {
         const queue = this.activeQueues.get(campaignId);
         const campaign = this.campaignManager.loadCampaign(campaignId);
-        
+
         if (queue) {
             this.stopCampaign(campaignId);
         }
 
         if (campaign) {
             this.campaignManager.updateCampaignStatus(campaignId, 'completed');
-            
+
             // Log activity
             await this.activityLogger.logCampaignComplete(
                 campaign.createdBy,
@@ -395,7 +399,7 @@ class CampaignSender extends EventEmitter {
         if (retryCount > 0) {
             // Log activity
             await this.activityLogger.logCampaignRetry(userEmail, campaignId, campaign.name, retryCount);
-            
+
             // Start sending if not already running
             if (!this.activeQueues.has(campaignId)) {
                 return this.startCampaign(campaignId, userEmail);
@@ -427,7 +431,7 @@ class CampaignSender extends EventEmitter {
             queueStatus: queue ? queue.status : 'inactive',
             statistics: campaign.statistics,
             sendingStats: stats || null,
-            progress: campaign.statistics.total > 0 ? 
+            progress: campaign.statistics.total > 0 ?
                 ((campaign.statistics.sent + campaign.statistics.failed) / campaign.statistics.total) * 100 : 0
         };
     }

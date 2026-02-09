@@ -277,6 +277,16 @@ class ActivityLog {
         const result = stmt.run(daysToKeep);
         return result.changes;
     }
+
+    /**
+     * Clear all logs
+     * @returns {number} Number of deleted logs
+     */
+    static clearAll() {
+        const stmt = db.prepare('DELETE FROM activity_logs');
+        const result = stmt.run();
+        return result.changes;
+    }
 }
 
 module.exports = ActivityLog;

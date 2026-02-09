@@ -81,9 +81,14 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Activity Log</h5>
-                        <button class="btn btn-sm btn-primary" onclick="refreshActivities()">
-                            <i class="bi bi-arrow-clockwise"></i> Refresh
-                        </button>
+                        <div>
+                            <button class="btn btn-sm btn-danger me-2" onclick="clearAllActivities()">
+                                <i class="bi bi-trash"></i> Clear All
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="refreshActivities()">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -326,6 +331,27 @@
             await loadActivities();
             if (currentUserRole === 'admin') {
                 await loadActivitySummary();
+            }
+        }
+
+        async function clearAllActivities() {
+            if (!confirm('Are you sure you want to delete ALL activity logs? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/v1/activities', { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`Successfully deleted ${result.deletedCount} activity log(s)`);
+                    await refreshActivities();
+                } else {
+                    alert('Failed to clear logs: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error clearing activities:', error);
+                alert('Error clearing activities: ' + error.message);
             }
         }
 

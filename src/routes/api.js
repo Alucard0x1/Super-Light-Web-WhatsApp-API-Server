@@ -363,6 +363,33 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         res.json({ status: 'success', data: summary });
     });
 
+    // Clear all activity logs (Admin only)
+    router.delete('/activities', checkCampaignAccess, requireAdminRole, async (req, res) => {
+        try {
+            const deletedCount = ActivityLog.clearAll();
+            
+            // Log the clear action
+            ActivityLog.logUserAction(
+                req.currentUser.email,
+                'CLEAR_LOGS',
+                'activity_logs',
+                null,
+                { deletedCount }
+            );
+            
+            res.json({ 
+                status: 'success', 
+                message: `Deleted ${deletedCount} activity log(s)`,
+                deletedCount 
+            });
+        } catch (error) {
+            res.status(500).json({ 
+                status: 'error', 
+                message: error.message 
+            });
+        }
+    });
+
     // Function to check and start campaigns (shared with scheduler and API endpoints)
     async function checkAndStartScheduledCampaigns() {
         try {

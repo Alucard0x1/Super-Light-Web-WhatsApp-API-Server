@@ -140,14 +140,20 @@ class User {
     }
 
     /**
-     * Remove password from user object
+     * Remove password from user object and convert to camelCase
      * @param {object} user - User object
      * @returns {object} User without password
      */
     static _sanitize(user) {
         if (!user) return null;
-        const { password, ...sanitized } = user;
-        return sanitized;
+        const { password, created_by, created_at, last_login, is_active, ...rest } = user;
+        return {
+            ...rest,
+            createdBy: created_by,
+            createdAt: created_at,
+            lastLogin: last_login,
+            isActive: is_active === 1 || is_active === true
+        };
     }
 
     /**

@@ -14,7 +14,6 @@ let activeCampaignId = null;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async function () {
-    console.log('Campaigns page loaded');
 
     // Configure axios to include credentials (cookies) with requests
     axios.defaults.withCredentials = true;
@@ -36,7 +35,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
 
         quillEditor.on('text-change', updateMessagePreview);
-        console.log('Quill editor initialized');
     }
 
     // Clean up any existing intervals on page load
@@ -128,10 +126,8 @@ async function loadUserInfo() {
 // Load WhatsApp sessions
 async function loadSessions() {
     try {
-        console.log('Loading sessions...');
         const response = await axios.get('/api/v1/sessions');
         sessions = response.data.data || [];
-        console.log('Sessions loaded:', sessions);
 
         // Update session dropdown
         const sessionSelect = document.getElementById('sessionId');
@@ -1288,7 +1284,7 @@ function setupWebSocket() {
     ws = new WebSocket(`${protocol}//${window.location.host}`);
 
     ws.onopen = () => {
-        console.log('WebSocket connected');
+        // WebSocket connected
     };
 
     ws.onmessage = (event) => {
@@ -2401,7 +2397,6 @@ function fixTabVisibility() {
             activeTab.style.backgroundColor = '#fff';
         }
 
-        console.log('Tab visibility fixed');
     }, 500);
 }
 

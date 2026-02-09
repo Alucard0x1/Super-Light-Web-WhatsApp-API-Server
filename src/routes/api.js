@@ -374,7 +374,9 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
                 'CLEAR_LOGS',
                 'activity_logs',
                 null,
-                { deletedCount }
+                { deletedCount },
+                req.ip,
+                req.headers['user-agent']
             );
             
             res.json({ 

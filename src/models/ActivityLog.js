@@ -74,6 +74,10 @@ class ActivityLog {
         const stmt = db.prepare(sql);
         return stmt.all(...params).map(row => ({
             ...row,
+            timestamp: row.created_at,
+            userEmail: row.user_email,
+            resourceId: row.resource_id,
+            userAgent: row.user_agent,
             details: row.details ? JSON.parse(row.details) : null
         }));
     }
@@ -205,13 +209,15 @@ class ActivityLog {
     /**
      * Helper: Log campaign action
      */
-    static logCampaign(userEmail, action, campaignId, details = null) {
+    static logCampaign(userEmail, action, campaignId, details = null, ip = null, userAgent = null) {
         return this.log({
             userEmail,
             action: `CAMPAIGN_${action.toUpperCase()}`,
             resource: 'campaign',
             resourceId: campaignId,
-            details
+            details,
+            ip,
+            userAgent
         });
     }
 
@@ -254,13 +260,15 @@ class ActivityLog {
     /**
      * Helper: Log user management action
      */
-    static logUserAction(userEmail, action, resource, resourceId, details) {
+    static logUserAction(userEmail, action, resource, resourceId, details, ip, userAgent) {
         return this.log({
             userEmail,
             action,
             resource,
             resourceId,
-            details
+            details,
+            ip,
+            userAgent
         });
     }
 

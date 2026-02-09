@@ -57,6 +57,20 @@ const upload = multer({
 function initializeApi(sessions, sessionTokens, createSession, getSessionsDetails, deleteSession, log, userManager, activityLogger) {
     const { isValidId, sanitizeId } = require('../utils/validation');
 
+    // Helper to sanitize sensitive data from logs
+    const sanitizeBody = (body) => {
+        if (!body || typeof body !== 'object') return body;
+        const sanitized = { ...body };
+        const sensitiveKeys = ['password', 'token', 'access_token', 'auth', 'credit_card', 'ssn', 'email', 'phone', 'recipient', 'message', 'content', 'file'];
+
+        Object.keys(sanitized).forEach(key => {
+            if (sensitiveKeys.some(s => key.toLowerCase().includes(s))) {
+                sanitized[key] = '[REDACTED]';
+            }
+        });
+        return sanitized;
+    };
+
     // Security middlewares
     router.use(helmet());
 
@@ -541,7 +555,7 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             log(`Error creating campaign: ${error.message}`, 'SYSTEM', {
                 error: error.message,
                 stack: error.stack,
-                body: req.body
+                body: sanitizeBody(req.body)
             }, 'ERROR');
             res.status(400).json({ status: 'error', message: error.message });
         }
@@ -571,7 +585,7 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             log(`Error updating campaign ${req.params.id}: ${error.message}`, 'SYSTEM', {
                 error: error.message,
                 stack: error.stack,
-                body: req.body
+                body: sanitizeBody(req.body)
             }, 'ERROR');
             res.status(400).json({ status: 'error', message: error.message });
         }

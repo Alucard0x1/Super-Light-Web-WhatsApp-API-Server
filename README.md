@@ -19,6 +19,7 @@ A powerful, lightweight, and multi-session WhatsApp API server using the `@whisk
     -   [Authentication](#authentication)
     -   [V1 API Endpoints](#v1-api-endpoints)
     -   [Legacy API Endpoints](#legacy-api-endpoints)
+-   [Troubleshooting](#troubleshooting)
 -   [Important Notes](#important-notes)
 -   [Contributions](#contributions)
 -   [License](#license)
@@ -257,6 +258,63 @@ Your session token is returned when creating a session and also displayed in the
 | :----- | :-------------- | :----------------------------------------------- |
 | `POST` | `/send-message` | (JSON body) Send a simple text message.          |
 | `POST` | `/message`      | (Form-data body) Send a simple text message.     |
+
+## Troubleshooting
+
+### Error: Could not locate the bindings file (better-sqlite3)
+
+If you encounter an error like:
+```
+Error: Could not locate the bindings file. Tried:
+→ .../node_modules/better-sqlite3/build/better_sqlite3.node
+```
+
+This means the native SQLite module wasn't built correctly for your Node.js version.
+
+**Quick Fix: Run the automated fix script**
+```bash
+npm run fix:sqlite
+# or directly:
+node fix-sqlite3.js
+```
+
+**Manual Solutions:**
+
+**Solution 1: Rebuild the module**
+```bash
+npm rebuild better-sqlite3
+```
+
+**Solution 2: Clean install**
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Solution 3: Install build tools (if missing)**
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install build-essential python3
+npm rebuild better-sqlite3
+```
+
+**Windows:**
+```powershell
+npm install --global windows-build-tools
+npm rebuild better-sqlite3
+```
+
+**macOS:**
+```bash
+xcode-select --install
+npm rebuild better-sqlite3
+```
+
+**Solution 4: Use compatible Node.js version**
+Check the [better-sqlite3 requirements](https://github.com/WiseLibs/better-sqlite3/blob/master/docs/troubleshooting.md) for your Node.js version compatibility.
+
+---
 
 ## Important Notes
 

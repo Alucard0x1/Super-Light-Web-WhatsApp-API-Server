@@ -1566,7 +1566,8 @@
                                 appendLogEntry(logData);
                             }
                         } else if (logData.type === 'session-update') {
-                            const sessions = logData.data;
+                            // Handle both single session object and array of sessions
+                            const sessions = Array.isArray(logData.data) ? logData.data : [logData.data];
                             updateSessionCards(sessions);
                             updateApiSessionSelect(sessions);
                         }

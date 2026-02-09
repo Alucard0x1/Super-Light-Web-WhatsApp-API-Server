@@ -315,6 +315,40 @@ app.delete('/api/v1/sessions/:sessionId', (req, res) => {
     return response.success(res, { message: 'Session deleted' });
 });
 
+// QR Code endpoint - triggers reconnection to generate new QR
+app.get('/api/v1/sessions/:sessionId/qr', (req, res) => {
+    if (!req.session?.adminAuthed) {
+        return response.unauthorized(res);
+    }
+
+    const { sessionId } = req.params;
+
+    // Check if session exists in database
+    const session = Session.findById(sessionId);
+    if (!session) {
+        return response.error(res, 'Session not found', 404);
+    }
+
+    // Check if already connected
+    if (whatsappService.isConnected(sessionId)) {
+        return response.error(res, 'Session is already connected', 400);
+    }
+
+    // Disconnect if currently connecting/reconnecting
+    whatsappService.disconnect(sessionId);
+
+    // Reconnect to trigger QR generation
+    whatsappService.connect(sessionId, (id, status, detail, qr) => {
+        Session.updateStatus(id, status, detail);
+        broadcastToClients({
+            type: 'session-update',
+            data: { sessionId: id, status, detail, qr }
+        });
+    }, null);
+
+    return response.success(res, { message: 'QR code generation started' });
+});
+
 // Mount API router (Last, so it doesn't shadow explicit index.js routes)
 app.use('/api/v1', apiRouter);
 

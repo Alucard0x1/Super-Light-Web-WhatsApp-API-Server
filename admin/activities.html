@@ -274,8 +274,9 @@
         function formatAction(action) {
             // Remove common prefixes for cleaner display if needed
             let display = action.replace(/_/g, ' ');
-            if (display.startsWith('CAMPAIGN ')) display = display.substring(9);
-            if (display.startsWith('SESSION ')) display = display.substring(8);
+            const upper = display.toUpperCase();
+            if (upper.startsWith('CAMPAIGN ')) display = display.substring(9);
+            if (upper.startsWith('SESSION ')) display = display.substring(8);
             return display.replace(/\b\w/g, l => l.toUpperCase());
         }
 

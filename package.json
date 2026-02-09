@@ -11,7 +11,9 @@
     "start-production": "npm run start:prod",
     "start:prod:unix": "bash start-production.sh",
     "start:prod:windows": "start-production.bat",
-    "start:prod": "node -r dotenv/config index.js"
+    "start:prod": "node -r dotenv/config index.js",
+    "fix:sqlite": "node fix-sqlite3.js",
+    "postinstall": "npm run fix:sqlite || true"
   },
   "author": "Alucard0x1",
   "license": "MIT",

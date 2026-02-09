@@ -1407,10 +1407,8 @@ function debugCSVUpload() {
 // Load all recipient lists
 async function loadRecipientLists() {
     try {
-        console.log('Loading recipient lists...');
         const response = await axios.get('/api/v1/recipient-lists');
         recipientLists = response.data || [];
-        console.log('Recipient lists loaded:', recipientLists);
         displayRecipientLists();
 
         // Check if there's a preselected list (from "Use in Campaign" button)

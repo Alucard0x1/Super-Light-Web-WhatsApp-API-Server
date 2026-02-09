@@ -146,12 +146,14 @@ class Session {
     /**
      * Sync database with filesystem
      * Detects session folders that are not in the DB and adds them
+     * Only syncs folders containing valid WhatsApp auth data (creds.json)
      */
     static syncWithFilesystem() {
         if (!fs.existsSync(SESSION_DIR)) {
             return;
         }
 
+        const { isValidId } = require('../utils/validation');
         const entries = fs.readdirSync(SESSION_DIR, { withFileTypes: true });
         const directories = entries
             .filter(dirent => dirent.isDirectory())
@@ -165,8 +167,24 @@ class Session {
         `);
 
         let addedCount = 0;
+        let skippedCount = 0;
         for (const sessionId of directories) {
-            // Check if exists
+            // Skip invalid session IDs
+            if (!isValidId(sessionId)) {
+                console.log(`[Session] Skipping invalid session folder: ${sessionId}`);
+                skippedCount++;
+                continue;
+            }
+
+            // Only sync folders that contain actual WhatsApp auth data (creds.json)
+            const credsPath = path.join(SESSION_DIR, sessionId, 'creds.json');
+            if (!fs.existsSync(credsPath)) {
+                console.log(`[Session] Skipping folder without creds.json: ${sessionId}`);
+                skippedCount++;
+                continue;
+            }
+
+            // Check if exists in database
             const exists = this.findById(sessionId);
             if (!exists) {
                 const token = crypto.randomUUID();
@@ -174,6 +192,10 @@ class Session {
                 addedCount++;
                 console.log(`[Session] Registered orphan session from disk: ${sessionId}`);
             }
+        }
+
+        if (skippedCount > 0) {
+            console.log(`[Session] Skipped ${skippedCount} non-session folder(s)`);
         }
 
         if (addedCount > 0) {

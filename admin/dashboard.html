@@ -1881,21 +1881,15 @@
         let selectedLogs = new Set();
 
         function renderSystemLogHistory() {
-            console.log('Debug: Rendering System Log History...');
             const logContainer = document.getElementById('systemLogHistory');
             if (!logContainer) {
-                console.error('Debug: systemLogHistory element not found!');
                 return;
             }
 
             if (!window.systemLogData || window.systemLogData.length === 0) {
-                console.log('Debug: window.systemLogData is empty or undefined.');
                 logContainer.innerHTML = '<div class="text-muted text-center p-4"><i class="bi bi-inbox fs-1"></i><br>No log entries to display.</div>';
-                console.log('Debug: No log entries to render.');
                 return;
             }
-
-            console.log('Debug: Found', window.systemLogData.length, 'log entries to render.');
 
             // Create array with original indices before sorting
             const logsWithIndex = window.systemLogData.map((log, index) => ({

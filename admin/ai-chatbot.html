@@ -284,6 +284,34 @@
             .app-sidebar.show { transform: translateX(0); }
             .app-main { margin-left: 0; }
         }
+        /* Sidebar sub-menus */
+        .nav-parent {
+            cursor: pointer;
+            user-select: none;
+        }
+        .nav-parent .nav-chevron {
+            margin-left: auto;
+            transition: transform 0.25s ease;
+            font-size: 0.75rem;
+        }
+        .nav-parent.open .nav-chevron {
+            transform: rotate(90deg);
+        }
+        .sub-menu {
+            display: none;
+            flex-direction: column;
+        }
+        .sub-menu.open {
+            display: flex;
+        }
+        .sub-menu .sidebar-link {
+            padding-left: 2.2rem;
+            font-size: 0.85rem;
+            border-left: 2px solid transparent;
+        }
+        .sub-menu .sidebar-link.active {
+            border-left-color: var(--primary, #10b981);
+        }
     </style>
 </head>
 
@@ -302,18 +330,26 @@
             </div>
 
             <div class="sidebar-nav">
-                <div class="nav-section-title">Main</div>
                 <a href="/admin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
-                <a href="/admin/inbox.html" class="sidebar-link"><i class="bi bi-chat-dots-fill"></i><span>Live Inbox</span></a>
-                <a href="/admin/campaigns.html" class="sidebar-link"><i class="bi bi-send-fill"></i><span>Campaigns</span></a>
-                <a href="/admin/auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i><span>Auto Replies</span></a>
-                <a href="/admin/ai-chatbot.html" class="sidebar-link active"><i class="bi bi-cpu-fill"></i><span>AI Chatbot</span></a>
 
-                <div class="nav-section-title">Administration</div>
-                <a href="/admin/users.html" class="sidebar-link" id="nav-users" style="display: none;"><i class="bi bi-people-fill"></i><span>Users</span></a>
-                <a href="/admin/activities.html" class="sidebar-link" id="nav-activities" style="display: none;"><i class="bi bi-activity"></i><span>Activities</span></a>
+                <a href="#" class="sidebar-link nav-parent" data-target="menu-messaging" onclick="toggleSubMenu('menu-messaging', this); return false;">
+                    <i class="bi bi-chat-left-text-fill"></i><span>Messaging</span><i class="bi bi-chevron-right nav-chevron"></i>
+                </a>
+                <div class="sub-menu" id="menu-messaging">
+                    <a href="/admin/inbox.html" class="sidebar-link"><i class="bi bi-chat-dots-fill"></i><span>Live Inbox</span></a>
+                    <a href="/admin/campaigns.html" class="sidebar-link"><i class="bi bi-send-fill"></i><span>Campaigns</span></a>
+                    <a href="/admin/auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i><span>Auto Replies</span></a>
+                    <a href="/admin/ai-chatbot.html" class="sidebar-link active"><i class="bi bi-cpu-fill"></i><span>AI Chatbot</span></a>
+                </div>
 
-                <div class="nav-section-title">Resources</div>
+                <a href="#" class="sidebar-link nav-parent" data-target="menu-admin" onclick="toggleSubMenu('menu-admin', this); return false;">
+                    <i class="bi bi-gear-fill"></i><span>Administration</span><i class="bi bi-chevron-right nav-chevron"></i>
+                </a>
+                <div class="sub-menu" id="menu-admin">
+                    <a href="/admin/users.html" class="sidebar-link" id="nav-users" style="display: none;"><i class="bi bi-people-fill"></i><span>Users</span></a>
+                    <a href="/admin/activities.html" class="sidebar-link" id="nav-activities" style="display: none;"><i class="bi bi-activity"></i><span>Activities</span></a>
+                </div>
+
                 <a href="/api-documentation" class="sidebar-link"><i class="bi bi-book"></i><span>API Docs</span></a>
             </div>
 
@@ -654,6 +690,33 @@
             await fetch('/admin/logout', { method: 'POST' });
             window.location.href = '/admin/login.html';
         }
+    </script>
+    <script>
+        // Sidebar sub-menu toggling + auto-expand the group containing the current page
+        function toggleSubMenu(id, parent) {
+            const menu = document.getElementById(id);
+            if (!menu) return;
+            const isOpen = menu.classList.toggle('open');
+            if (parent) parent.classList.toggle('open', isOpen);
+            try { localStorage.setItem('nav-' + id, isOpen ? '1' : '0'); } catch (e) { }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.nav-parent').forEach(parent => {
+                const menu = document.getElementById(parent.dataset.target);
+                if (!menu) return;
+                const hasActive = menu.querySelector('.sidebar-link.active') !== null;
+                let open = hasActive;
+                if (!hasActive) {
+                    try {
+                        const saved = localStorage.getItem('nav-' + parent.dataset.target);
+                        if (saved !== null) open = saved === '1';
+                    } catch (e) { }
+                }
+                menu.classList.toggle('open', open);
+                parent.classList.toggle('open', open);
+            });
+        });
     </script>
 </body>
 </html>

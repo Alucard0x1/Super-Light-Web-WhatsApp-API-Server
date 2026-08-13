@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Replies & Bot Rules - WhatsApp API</title>
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        :root {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --sidebar-width: 280px;
+            --brand-green: #10b981;
+            --brand-green-glow: rgba(16, 185, 129, 0.2);
+            
+            --bg-app: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --header-bg: #ffffff;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-sidebar: #090d16;
+            --text-sidebar: #64748b;
+            --bg-card: #151c2c;
+            --border-card: #1e293b;
+            --header-bg: #111827;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-app);
+            color: var(--bs-body-color);
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; width: 100vw; }
+
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0;
+            z-index: 1040;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-box { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: #ffffff; }
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: white;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .brand-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+        .brand-subtitle { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+
+        .sidebar-nav { padding: 1.25rem 1rem; flex-grow: 1; overflow-y: auto; }
+        .nav-section-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #475569; font-weight: 800; margin: 1.25rem 0.75rem 0.5rem; }
+
+        .sidebar-link {
+            display: flex; align-items: center; gap: 0.85rem;
+            padding: 0.7rem 0.9rem; color: #94a3b8; text-decoration: none;
+            border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+            transition: all 0.2s ease; margin-bottom: 0.25rem;
+        }
+
+        .sidebar-link:hover { color: #f8fafc; background-color: rgba(255, 255, 255, 0.06); transform: translateX(3px); }
+        .sidebar-link.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 3.5px solid #10b981;
+        }
+
+        .sidebar-footer { padding: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.08); background-color: rgba(0, 0, 0, 0.2); }
+        .user-chip { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+        .user-avatar { width: 34px; height: 34px; border-radius: 50%; background-color: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+        .user-name { color: #f1f5f9; font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .app-main { margin-left: var(--sidebar-width); flex-grow: 1; min-height: 100vh; display: flex; flex-direction: column; transition: margin-left 0.3s ease; }
+        .app-header {
+            height: 70px; background-color: var(--header-bg); border-bottom: 1px solid var(--border-card);
+            padding: 0 2rem; display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 1020; backdrop-filter: blur(10px);
+        }
+
+        .header-title-box { display: flex; align-items: center; gap: 1rem; }
+        .header-title { font-size: 1.25rem; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+        .content-area { padding: 2rem; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+        .card { border: 1px solid var(--border-card); background-color: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03); }
+        .card-header { background-color: transparent !important; border-bottom: 1px solid var(--border-card); padding: 1.25rem 1.5rem; font-weight: 700; color: var(--bs-body-color) !important; }
+        .btn-primary { background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; font-weight: 700; box-shadow: 0 4px 12px var(--brand-green-glow); }
+        .form-control, .form-select { border-radius: 10px; padding: 0.6rem 0.9rem; border-color: var(--border-card); font-size: 0.9rem; }
+
+        @media (max-width: 991.98px) {
+            .app-sidebar { transform: translateX(-100%); }
+            .app-sidebar.show { transform: translateX(0); }
+            .app-main { margin-left: 0; }
+            .sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 1030; display: none; }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="/admin/dashboard.html" class="brand-box">
+                    <div class="brand-icon"><i class="bi bi-whatsapp"></i></div>
+                    <div>
+                        <div class="brand-title">WA Gateway</div>
+                        <div class="brand-subtitle">API Control v3.2</div>
+                    </div>
+                </a>
+                <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Core Modules</div>
+                <a href="/admin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+                <a href="/admin/campaigns.html" class="sidebar-link"><i class="bi bi-send-fill"></i><span>Campaigns</span></a>
+                <a href="/admin/auto-replies.html" class="sidebar-link active"><i class="bi bi-robot"></i><span>Auto Replies</span></a>
+                <a href="/admin/ai-chatbot.html" class="sidebar-link"><i class="bi bi-cpu-fill"></i><span>AI Chatbot</span></a>
+                <a href="/admin/inbox.html" class="sidebar-link"><i class="bi bi-chat-dots-fill"></i><span>Live Inbox</span></a>
+                <a href="/admin/users.html" class="sidebar-link" id="nav-users"><i class="bi bi-people-fill"></i><span>Users</span></a>
+                <a href="/admin/activities.html" class="sidebar-link" id="nav-activities"><i class="bi bi-activity"></i><span>Activities</span></a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUser">Loading...</div>
+                        <div class="small text-muted">Admin Account</div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-actions">
+                    <button class="btn btn-sm btn-outline-light w-50" id="theme-toggler" type="button"><i class="bi bi-sun-fill"></i> Mode</button>
+                    <button class="btn btn-sm btn-outline-danger w-50" onclick="logout()" type="button"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <header class="app-header">
+                <div class="header-title-box">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarOpenBtn"><i class="bi bi-list fs-5"></i></button>
+                    <h1 class="header-title">Auto-Responder Rules</h1>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Sandbox Testing Card -->
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header"><h5 class="mb-0 fw-bold"><i class="bi bi-magic text-primary me-2"></i>Keyword Match Sandbox</h5></div>
+                    <div class="card-body">
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small text-muted mb-1">Target Session</label>
+                                <select class="form-select" id="sandboxSessionSelect" onchange="testAutoReplyMatch()">
+                                    <option value="">All Sessions (Global)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-bold small text-muted mb-1">Test Message</label>
+                                <input type="text" class="form-control" id="testMessageInput" placeholder="Type a test incoming message (e.g. PRICE or HELP)...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label d-none d-md-block">&nbsp;</label>
+                                <button class="btn btn-outline-primary w-100" onclick="testAutoReplyMatch()"><i class="bi bi-play-circle me-1"></i> Test Match</button>
+                            </div>
+                        </div>
+                        <div id="testMatchResult" class="mt-3"></div>
+                    </div>
+                </div>
+
+                <!-- Auto Reply Rules Card -->
+                <div class="card shadow-sm">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-robot text-primary me-2"></i>Auto-Reply Rules</h5>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addRuleModal">
+                            <i class="bi bi-plus-lg me-1"></i> Add Rule
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Keyword</th>
+                                        <th>Match Type</th>
+                                        <th>Response Payload</th>
+                                        <th>Session Scope</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rulesTableBody">
+                                    <tr><td colspan="6" class="text-center p-4">Loading rules...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Rule Modal -->
+    <div class="modal fade" id="addRuleModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Add Auto-Reply Rule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="addRuleForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Session Scope</label>
+                            <select class="form-select" id="ruleSessionId">
+                                <option value="">All Sessions (Global)</option>
+                            </select>
+                            <div class="form-text">Target a specific session or apply globally to all sessions.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Keyword / Pattern *</label>
+                            <input type="text" class="form-control" id="ruleKeyword" placeholder="e.g. price, help, info" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Match Type</label>
+                            <select class="form-select" id="ruleMatchType">
+                                <option value="exact">Exact Match</option>
+                                <option value="contains">Contains Keyword</option>
+                                <option value="startsWith">Starts With Keyword</option>
+                                <option value="regex">Regular Expression (Regex)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Auto-Reply Text Body *</label>
+                            <textarea class="form-control" id="rulePayload" rows="4" placeholder="Hello! Thank you for contacting us. Here is our product menu..." required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create Rule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', () => { appSidebar.classList.add('show'); sidebarOverlay.classList.add('show'); });
+        if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+
+        const themeToggler = document.getElementById('theme-toggler');
+        function initTheme() {
+            const savedTheme = localStorage.getItem('app-theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            if (themeToggler) {
+                themeToggler.innerHTML = savedTheme === 'dark' 
+                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
+                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
+            }
+        }
+
+        if (themeToggler) {
+            themeToggler.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('app-theme', newTheme);
+                initTheme();
+            });
+        }
+        initTheme();
+
+        let rules = [];
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/admin/me');
+                if (!res.ok) { window.location.href = '/admin/login.html'; return; }
+                const result = await res.json();
+                const user = result.data;
+                document.getElementById('currentUser').textContent = `${user.email}`;
+                if (document.getElementById('userAvatar')) {
+                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+                }
+
+                if (user.role === 'admin') {
+                    const uNav = document.getElementById('nav-users') || document.getElementById('usersNavItem');
+                    const aNav = document.getElementById('nav-activities') || document.getElementById('activitiesNavItem');
+                    if (uNav) uNav.style.display = 'flex';
+                    if (aNav) aNav.style.display = 'flex';
+                }
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function loadSessions() {
+            try {
+                const res = await fetch('/api/v1/sessions');
+                const result = await res.json();
+                const sessions = Array.isArray(result) ? result : (result.data || []);
+                
+                const ruleSelect = document.getElementById('ruleSessionId');
+                const sandboxSelect = document.getElementById('sandboxSessionSelect');
+                
+                let options = '<option value="">All Sessions (Global)</option>';
+                sessions.forEach(s => {
+                    options += `<option value="${escapeHtml(s.id)}">${escapeHtml(s.id)} (${s.status})</option>`;
+                });
+                
+                ruleSelect.innerHTML = options;
+                sandboxSelect.innerHTML = options;
+            } catch (err) { console.error('Failed to load sessions:', err); }
+        }
+
+        async function loadRules() {
+            try {
+                const res = await fetch('/api/v1/auto-replies');
+                const result = await res.json();
+                rules = result.data || [];
+                renderRulesTable();
+            } catch (err) {
+                document.getElementById('rulesTableBody').innerHTML = `<tr><td colspan="6" class="text-center text-danger">Error loading rules</td></tr>`;
+            }
+        }
+
+        function renderRulesTable() {
+            const tbody = document.getElementById('rulesTableBody');
+            if (rules.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No auto-reply rules created yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = rules.map(rule => `
+                <tr>
+                    <td><strong class="font-monospace text-primary">${escapeHtml(rule.keyword)}</strong></td>
+                    <td><span class="badge bg-secondary">${escapeHtml(rule.match_type)}</span></td>
+                    <td><div class="text-truncate" style="max-width: 250px;">${escapeHtml(rule.response_payload)}</div></td>
+                    <td><span class="badge bg-info">${rule.session_id ? escapeHtml(rule.session_id) : 'All Sessions'}</span></td>
+                    <td><span class="badge bg-${rule.is_active ? 'success' : 'secondary'}">${rule.is_active ? 'Active' : 'Inactive'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteRule('${rule.id}')"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function deleteRule(id) {
+            if (!confirm('Are you sure you want to delete this auto-reply rule?')) return;
+            try {
+                const res = await fetch(`/api/v1/auto-replies/${id}`, { method: 'DELETE' });
+                if (res.ok) loadRules();
+            } catch (err) { alert('Failed to delete rule'); }
+        }
+
+        document.getElementById('addRuleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const sessionId = document.getElementById('ruleSessionId').value || null;
+            const keyword = document.getElementById('ruleKeyword').value.trim();
+            const matchType = document.getElementById('ruleMatchType').value;
+            const responsePayload = document.getElementById('rulePayload').value.trim();
+
+            try {
+                const res = await fetch('/api/v1/auto-replies', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, keyword, matchType, responsePayload })
+                });
+
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('addRuleModal')).hide();
+                    document.getElementById('addRuleForm').reset();
+                    loadRules();
+                } else {
+                    alert('Failed to create auto-reply rule.');
+                }
+            } catch (err) {
+                alert('Error creating rule: ' + err.message);
+            }
+        });
+
+        function testAutoReplyMatch() {
+            const input = document.getElementById('testMessageInput').value.trim();
+            const selectedSession = document.getElementById('sandboxSessionSelect').value;
+            const resultDiv = document.getElementById('testMatchResult');
+            if (!input) {
+                resultDiv.innerHTML = '<div class="alert alert-warning mb-0">Please type a test message.</div>';
+                return;
+            }
+
+            const matched = rules.find(rule => {
+                if (!rule.is_active) return false;
+                if (rule.session_id && selectedSession && rule.session_id !== selectedSession) return false;
+
+                const kw = rule.keyword.trim().toLowerCase();
+                const text = input.toLowerCase();
+                if (rule.match_type === 'exact') return text === kw;
+                if (rule.match_type === 'contains') return text.includes(kw);
+                if (rule.match_type === 'startsWith') return text.startsWith(kw);
+                if (rule.match_type === 'regex') {
+                    try { return new RegExp(rule.keyword, 'i').test(input); } catch(e){ return false; }
+                }
+                return false;
+            });
+
+            if (matched) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success mb-0 shadow-sm">
+                        <i class="bi bi-check-circle-fill me-2 text-success"></i><strong>Matched Rule:</strong> "${escapeHtml(matched.keyword)}" (${matched.match_type})
+                        <span class="badge bg-info ms-2">${matched.session_id ? escapeHtml(matched.session_id) : 'Global'}</span>
+                        <hr class="my-2">
+                        <strong>Reply Output:</strong> ${escapeHtml(matched.response_payload)}
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-danger mb-0 shadow-sm"><i class="bi bi-x-circle-fill me-2 text-danger"></i>No active auto-reply rule matched this input for session "${selectedSession || 'All Sessions'}".</div>`;
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/admin/logout', { method: 'POST' });
+                window.location.href = '/admin/login.html';
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        checkAuth().then(() => {
+            loadSessions();
+            loadRules();
+        });
+    </script>
+</body>
+</html>

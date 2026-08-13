@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Gateway Dashboard</title>
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        :root {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --sidebar-width: 280px;
+            --brand-green: #10b981;
+            --brand-green-hover: #059669;
+            --brand-green-glow: rgba(16, 185, 129, 0.2);
+            
+            /* Light mode tokens */
+            --bg-app: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --text-sidebar-active: #ffffff;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --header-bg: #ffffff;
+            --text-muted-custom: #64748b;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-sidebar: #090d16;
+            --text-sidebar: #64748b;
+            --text-sidebar-active: #38bdf8;
+            --bg-card: #151c2c;
+            --border-card: #1e293b;
+            --header-bg: #111827;
+            --text-muted-custom: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-app);
+            color: var(--bs-body-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        /* App Layout Container */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Styling */
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 1040;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: white;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .brand-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .brand-subtitle {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+
+        .sidebar-nav {
+            padding: 1.25rem 1rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .nav-section-title {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #475569;
+            font-weight: 800;
+            margin: 1.25rem 0.75rem 0.5rem;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.7rem 0.9rem;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-link i {
+            font-size: 1.1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .sidebar-link:hover {
+            color: #f8fafc;
+            background-color: rgba(255, 255, 255, 0.06);
+            transform: translateX(3px);
+        }
+
+        .sidebar-link.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 3.5px solid #10b981;
+        }
+
+        .sidebar-link.sub-link {
+            font-size: 0.83rem;
+            padding-left: 1.1rem;
+            color: #64748b;
+        }
+
+        .sidebar-link.sub-link:hover {
+            color: #38bdf8;
+        }
+
+        .sidebar-footer {
+            padding: 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .user-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .user-info {
+            overflow: hidden;
+        }
+
+        .user-name {
+            color: #f1f5f9;
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar-footer-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Main Content View */
+        .app-main {
+            margin-left: var(--sidebar-width);
+            flex-grow: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* Header Bar */
+        .app-header {
+            height: 70px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-card);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-title-box {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.02em;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.75rem;
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse-ring 1.8s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .content-area {
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Card Revamp */
+        .card {
+            border: 1px solid var(--border-card);
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-header {
+            background-color: transparent !important;
+            border-bottom: 1px solid var(--border-card);
+            padding: 1.25rem 1.5rem;
+            font-weight: 700;
+            color: var(--bs-body-color) !important;
+        }
+
+        .card-header h5 {
+            font-weight: 800;
+            letter-spacing: -0.01em;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Buttons & Controls */
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            font-weight: 700;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px var(--brand-green-glow);
+        }
+
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+            border-color: var(--border-card);
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Live Terminal Revamp */
+        .terminal-toolbar {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-bottom: none;
+            border-radius: 14px 14px 0 0;
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .log-box {
+            height: 480px;
+            background-color: #0b0f17;
+            color: #e2e8f0;
+            font-family: var(--font-mono);
+            padding: 1.25rem;
+            overflow-y: auto;
+            border-radius: 0 0 14px 14px;
+            font-size: 0.84rem;
+            line-height: 1.6;
+            border: 1px solid #334155;
+        }
+
+        .log-entry {
+            display: flex;
+            margin-bottom: 0.25rem;
+            border-left: 3px solid transparent;
+            padding-left: 0.6rem;
+            border-radius: 2px;
+        }
+
+        .log-entry:hover {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+
+        .log-time { color: #64748b; margin-right: 0.75rem; flex-shrink: 0; }
+        .log-context { color: #38bdf8; font-weight: 600; margin-right: 0.75rem; cursor: pointer; }
+        .log-context:hover { text-decoration: underline; }
+        .log-level { margin-right: 0.75rem; font-weight: bold; width: 50px; text-align: center; border-radius: 4px; font-size: 0.7rem; padding: 0.1rem 0; }
+        .lvl-info-badge { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .lvl-warn-badge { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .lvl-error-badge { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .lvl-debug-badge { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
+
+        .terminal-search {
+            flex-grow: 1;
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #f8fafc;
+            padding: 0.3rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        .terminal-filter {
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #f1f5f9;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 991.98px) {
+            .app-sidebar {
+                transform: translateX(-100%);
+            }
+            .app-sidebar.show {
+                transform: translateX(0);
+            }
+            .app-main {
+                margin-left: 0;
+            }
+            .sidebar-overlay {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 1030;
+                display: none;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+
+        /* QR Code display styling */
+        .qr-code {
+            width: 220px;
+            height: 220px;
+            border: 1px solid var(--border-card);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            background: #ffffff;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Log Data Initialization -->
+    <script>
+        window.systemLogData = [];
+    </script>
+
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="/admin/dashboard.html" class="brand-box">
+                    <div class="brand-icon">
+                        <i class="bi bi-whatsapp"></i>
+                    </div>
+                    <div>
+                        <div class="brand-title">WA Gateway</div>
+                        <div class="brand-subtitle">API Control v3.2</div>
+                    </div>
+                </a>
+                <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Core Modules</div>
+                <a href="/admin/dashboard.html" class="sidebar-link active">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/campaigns.html" class="sidebar-link">
+                    <i class="bi bi-send-fill"></i>
+                    <span>Campaigns</span>
+                </a>
+                <a href="/admin/auto-replies.html" class="sidebar-link">
+                    <i class="bi bi-robot"></i>
+                    <span>Auto Replies</span>
+                </a>
+                <a href="/admin/ai-chatbot.html" class="sidebar-link">
+                    <i class="bi bi-cpu-fill"></i>
+                    <span>AI Chatbot</span>
+                </a>
+                <a href="/admin/inbox.html" class="sidebar-link">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Live Inbox</span>
+                </a>
+                <a href="/admin/users.html" class="sidebar-link" id="nav-users" style="display: none;">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Users</span>
+                </a>
+                <a href="/admin/activities.html" class="sidebar-link" id="nav-activities" style="display: none;">
+                    <i class="bi bi-activity"></i>
+                    <span>Activities</span>
+                </a>
+
+                <div class="nav-section-title">Dashboard Jump</div>
+                <a href="#session-management" class="sidebar-link sub-link">
+                    <i class="bi bi-device-hdd"></i>
+                    <span>Sessions</span>
+                </a>
+                <a href="#api-control" class="sidebar-link sub-link">
+                    <i class="bi bi-sliders"></i>
+                    <span>API Control</span>
+                </a>
+                <a href="#api-reference" class="sidebar-link sub-link">
+                    <i class="bi bi-code-slash"></i>
+                    <span>cURL Examples</span>
+                </a>
+                <a href="#logging" class="sidebar-link sub-link">
+                    <i class="bi bi-terminal-fill"></i>
+                    <span>Live Terminal</span>
+                </a>
+                <a href="#system-log-history" class="sidebar-link sub-link">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Log History</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUser">Loading...</div>
+                        <div class="small text-muted">Admin Account</div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-actions">
+                    <button class="btn btn-sm btn-outline-light w-50" id="theme-toggler" type="button" title="Toggle Theme">
+                        <i class="bi bi-sun-fill"></i> Mode
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger w-50" id="logout-btn" type="button">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content View -->
+        <main class="app-main">
+            <!-- Top Header Bar -->
+            <header class="app-header">
+                <div class="header-title-box">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarOpenBtn">
+                        <i class="bi bi-list fs-5"></i>
+                    </button>
+                    <h1 class="header-title">WhatsApp Gateway Control</h1>
+                </div>
+
+                <div class="d-flex align-items-center gap-3">
+                    <div class="status-pill">
+                        <span class="pulse-dot"></span>
+                        <span>API Server Live</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Session Management Section -->
+                <section id="session-management" class="mb-5">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <h5 class="mb-0"><i class="bi bi-device-hdd text-primary me-2"></i>Session Management</h5>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="text" id="sessionIdInput" class="form-control" placeholder="Create New Session ID" style="max-width: 250px;">
+                                <button id="createSessionBtn" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Create</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="sessions-container">
+                                <!-- Sessions dynamically rendered here -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- API Control Center Section -->
+                <section id="api-control" class="mb-5">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-sliders text-primary me-2"></i>API Control Center</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                <div class="col-lg-4">
+                                    <div class="mb-3">
+                                        <label for="api-session-id" class="form-label fw-bold">Active Session</label>
+                                        <select class="form-select" id="api-session-id"></select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="api-recipient" class="form-label fw-bold">Recipient</label>
+                                        <input type="text" class="form-control" id="api-recipient" placeholder="Phone (e.g. 62812345678) or Group ID">
+                                    </div>
+                                </div>
+                                <div class="col-lg-8">
+                                    <ul class="nav nav-pills mb-3" id="api-tabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-panel" type="button" role="tab"><i class="bi bi-chat-text-fill me-1"></i> Text</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="image-tab" data-bs-toggle="tab" data-bs-target="#image-panel" type="button" role="tab"><i class="bi bi-image-fill me-1"></i> Image</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="document-tab" data-bs-toggle="tab" data-bs-target="#document-panel" type="button" role="tab"><i class="bi bi-file-earmark-arrow-up-fill me-1"></i> Document</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="combo-tab" data-bs-toggle="tab" data-bs-target="#combo-panel" type="button" role="tab"><i class="bi bi-collection-fill me-1"></i> Combo Payload</button>
+                                        </li>
+                                    </ul>
+                                    <div class="tab-content" id="api-tab-content">
+                                        <!-- Text Panel -->
+                                        <div class="tab-pane fade show active" id="text-panel" role="tabpanel">
+                                            <div class="mb-3">
+                                                <textarea class="form-control" id="text-message" rows="4" placeholder="Your text message here..."></textarea>
+                                            </div>
+                                            <button class="btn btn-primary" onclick="sendTextMessage(this)"><i class="bi bi-send-fill me-1"></i> Send Text</button>
+                                        </div>
+
+                                        <!-- Image Panel -->
+                                        <div class="tab-pane fade" id="image-panel" role="tabpanel">
+                                            <input type="text" class="form-control mb-2" id="image-caption" placeholder="Optional caption...">
+                                            <input type="text" class="form-control mb-2" id="image-url" placeholder="Image URL (e.g., https://...)">
+                                            <div class="text-center text-muted my-1"><small>OR</small></div>
+                                            <input class="form-control mb-2" type="file" id="image-upload" accept="image/*">
+                                            <div id="image-preview" class="mt-2" style="max-width: 200px;"></div>
+                                            <button class="btn btn-primary mt-3" onclick="sendImageMessage(this)"><i class="bi bi-send-fill me-1"></i> Send Image</button>
+                                        </div>
+
+                                        <!-- Document Panel -->
+                                        <div class="tab-pane fade" id="document-panel" role="tabpanel">
+                                            <input type="text" class="form-control mb-2" id="document-url" placeholder="Document URL (e.g., https://...)">
+                                            <div class="text-center text-muted my-1"><small>OR</small></div>
+                                            <input class="form-control mb-2" type="file" id="document-upload">
+                                            <button class="btn btn-primary mt-3" onclick="sendDocumentMessage(this)"><i class="bi bi-send-fill me-1"></i> Send Document</button>
+                                        </div>
+
+                                        <!-- Combo Panel -->
+                                        <div class="tab-pane fade" id="combo-panel" role="tabpanel">
+                                            <div class="alert alert-info mb-3">
+                                                <i class="bi bi-info-circle me-1"></i> Send multiple message types in a single API request payload.
+                                            </div>
+
+                                            <div class="border rounded p-3 mb-3">
+                                                <h6 class="text-primary mb-2"><i class="bi bi-chat-text-fill me-1"></i> Text Message</h6>
+                                                <textarea class="form-control" id="combo-text-message" rows="3" placeholder="Your text message..."></textarea>
+                                            </div>
+
+                                            <div class="border rounded p-3 mb-3">
+                                                <h6 class="text-primary mb-2"><i class="bi bi-image-fill me-1"></i> Image</h6>
+                                                <input type="text" class="form-control mb-2" id="combo-image-caption" placeholder="Image caption (optional)...">
+                                                <input type="text" class="form-control mb-2" id="combo-image-url" placeholder="Image URL (e.g., https://...)">
+                                                <div class="text-center text-muted my-1"><small>OR</small></div>
+                                                <input class="form-control mb-2" type="file" id="combo-image-upload" accept="image/*">
+                                                <div id="combo-image-preview" class="mt-2" style="max-width: 200px;"></div>
+                                            </div>
+
+                                            <div class="border rounded p-3 mb-3">
+                                                <h6 class="text-primary mb-2"><i class="bi bi-file-earmark-arrow-up-fill me-1"></i> Document</h6>
+                                                <input type="text" class="form-control mb-2" id="combo-document-url" placeholder="Document URL (e.g., https://...)">
+                                                <div class="text-center text-muted my-1"><small>OR</small></div>
+                                                <input class="form-control mb-2" type="file" id="combo-document-upload">
+                                                <input type="text" class="form-control mb-2" id="combo-document-filename" placeholder="Filename (optional, e.g., report.pdf)">
+                                            </div>
+
+                                            <button class="btn btn-primary btn-lg w-100" onclick="sendComboMessage(this)">
+                                                <i class="bi bi-send-fill me-1"></i> Send All Messages
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="my-4">
+                            <h6 class="fw-bold"><i class="bi bi-terminal me-2"></i>API Usage Example (cURL)</h6>
+                            <pre><code id="api-usage-example" class="bg-body-tertiary p-3 rounded d-block" style="white-space: pre-wrap; font-family: var(--font-mono); font-size: 0.85rem;">Select an option above to see usage...</code></pre>
+                            <div id="api-response" class="mt-3"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- API Reference & cURL Commands Section -->
+                <section id="api-reference" class="mb-5">
+                    <div class="card shadow-sm">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-code-slash text-primary me-2"></i>API Reference & Example cURL Commands</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="nav nav-tabs mb-3" id="curlExampleTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="curl-sessions-tab" data-bs-toggle="tab" data-bs-target="#curl-sessions" type="button" role="tab">Sessions</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="curl-text-tab" data-bs-toggle="tab" data-bs-target="#curl-text" type="button" role="tab">Text</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="curl-text-image-tab" data-bs-toggle="tab" data-bs-target="#curl-text-image" type="button" role="tab">Text + Image</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="curl-text-image-doc-tab" data-bs-toggle="tab" data-bs-target="#curl-text-image-doc" type="button" role="tab">Text + Image + Doc</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="curl-text-doc-tab" data-bs-toggle="tab" data-bs-target="#curl-text-doc" type="button" role="tab">Text + Doc</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="curl-formatting-tab" data-bs-toggle="tab" data-bs-target="#curl-formatting" type="button" role="tab">Formatting</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="curl-webhook-tab" data-bs-toggle="tab" data-bs-target="#curl-webhook" type="button" role="tab">Webhook</button>
+                                </li>
+                            </ul>
+                            <div class="tab-content" id="curlExampleTabsContent">
+                                <div class="tab-pane fade show active" id="curl-sessions" role="tabpanel">
+                                    <div class="mb-3">
+                                        <strong>Create Session</strong>
+                                        <pre><code id="curl-create-session">curl -X POST "http://localhost:3000/api/v1/sessions" \
+-H "X-Master-Key: YOUR_MASTER_API_KEY" \
+-H "Content-Type: application/json" \
+-d '{ "sessionId": "myNewSession" }'</code></pre>
+                                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-create-session', this)">Copy</button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong>List All Sessions</strong>
+                                        <pre><code id="curl-list-sessions">curl -X GET "http://localhost:3000/api/v1/sessions"</code></pre>
+                                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-list-sessions', this)">Copy</button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong>Delete Session</strong>
+                                        <pre><code id="curl-delete-session">curl -X DELETE "http://localhost:3000/api/v1/sessions/mySession" \
+-H "Authorization: Bearer YOUR_SESSION_TOKEN"</code></pre>
+                                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-delete-session', this)">Copy</button>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="curl-text" role="tabpanel">
+                                    <pre><code id="curl-send-text">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{ "recipient_type": "individual", "to": "6281234567890", "type": "text", "text": { "body": "Hello from API!" } }'</code></pre>
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text', this)">Copy</button>
+                                </div>
+                                <div class="tab-pane fade" id="curl-text-image" role="tabpanel">
+                                    <pre><code id="curl-send-text-image">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{ "recipient_type": "individual", "to": "6281234567890", "type": "image", "image": { "link": "https://picsum.photos/200", "caption": "Test Image" } }'</code></pre>
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text-image', this)">Copy</button>
+                                </div>
+                                <div class="tab-pane fade" id="curl-text-image-doc" role="tabpanel">
+                                    <pre><code id="curl-send-text-image-doc">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '[{ "recipient_type": "individual", "to": "6281234567890", "type": "text", "text": { "body": "Image and document inside!" } }, { "recipient_type": "individual", "to": "6281234567890", "type": "image", "image": { "link": "https://picsum.photos/200" } }]'</code></pre>
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text-image-doc', this)">Copy</button>
+                                </div>
+                                <div class="tab-pane fade" id="curl-text-doc" role="tabpanel">
+                                    <pre><code id="curl-send-text-doc">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '[{ "recipient_type": "individual", "to": "6281234567890", "type": "document", "document": { "link": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf", "filename": "doc.pdf" } }]'</code></pre>
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-text-doc', this)">Copy</button>
+                                </div>
+                                <div class="tab-pane fade" id="curl-formatting" role="tabpanel">
+                                    <pre><code id="curl-send-formatting">curl -X POST "http://localhost:3000/api/v1/messages?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{ "recipient_type": "individual", "to": "6281234567890", "type": "text", "text": { "body": "Hello!\n*Bold text*\nhttps://example.com" } }'</code></pre>
+                                    <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-send-formatting', this)">Copy</button>
+                                </div>
+                                <div class="tab-pane fade" id="curl-webhook" role="tabpanel">
+                                    <div class="mb-3">
+                                        <strong>Set Webhook</strong>
+                                        <pre><code id="curl-set-webhook">curl -X POST "http://localhost:3000/api/v1/webhook" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{ "sessionId": "YOUR_SESSION_ID", "url": "https://your-domain.com/webhook" }'</code></pre>
+                                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-set-webhook', this)">Copy</button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong>Get Webhook</strong>
+                                        <pre><code id="curl-get-webhook">curl -X GET "http://localhost:3000/api/v1/webhook?sessionId=YOUR_SESSION_ID" \
+-H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+                                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-get-webhook', this)">Copy</button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <strong>Delete Webhook</strong>
+                                        <pre><code id="curl-delete-webhook">curl -X DELETE "http://localhost:3000/api/v1/webhook" \
+-H "Authorization: Bearer YOUR_TOKEN" \
+-H "Content-Type: application/json" \
+-d '{ "sessionId": "YOUR_SESSION_ID" }'</code></pre>
+                                        <button class="btn btn-sm btn-outline-secondary mb-2" onclick="copyCurl('curl-delete-webhook', this)">Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Live Terminal Section -->
+                <section id="logging" class="mb-5">
+                    <div class="card shadow-sm border-0 bg-transparent">
+                        <div class="terminal-toolbar">
+                            <div class="d-flex align-items-center me-2">
+                                <span class="pulse-dot me-2"></span>
+                                <span class="text-light fw-bold small">LIVE TERMINAL</span>
+                            </div>
+
+                            <select id="log-session-filter" class="terminal-filter" style="max-width: 150px;">
+                                <option value="all">All Sessions</option>
+                                <option value="SYSTEM">SYSTEM</option>
+                            </select>
+
+                            <select id="log-level-filter" class="terminal-filter">
+                                <option value="all">All Levels</option>
+                                <option value="INFO">Info</option>
+                                <option value="WARN">Warnings</option>
+                                <option value="ERROR">Errors</option>
+                            </select>
+
+                            <input type="text" id="log-search" class="terminal-search" placeholder="Search live stream logs...">
+
+                            <div class="btn-group">
+                                <button id="pause-logs-btn" class="btn btn-sm btn-outline-light border-secondary">
+                                    <i class="bi bi-pause-fill"></i> Pause
+                                </button>
+                                <button id="clear-logs-btn" class="btn btn-sm btn-outline-light border-secondary">
+                                    <i class="bi bi-trash"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div id="log-box" class="log-box">
+                            <div class="log-entry level-info">
+                                <span class="log-msg">Connecting to live feed...</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- System Log History Section -->
+                <section id="system-log-history" class="mb-5">
+                    <div class="card shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-clock-history text-primary me-2"></i>System Log History</h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="toggleBulkSelect()" id="bulkSelectBtn">
+                                    <i class="bi bi-check-square"></i> Select Entries
+                                </button>
+                                <div id="bulkActions" class="d-inline-block d-none ms-2">
+                                    <button class="btn btn-sm btn-danger me-1" onclick="batchDeleteLogs()" id="batchDeleteBtn">
+                                        <i class="bi bi-trash"></i> Delete Selected
+                                    </button>
+                                    <button class="btn btn-sm btn-secondary" onclick="toggleBulkSelect()" id="cancelBulkSelectBtn">Cancel</button>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary ms-2" onclick="exportLogs()"><i class="bi bi-download"></i> Export</button>
+                                <button class="btn btn-sm btn-outline-danger ms-2" onclick="clearAllLogs()"><i class="bi bi-trash"></i> Clear History</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="systemLogHistory">
+                                <!-- Log history entries dynamically rendered here -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Image Lightbox Modal -->
+    <div class="modal fade" id="imageLightbox" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content bg-transparent border-0">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center pt-0">
+                    <img id="lightboxImage" src="" class="img-fluid rounded shadow" style="max-height: 80vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts section -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="/admin/js/qrcode.min.js"></script>
+    <script>
+        function sanitize(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+        window.sanitize = sanitize;
+
+        // Sidebar Toggle logic
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function openSidebar() {
+            appSidebar.classList.add('show');
+            sidebarOverlay.classList.add('show');
+        }
+
+        function closeSidebar() {
+            appSidebar.classList.remove('show');
+            sidebarOverlay.classList.remove('show');
+        }
+
+        if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', openSidebar);
+        if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeSidebar);
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
+
+        // Theme Toggle logic
+        const themeToggler = document.getElementById('theme-toggler');
+        function initTheme() {
+            const savedTheme = localStorage.getItem('app-theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            updateThemeTogglerIcon(savedTheme);
+        }
+
+        function updateThemeTogglerIcon(theme) {
+            if (themeToggler) {
+                themeToggler.innerHTML = theme === 'dark' 
+                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
+                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
+            }
+        }
+
+        if (themeToggler) {
+            themeToggler.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('app-theme', newTheme);
+                updateThemeTogglerIcon(newTheme);
+            });
+        }
+        initTheme();
+
+        // State variables
+        let currentUserEmail = '';
+        let currentUserRole = '';
+        const sessionsContainer = document.getElementById('sessions-container');
+        const sessionIdInput = document.getElementById('sessionIdInput');
+        const createSessionBtn = document.getElementById('createSessionBtn');
+        const sessionsData = new Map();
+
+        const apiSessionIdSelect = document.getElementById('api-session-id');
+        const apiRecipientInput = document.getElementById('api-recipient');
+        const apiUsageExample = document.getElementById('api-usage-example');
+        const apiResponseDiv = document.getElementById('api-response');
+        const imageUploadInput = document.getElementById('image-upload');
+        const imagePreview = document.getElementById('image-preview');
+
+        // Terminal UI Elements & State
+        const logBox = document.getElementById('log-box');
+        const logSearchInput = document.getElementById('log-search');
+        const logLevelFilter = document.getElementById('log-level-filter');
+        const logSessionFilter = document.getElementById('log-session-filter');
+        const pauseLogsBtn = document.getElementById('pause-logs-btn');
+        const clearLogsBtn = document.getElementById('clear-logs-btn');
+
+        let logsPaused = false;
+        let logBuffer = [];
+        const MAX_LOGS = 500;
+        let allLogs = [];
+
+        function createSessionCard(session) {
+            const card = document.createElement('div');
+            card.className = 'col-md-6 mb-4';
+            card.id = `session-${session.sessionId}`;
+
+            const ownerInfo = session.owner ? `<small class="text-muted d-block mb-2">Owner: ${sanitize(session.owner)}</small>` : '';
+            const canDelete = currentUserRole === 'admin' || session.owner === currentUserEmail;
+            const deleteButton = canDelete ?
+                `<button class="btn btn-sm btn-outline-danger w-100 mb-2" onclick="deleteSession('${session.sessionId}')"><i class="bi bi-trash me-1"></i>Delete</button>` : '';
+
+            card.innerHTML = `
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">
+                            <span><i class="bi bi-whatsapp text-success me-2"></i>Session:</span>
+                        </h5>
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="text" class="form-control fw-bold" id="sessionid-${session.sessionId}" value="${session.sessionId}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('sessionid-${session.sessionId}', this)"><i class="bi bi-clipboard"></i></button>
+                        </div>
+                        ${ownerInfo}
+                        <span class="badge status-badge mb-3" id="status-${session.sessionId}"></span>
+                        <div class="mt-3">
+                            <small class="text-muted">Token:</small>
+                            <div class="input-group input-group-sm mt-1 mb-3">
+                                <input type="text" class="form-control" id="token-${session.sessionId}" value="${session.token || 'N/A'}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('token-${session.sessionId}', this)"><i class="bi bi-clipboard"></i></button>
+                            </div>
+                        </div>
+                        ${deleteButton}
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <button class="btn btn-sm btn-outline-primary get-qr-btn w-100" onclick="getQrCode('${session.sessionId}')" id="btn-qr-${session.sessionId}"><i class="bi bi-qr-code me-1"></i>Get QR Code</button>
+                        </div>
+                        <div class="qr-code-container" id="qr-container-${session.sessionId}" style="display: none;">
+                            <div class="qr-code" id="qr-${session.sessionId}"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function updateSessionCards(sessions, isFullSync = false) {
+            sessions.forEach(s => {
+                if (s && s.sessionId) {
+                    sessionsData.set(s.sessionId, s);
+                }
+            });
+
+            if (isFullSync) {
+                const existingCardIds = Array.from(sessionsContainer.children).map(c => c.id);
+                const fetchedSessionIds = sessions.map(s => `session-${s.sessionId}`);
+                existingCardIds.forEach(cardId => {
+                    if (!fetchedSessionIds.includes(cardId)) {
+                        document.getElementById(cardId)?.remove();
+                    }
+                });
+            }
+
+            sessions.forEach(session => {
+                if (!session.sessionId) return;
+
+                let card = document.getElementById(`session-${session.sessionId}`);
+                if (!card) {
+                    card = createSessionCard(session);
+                    sessionsContainer.appendChild(card);
+                }
+
+                const statusEl = document.getElementById(`status-${session.sessionId}`);
+                const qrContainer = document.getElementById(`qr-container-${session.sessionId}`);
+                const qrCodeEl = document.getElementById(`qr-${session.sessionId}`);
+                const getQrBtn = document.getElementById(`btn-qr-${session.sessionId}`);
+                const tokenEl = document.getElementById(`token-${session.sessionId}`);
+
+                if (!statusEl || !qrContainer || !qrCodeEl || !getQrBtn || !tokenEl) return;
+
+                statusEl.textContent = `${session.status}${session.detail ? ' - ' + session.detail : ''}`;
+                statusEl.className = 'badge status-badge ';
+                if (session.status === 'CONNECTED') {
+                    statusEl.classList.add('bg-success');
+                    getQrBtn.style.display = 'none';
+                    qrContainer.style.display = 'none';
+                } else if (session.status === 'DISCONNECTED') {
+                    statusEl.classList.add('bg-danger');
+                    getQrBtn.style.display = 'block';
+                    qrContainer.style.display = 'none';
+                } else {
+                    statusEl.classList.add('bg-warning', 'text-dark');
+                    getQrBtn.style.display = 'block';
+                }
+
+                if (session.status === 'GENERATING_QR' && session.qr) {
+                    qrContainer.style.display = 'block';
+                    getQrBtn.style.display = 'none';
+                    qrCodeEl.innerHTML = '';
+                    new QRCode(qrCodeEl, { text: session.qr, width: 200, height: 200 });
+                } else if (session.status !== 'CONNECTED') {
+                    qrContainer.style.display = 'none';
+                }
+
+                if (session.token) {
+                    tokenEl.value = session.token;
+                }
+            });
+        }
+
+        async function fetchSessions() {
+            try {
+                const response = await fetch('/api/v1/sessions');
+                if (!response.ok) throw new Error('Failed to fetch sessions');
+                const result = await response.json();
+                const sessions = Array.isArray(result) ? result : (result.data || []);
+                updateSessionCards(sessions, true);
+                updateApiSessionSelect();
+            } catch (error) {
+                console.error('Error fetching sessions:', error);
+            }
+        }
+
+        async function getQrCode(sessionId) {
+            try {
+                const response = await fetch(`/api/v1/sessions/${sessionId}/qr`, { credentials: 'same-origin' });
+                const result = await response.json();
+                if (!response.ok) {
+                    if (result.message && !result.message.includes('token')) {
+                        alert('Failed to get QR code: ' + (result.message || result.error));
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting QR code:', error);
+            }
+        }
+
+        async function deleteSession(sessionId) {
+            if (!confirm(`Are you sure you want to delete session ${sessionId}?`)) return;
+            const token = sessionsData.get(sessionId)?.token;
+            if (!token) {
+                alert('Could not find token for this session. Cannot delete.');
+                return;
+            }
+            try {
+                const response = await fetch(`/api/v1/sessions/${sessionId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(result.data ? result.data.message : 'Session deleted');
+                    fetchSessions();
+                } else {
+                    throw new Error(result.message || 'Failed to delete session');
+                }
+            } catch (error) {
+                alert(`An error occurred while deleting the session: ${error.message}`);
+            }
+        }
+
+        function updateApiUsage() {
+            const sessionId = apiSessionIdSelect.value;
+            const recipient = apiRecipientInput.value;
+            if (!sessionId || !recipient) {
+                apiUsageExample.textContent = 'Please select a session and enter a recipient to see an example.';
+                return;
+            }
+
+            const activeTabEl = document.querySelector('#api-tabs .nav-link.active');
+            if (!activeTabEl) return;
+            const activeTab = activeTabEl.id;
+
+            let payload;
+            let endpoint = `/api/v1/messages?sessionId=${sessionId}`;
+            const sessionData = sessionsData.get(sessionId);
+            const currentToken = sessionData ? sessionData.token : '';
+
+            if (activeTab === 'text-tab') {
+                const message = document.getElementById('text-message').value;
+                payload = {
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'text',
+                    text: { body: message }
+                };
+            } else if (activeTab === 'image-tab') {
+                const caption = document.getElementById('image-caption').value;
+                const imageUrl = document.getElementById('image-url').value;
+                payload = {
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'image',
+                    image: { link: imageUrl, caption: caption }
+                };
+                if (!imageUrl) {
+                    apiUsageExample.textContent = `// 1. Upload image to /api/v1/media\n// 2. Use returned mediaId in request below.\n\n`;
+                }
+            } else if (activeTab === 'document-tab') {
+                const docUrl = document.getElementById('document-url').value;
+                payload = {
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'document',
+                    document: { link: docUrl, mimetype: 'application/pdf' }
+                };
+                if (!docUrl) {
+                    apiUsageExample.textContent = `// 1. Upload document to /api/v1/media\n// 2. Use returned mediaId in request below.\n\n`;
+                }
+            } else if (activeTab === 'combo-tab') {
+                const payloads = [];
+                const textMessage = document.getElementById('combo-text-message').value || 'Hello!';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'text',
+                    text: { body: textMessage }
+                });
+                const imageCaption = document.getElementById('combo-image-caption').value || 'Caption';
+                const imageUrl = document.getElementById('combo-image-url').value || 'https://picsum.photos/200';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'image',
+                    image: { link: imageUrl, caption: imageCaption }
+                });
+                const docUrl = document.getElementById('combo-document-url').value || 'https://example.com/doc.pdf';
+                const docFilename = document.getElementById('combo-document-filename').value || 'doc.pdf';
+                payloads.push({
+                    recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                    to: recipient,
+                    type: 'document',
+                    document: { link: docUrl, mimetype: 'application/pdf', filename: docFilename }
+                });
+
+                const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payloads, null, 2)}'`;
+                apiUsageExample.textContent = curlCommand;
+                return;
+            }
+
+            const curlCommand = `curl -X POST "${window.location.origin}${endpoint}" \\\n-H "Authorization: Bearer ${currentToken}" \\\n-H "Content-Type: application/json" \\\n-d '${JSON.stringify(payload, null, 2)}'`;
+            apiUsageExample.textContent = curlCommand;
+        }
+
+        async function sendApiRequest(payload, btn = null) {
+            const sessionId = apiSessionIdSelect.value;
+            const sessionData = sessionsData.get(sessionId);
+            if (!sessionId || !sessionData || !sessionData.token) {
+                alert('Please select an active session.');
+                return;
+            }
+
+            let originalBtnHtml = '';
+            if (btn) {
+                originalBtnHtml = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> Sending...`;
+            }
+
+            const currentToken = sessionData.token;
+            apiResponseDiv.innerHTML = `<div class="p-3 bg-body-tertiary rounded text-muted"><span class="spinner-border spinner-border-sm me-2 text-primary"></span>Sending request to server...</div>`;
+
+            try {
+                const response = await fetch(`/api/v1/messages?sessionId=${sessionId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                
+                const isSuccess = response.ok && (!Array.isArray(result) || result.every(r => r.status === 'success'));
+
+                apiResponseDiv.innerHTML = `
+                    <div class="alert ${isSuccess ? 'alert-success' : 'alert-danger'} mt-3 shadow-sm">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="bi ${isSuccess ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-danger'} fs-5 me-2"></i>
+                            <strong>${isSuccess ? 'Message Sent Successfully!' : 'API Request Error'}</strong>
+                        </div>
+                        <pre class="mb-0 small" style="font-family: var(--font-mono); white-space: pre-wrap;">${sanitize(JSON.stringify(result, null, 2))}</pre>
+                    </div>
+                `;
+
+                if (btn && isSuccess) {
+                    btn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> Sent!`;
+                    btn.classList.replace('btn-primary', 'btn-success');
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.classList.replace('btn-success', 'btn-primary');
+                        btn.innerHTML = originalBtnHtml;
+                    }, 2000);
+                } else if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
+
+                apiResponseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } catch (error) {
+                apiResponseDiv.innerHTML = `<div class="alert alert-danger mt-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error: ${sanitize(error.message)}</div>`;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHtml;
+                }
+            }
+        }
+
+        async function sendTextMessage(btn = null) {
+            const recipient = apiRecipientInput.value;
+            const message = document.getElementById('text-message').value;
+            if (!recipient || !message) {
+                alert('Recipient and message are required.');
+                return;
+            }
+            const payload = {
+                recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                to: recipient,
+                type: 'text',
+                text: { body: message }
+            };
+            await sendApiRequest([payload], btn);
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            apiResponseDiv.innerHTML = `<div class="spinner-border spinner-border-sm" role="status"></div> <span>Uploading file...</span>`;
+            const sessionId = apiSessionIdSelect.value;
+            const sessionData = sessionsData.get(sessionId);
+            const currentToken = sessionData ? sessionData.token : Array.from(sessionsData.values())[0]?.token;
+
+            if (!currentToken) {
+                apiResponseDiv.innerHTML = `<div class="alert alert-danger mt-3">Upload Error: No valid token found to authenticate.</div>`;
+                return null;
+            }
+
+            try {
+                const response = await fetch('/api/v1/media', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${currentToken}` },
+                    body: formData
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'File upload failed.');
+                apiResponseDiv.innerHTML = `<div class="alert alert-info">File uploaded. Media ID: ${result.mediaId}</div>`;
+                return result.mediaId;
+            } catch (error) {
+                apiResponseDiv.innerHTML = `<div class="alert alert-danger mt-3">Upload Error: ${error.message}</div>`;
+                return null;
+            }
+        }
+
+        async function sendImageMessage(btn = null) {
+            const recipient = apiRecipientInput.value;
+            const caption = document.getElementById('image-caption').value;
+            const imageUrl = document.getElementById('image-url').value;
+            const imageFile = imageUploadInput.files[0];
+            if (!recipient) { alert('Recipient is required.'); return; }
+            if (!imageUrl && !imageFile) { alert('Image URL or file required.'); return; }
+
+            let imagePayload = {};
+            if (imageFile) {
+                const mediaId = await uploadFile(imageFile);
+                if (!mediaId) return;
+                imagePayload.id = mediaId;
+            } else {
+                imagePayload.link = imageUrl;
+            }
+
+            const payload = {
+                recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                to: recipient,
+                type: 'image',
+                image: { ...imagePayload, caption }
+            };
+            await sendApiRequest([payload], btn);
+        }
+
+        async function sendDocumentMessage(btn = null) {
+            const recipient = apiRecipientInput.value;
+            const docUrl = document.getElementById('document-url').value;
+            const docFile = document.getElementById('document-upload').files[0];
+            if (!recipient) { alert('Recipient is required.'); return; }
+            if (!docUrl && !docFile) { alert('Document URL or file required.'); return; }
+
+            let docPayload = {};
+            if (docFile) {
+                const mediaId = await uploadFile(docFile);
+                if (!mediaId) return;
+                docPayload.id = mediaId;
+                docPayload.mimetype = docFile.type;
+                docPayload.filename = docFile.name;
+            } else {
+                docPayload.link = docUrl;
+                docPayload.mimetype = 'application/pdf';
+            }
+
+            const payload = {
+                recipient_type: recipient.includes('@g.us') ? 'group' : 'individual',
+                to: recipient,
+                type: 'document',
+                document: { ...docPayload }
+            };
+            await sendApiRequest([payload], btn);
+        }
+
+        async function sendComboMessage(btn = null) {
+            const recipient = apiRecipientInput.value;
+            if (!recipient) { alert('Recipient is required.'); return; }
+            const payloads = [];
+
+            const textMessage = document.getElementById('combo-text-message').value;
+            if (textMessage) {
+                payloads.push({ recipient_type: recipient.includes('@g.us') ? 'group' : 'individual', to: recipient, type: 'text', text: { body: textMessage } });
+            }
+
+            const imageCaption = document.getElementById('combo-image-caption').value;
+            const imageUrl = document.getElementById('combo-image-url').value;
+            const imageFile = document.getElementById('combo-image-upload').files[0];
+
+            if (imageUrl || imageFile) {
+                let imagePayload = {};
+                if (imageFile) {
+                    const mediaId = await uploadFile(imageFile);
+                    if (mediaId) imagePayload.id = mediaId;
+                } else {
+                    imagePayload.link = imageUrl;
+                }
+                if (imagePayload.id || imagePayload.link) {
+                    payloads.push({ recipient_type: recipient.includes('@g.us') ? 'group' : 'individual', to: recipient, type: 'image', image: { ...imagePayload, caption: imageCaption } });
+                }
+            }
+
+            const docUrl = document.getElementById('combo-document-url').value;
+            const docFile = document.getElementById('combo-document-upload').files[0];
+            const docFilename = document.getElementById('combo-document-filename').value;
+
+            if (docUrl || docFile) {
+                let docPayload = {};
+                if (docFile) {
+                    const mediaId = await uploadFile(docFile);
+                    if (mediaId) {
+                        docPayload.id = mediaId;
+                        docPayload.mimetype = docFile.type;
+                        docPayload.filename = docFilename || docFile.name;
+                    }
+                } else {
+                    docPayload.link = docUrl;
+                    docPayload.mimetype = 'application/pdf';
+                    if (docFilename) docPayload.filename = docFilename;
+                }
+                if (docPayload.id || docPayload.link) {
+                    payloads.push({ recipient_type: recipient.includes('@g.us') ? 'group' : 'individual', to: recipient, type: 'document', document: { ...docPayload } });
+                }
+            }
+
+            if (payloads.length === 0) {
+                alert('Please add at least one message.');
+                return;
+            }
+            await sendApiRequest(payloads, btn);
+        }
+
+        async function loadSessions() {
+            await fetchSessions();
+        }
+
+        let isBulkSelecting = false;
+        let selectedLogIndices = new Set();
+
+        function toggleBulkSelect() {
+            isBulkSelecting = !isBulkSelecting;
+            const checkboxes = document.querySelectorAll('.bulk-checkbox');
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkSelectBtn = document.getElementById('bulkSelectBtn');
+
+            if (isBulkSelecting) {
+                checkboxes.forEach(cb => cb.classList.remove('d-none'));
+                if (bulkActions) bulkActions.classList.remove('d-none');
+                if (bulkSelectBtn) bulkSelectBtn.classList.add('d-none');
+            } else {
+                checkboxes.forEach(cb => { cb.classList.add('d-none'); cb.checked = false; });
+                selectedLogIndices.clear();
+                if (bulkActions) bulkActions.classList.add('d-none');
+                if (bulkSelectBtn) bulkSelectBtn.classList.remove('d-none');
+            }
+        }
+
+        function toggleLogSelection(index) {
+            if (selectedLogIndices.has(index)) {
+                selectedLogIndices.delete(index);
+            } else {
+                selectedLogIndices.add(index);
+            }
+        }
+
+        async function saveLogsToServer() {
+            try {
+                await fetch('/admin/update-logs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ logs: window.systemLogData })
+                });
+            } catch (err) {
+                console.error('Failed to sync logs to server:', err);
+            }
+        }
+
+        async function deleteLogEntry(index) {
+            if (currentUserRole !== 'admin') return;
+            if (!confirm('Are you sure you want to delete this log entry?')) return;
+            window.systemLogData.splice(index, 1);
+            await saveLogsToServer();
+            renderSystemLogHistory();
+        }
+
+        async function batchDeleteLogs() {
+            if (currentUserRole !== 'admin') return;
+            if (selectedLogIndices.size === 0) {
+                alert('No log entries selected.');
+                return;
+            }
+            if (!confirm(`Are you sure you want to delete ${selectedLogIndices.size} selected log entry(ies)?`)) return;
+            const sortedIndices = Array.from(selectedLogIndices).sort((a, b) => b - a);
+            sortedIndices.forEach(index => window.systemLogData.splice(index, 1));
+            selectedLogIndices.clear();
+            toggleBulkSelect();
+            await saveLogsToServer();
+            renderSystemLogHistory();
+        }
+
+        async function clearAllLogs() {
+            if (currentUserRole !== 'admin') return;
+            if (!confirm('Are you sure you want to clear ALL system log history? This cannot be undone.')) return;
+            window.systemLogData = [];
+            await saveLogsToServer();
+            renderSystemLogHistory();
+        }
+
+        function exportLogs() {
+            if (!window.systemLogData || window.systemLogData.length === 0) {
+                alert('No logs to export.');
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(window.systemLogData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `system_logs_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // Event listeners
+        imageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => { imagePreview.innerHTML = `<img src="${e.target.result}" class="img-fluid rounded">`; };
+                reader.readAsDataURL(file);
+                document.getElementById('image-url').value = '';
+            }
+        });
+
+        const comboImageUploadInput = document.getElementById('combo-image-upload');
+        const comboImagePreview = document.getElementById('combo-image-preview');
+        comboImageUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => { comboImagePreview.innerHTML = `<img src="${e.target.result}" class="img-fluid rounded">`; };
+                reader.readAsDataURL(file);
+                document.getElementById('combo-image-url').value = '';
+            }
+        });
+
+        document.getElementById('combo-image-url').addEventListener('input', () => {
+            comboImageUploadInput.value = '';
+            comboImagePreview.innerHTML = '';
+        });
+
+        document.getElementById('image-url').addEventListener('input', () => {
+            imageUploadInput.value = '';
+            imagePreview.innerHTML = '';
+        });
+
+        document.querySelectorAll('#api-tab-content input, #api-tab-content textarea, #api-session-id').forEach(el => {
+            el.addEventListener('input', updateApiUsage);
+        });
+        document.querySelectorAll('#api-tabs .nav-link').forEach(tab => {
+            tab.addEventListener('shown.bs.tab', updateApiUsage);
+        });
+
+        sessionIdInput.addEventListener('input', (e) => {
+            const cursorPosition = e.target.selectionStart;
+            const originalValue = e.target.value;
+            const newValue = originalValue.replace(/\s/g, '_');
+            if (originalValue !== newValue) {
+                e.target.value = newValue;
+                e.target.setSelectionRange(cursorPosition, cursorPosition);
+            }
+        });
+
+        createSessionBtn.addEventListener('click', async () => {
+            const sessionId = sessionIdInput.value.trim();
+            if (!sessionId) {
+                alert('Please enter a Session ID.');
+                return;
+            }
+            const sanitizedSessionId = sessionId.replace(/\s+/g, '_');
+            try {
+                const response = await fetch('/api/v1/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ sessionId: sanitizedSessionId })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    sessionIdInput.value = '';
+                    setTimeout(async () => { await fetchSessions(); }, 1000);
+                } else {
+                    throw new Error(result.message || 'Failed to create session');
+                }
+            } catch (error) {
+                alert(`An error occurred while creating session: ${error.message}`);
+            }
+        });
+
+        function initializeWebSocket() {
+            fetch('/admin/ws-token')
+                .then(res => res.json())
+                .then(response => {
+                    if (response.status !== 'success' || !response.data) {
+                        throw new Error('Failed to get WebSocket token');
+                    }
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+                    ws.onopen = () => {
+                        appendLogEntry({
+                            timestamp: new Date().toISOString(),
+                            level: 'INFO',
+                            sessionId: 'SYSTEM',
+                            message: 'Live log stream connected.'
+                        });
+                    };
+
+                    ws.onmessage = (event) => {
+                        const logData = JSON.parse(event.data);
+                        if (logData.type === 'log') {
+                            if (Array.isArray(window.systemLogData)) {
+                                window.systemLogData.push(logData);
+                                if (window.systemLogData.length > 5000) window.systemLogData.shift();
+                            }
+                            if (logsPaused) {
+                                logBuffer.push(logData);
+                            } else {
+                                appendLogEntry(logData);
+                            }
+                        } else if (logData.type === 'session-update') {
+                            const sessions = Array.isArray(logData.data) ? logData.data : [logData.data];
+                            updateSessionCards(sessions, false);
+                            updateApiSessionSelect();
+                        }
+                    };
+
+                    ws.onclose = () => {
+                        appendLogEntry({
+                            timestamp: new Date().toISOString(),
+                            level: 'ERROR',
+                            sessionId: 'SYSTEM',
+                            message: 'Log stream disconnected. Reconnecting in 5s...'
+                        });
+                        setTimeout(initializeWebSocket, 5000);
+                    };
+
+                    ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        ws.close();
+                    };
+                })
+                .catch(error => {
+                    console.error('Failed to get WebSocket auth token:', error);
+                    setTimeout(initializeWebSocket, 5000);
+                });
+        }
+
+        function appendLogEntry(log) {
+            allLogs.push(log);
+            if (allLogs.length > MAX_LOGS) allLogs.shift();
+            if (!shouldShowLog(log)) return;
+            renderLogEntry(log);
+        }
+
+        function shouldShowLog(log) {
+            const level = logLevelFilter.value;
+            const session = logSessionFilter.value;
+            const search = logSearchInput.value.toLowerCase();
+            if (level !== 'all' && log.level !== level) return false;
+            if (session !== 'all' && log.sessionId !== session) return false;
+            if (search && !log.message.toLowerCase().includes(search) && !log.sessionId.toLowerCase().includes(search)) return false;
+            return true;
+        }
+
+        function renderLogEntry(log) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry level-${log.level.toLowerCase()}`;
+            const time = new Date(log.timestamp).toLocaleTimeString();
+            const detailsHtml = log.details ? `
+                <i class="bi bi-info-circle log-details-toggle" onclick="toggleLogDetails(this)"></i>
+                <div class="log-details-content"><pre class="mb-0">${sanitize(JSON.stringify(log.details, null, 2))}</pre></div>
+            ` : '';
+
+            entry.innerHTML = `
+                <span class="log-time">${time}</span>
+                <span class="log-level lvl-${log.level.toLowerCase()}-badge">${log.level}</span>
+                <span class="log-context" onclick="filterBySession('${sanitize(log.sessionId)}')">[${sanitize(log.sessionId)}]</span>
+                <span class="log-msg">${sanitize(log.message)}</span>
+                ${detailsHtml}
+            `;
+
+            logBox.appendChild(entry);
+            const isScrolledToBottom = logBox.scrollHeight - logBox.clientHeight <= logBox.scrollTop + 50;
+            if (isScrolledToBottom) {
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+            if (logBox.children.length > MAX_LOGS) {
+                logBox.removeChild(logBox.firstChild);
+            }
+        }
+
+        function toggleLogDetails(el) {
+            const content = el.nextElementSibling;
+            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+            el.classList.toggle('bi-info-circle');
+            el.classList.toggle('bi-info-circle-fill');
+        }
+
+        function filterBySession(sessionId) {
+            logSessionFilter.value = sessionId;
+            refreshLogs();
+        }
+
+        function refreshLogs() {
+            logBox.innerHTML = '';
+            allLogs.forEach(log => {
+                if (shouldShowLog(log)) renderLogEntry(log);
+            });
+        }
+
+        logSearchInput.addEventListener('input', refreshLogs);
+        logLevelFilter.addEventListener('change', refreshLogs);
+        logSessionFilter.addEventListener('change', refreshLogs);
+
+        clearLogsBtn.addEventListener('click', () => {
+            allLogs = [];
+            logBox.innerHTML = '';
+            appendLogEntry({
+                timestamp: new Date().toISOString(),
+                level: 'INFO',
+                sessionId: 'SYSTEM',
+                message: 'Terminal cleared.'
+            });
+        });
+
+        pauseLogsBtn.addEventListener('click', () => {
+            logsPaused = !logsPaused;
+            if (logsPaused) {
+                pauseLogsBtn.innerHTML = '<i class="bi bi-play-fill"></i> Resume';
+                pauseLogsBtn.classList.replace('btn-outline-light', 'btn-warning');
+            } else {
+                pauseLogsBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Pause';
+                pauseLogsBtn.classList.replace('btn-warning', 'btn-outline-light');
+            }
+        });
+
+        function copyToClipboard(elementId, btn) {
+            const el = document.getElementById(elementId);
+            navigator.clipboard.writeText(el.value).then(() => {
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+                    setTimeout(() => { btn.innerHTML = original; }, 1200);
+                }
+            });
+        }
+
+        function updateApiSessionSelect() {
+            const currentSelected = apiSessionIdSelect.value;
+            apiSessionIdSelect.innerHTML = '';
+            const currentFilter = logSessionFilter.value;
+            logSessionFilter.innerHTML = '<option value="all">All Sessions</option><option value="SYSTEM">SYSTEM</option>';
+
+            sessionsData.forEach((session, sessionId) => {
+                if (session.status === 'CONNECTED') {
+                    const option = document.createElement('option');
+                    option.value = sessionId;
+                    option.textContent = sessionId;
+                    apiSessionIdSelect.appendChild(option);
+                }
+                const filterOption = document.createElement('option');
+                filterOption.value = sessionId;
+                filterOption.textContent = sessionId;
+                logSessionFilter.appendChild(filterOption);
+            });
+
+            if (currentSelected && Array.from(apiSessionIdSelect.options).some(opt => opt.value === currentSelected)) {
+                apiSessionIdSelect.value = currentSelected;
+            }
+            if (Array.from(logSessionFilter.options).some(opt => opt.value === currentFilter)) {
+                logSessionFilter.value = currentFilter;
+            } else {
+                logSessionFilter.value = 'all';
+            }
+            updateApiUsage();
+        }
+
+        function copyCurl(id, btn) {
+            const el = document.getElementById(id);
+            navigator.clipboard.writeText(el.textContent).then(() => {
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="bi bi-check-lg"></i> Copied';
+                    btn.classList.replace('btn-outline-secondary', 'btn-success');
+                    setTimeout(() => {
+                        btn.innerHTML = original;
+                        btn.classList.replace('btn-success', 'btn-outline-secondary');
+                    }, 1200);
+                }
+            });
+        }
+
+        // --- System Log History logic ---
+        function renderSystemLogHistory() {
+            const logContainer = document.getElementById('systemLogHistory');
+            if (!logContainer) return;
+            if (!window.systemLogData || window.systemLogData.length === 0) {
+                logContainer.innerHTML = '<div class="text-muted text-center p-4"><i class="bi bi-inbox fs-1"></i><br>No log entries to display.</div>';
+                return;
+            }
+
+            const logsWithIndex = window.systemLogData.map((log, index) => ({ log: log, originalIndex: index }));
+            const sortedLogs = logsWithIndex.sort((a, b) => new Date(b.log.timestamp) - new Date(a.log.timestamp));
+
+            const logHtml = sortedLogs.map((item, displayIndex) => {
+                const log = item.log;
+                const originalIndex = item.originalIndex;
+                const date = new Date(log.timestamp);
+                const formattedDate = date.toLocaleString();
+                const details = log.details || {};
+                const phoneNumbers = Array.isArray(details.phoneNumbers) ? details.phoneNumbers.map(num => sanitize(num)).join(', ') : (details.to || details.recipient || 'N/A');
+                const logMessageText = log.message ? sanitize(log.message) : '';
+                const uniqueId = `log-${displayIndex}-${Date.now()}`;
+
+                let summaryInfo = (details.count || details.phoneNumbers || details.messages)
+                    ? `<span class="text-muted">${details.count || 1} message(s) to ${phoneNumbers}</span>`
+                    : `<span class="text-muted">${logMessageText || 'System Event'}</span>`;
+
+                let detailsContent = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Session:</strong> ${sanitize(log.sessionId)}</p>
+                            <p class="mb-1"><strong>Message:</strong> ${logMessageText || 'N/A'}</p>
+                            ${phoneNumbers !== 'N/A' ? `<p class="mb-1"><strong>Recipients:</strong> ${phoneNumbers}</p>` : ''}
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Level:</strong> <span class="badge lvl-${(log.level || 'INFO').toLowerCase()}-badge">${sanitize(log.level || 'INFO')}</span></p>
+                            <p class="mb-1"><strong>Event:</strong> ${sanitize(details.event || log.action || 'system')}</p>
+                            <p class="mb-1"><strong>Time:</strong> ${formattedDate}</p>
+                        </div>
+                    </div>
+                `;
+
+                if (Array.isArray(details.messages) && details.messages.length > 0) {
+                    detailsContent += '<hr class="my-3"><h6 class="mb-3">Message Content:</h6><div class="message-list">';
+                    details.messages.forEach(msg => {
+                        detailsContent += `<div class="message-item mb-3 p-3 border rounded bg-body-secondary"><div class="d-flex justify-content-between align-items-start mb-2"><span class="badge bg-primary">${sanitize(msg.type).toUpperCase()}</span><small class="text-muted">To: ${sanitize(msg.to)}</small></div>`;
+                        if (msg.type === 'text' && msg.text) {
+                            detailsContent += `<div class="message-content"><div class="text-break">${sanitize(msg.text).replace(/\n/g, '<br>')}</div></div>`;
+                        } else if (msg.type === 'image' && msg.image) {
+                            detailsContent += `<div class="message-content">`;
+                            const imageUrl = sanitize(msg.image.url);
+                            if (imageUrl.startsWith('/media/') || imageUrl.startsWith('http')) {
+                                detailsContent += `<div class="mb-2"><img src="${imageUrl}" class="img-thumbnail" style="max-width: 300px; max-height: 300px; cursor: pointer;" onclick="showImageLightbox('${imageUrl}')"></div>`;
+                            }
+                            detailsContent += `<p class="mb-1"><i class="bi bi-image"></i> Image: <a href="${imageUrl}" target="_blank">${imageUrl}</a></p>`;
+                            if (msg.image.caption) detailsContent += `<div class="mt-2 caption-box"><small><strong>Caption:</strong></small><br>${sanitize(msg.image.caption).replace(/\n/g, '<br>')}</div>`;
+                            detailsContent += `</div>`;
+                        } else if (msg.type === 'document' && msg.document) {
+                            const docUrl = sanitize(msg.document.url);
+                            const filename = sanitize(msg.document.filename);
+                            detailsContent += `<div class="message-content"><div class="d-flex align-items-center mb-2"><i class="bi bi-file-earmark-text-fill text-primary fs-2 me-2"></i><div><p class="mb-0"><strong>${filename}</strong></p><a href="${docUrl}" target="_blank"><i class="bi bi-download"></i> Download</a></div></div></div>`;
+                        }
+                        detailsContent += `</div>`;
+                    });
+                    detailsContent += '</div>';
+                }
+
+                if (currentUserRole === 'admin') {
+                    detailsContent += `<hr class="my-3"><div class="text-end"><button class="btn btn-sm btn-outline-danger" onclick="deleteLogEntry(${originalIndex})"><i class="bi bi-trash me-1"></i>Delete Entry</button></div>`;
+                }
+
+                return `
+                    <div class="log-entry-card mb-2" data-log-index="${originalIndex}">
+                        <div class="card">
+                            <div class="card-header py-2" role="button" data-bs-toggle="collapse" data-bs-target="#${uniqueId}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <input type="checkbox" class="form-check-input me-2 bulk-checkbox d-none" data-log-index="${originalIndex}" onclick="event.stopPropagation(); toggleLogSelection(${originalIndex})">
+                                        <div><i class="bi bi-clock-history me-2"></i><strong>${sanitize(log.sessionId)}</strong><span class="mx-2">•</span>${summaryInfo}</div>
+                                    </div>
+                                    <div class="d-flex align-items-center"><small class="text-muted me-3">${formattedDate}</small><i class="bi bi-chevron-down"></i></div>
+                                </div>
+                            </div>
+                            <div class="collapse" id="${uniqueId}">
+                                <div class="card-body">${detailsContent}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            logContainer.innerHTML = logHtml;
+        }
+
+        window.renderSystemLogHistory = renderSystemLogHistory;
+
+        function showImageLightbox(imageUrl) {
+            const lightbox = new bootstrap.Modal(document.getElementById('imageLightbox'));
+            document.getElementById('lightboxImage').src = imageUrl;
+            lightbox.show();
+        }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/admin/me', { credentials: 'same-origin' });
+                if (res.status === 401) { window.location.href = '/admin/login.html'; return false; }
+                const response = await res.json();
+                const user = response.data;
+                if (!user) { window.location.href = '/admin/login.html'; return false; }
+
+                currentUserEmail = user.email;
+                currentUserRole = user.role;
+                document.getElementById('currentUser').textContent = `${user.email}`;
+                if (document.getElementById('userAvatar')) {
+                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+                }
+
+                if (user.role === 'admin') {
+                    const uNav = document.getElementById('nav-users') || document.getElementById('usersNavItem');
+                    const aNav = document.getElementById('nav-activities') || document.getElementById('activitiesNavItem');
+                    if (uNav) uNav.style.display = 'flex';
+                    if (aNav) aNav.style.display = 'flex';
+                }
+                return true;
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+                return false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const isAuthenticated = await checkAuth();
+            if (!isAuthenticated) return;
+
+            initializeWebSocket();
+            loadSessions();
+            fetch('/admin/logs')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && Array.isArray(data.logs)) {
+                        window.systemLogData = data.logs;
+                        const recentLogs = data.logs.slice(-100);
+                        recentLogs.forEach(log => {
+                            if (!allLogs.some(existing => existing.timestamp === log.timestamp && existing.message === log.message)) {
+                                appendLogEntry(log);
+                            }
+                        });
+                    }
+                    renderSystemLogHistory();
+                })
+                .catch(() => renderSystemLogHistory());
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', async function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Logging out...';
+            try {
+                const res = await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } });
+                if (res.status === 401) { window.location.href = '/admin/login.html'; return; }
+                const data = await res.json();
+                if (data && data.data && data.data.redirect) {
+                    window.location.href = data.data.redirect;
+                } else {
+                    window.location.reload();
+                }
+            } catch (e) {
+                window.location.href = '/admin/login.html';
+            }
+        });
+    </script>
+</body>
+
+</html>

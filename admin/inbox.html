@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Support Inbox - WhatsApp API</title>
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        :root {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --sidebar-width: 280px;
+            --brand-green: #10b981;
+            --brand-green-glow: rgba(16, 185, 129, 0.2);
+            
+            --bg-app: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --header-bg: #ffffff;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-sidebar: #090d16;
+            --text-sidebar: #64748b;
+            --bg-card: #151c2c;
+            --border-card: #1e293b;
+            --header-bg: #111827;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-app);
+            color: var(--bs-body-color);
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; width: 100vw; }
+
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0;
+            z-index: 1040;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-box { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: #ffffff; }
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: white;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .brand-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+        .brand-subtitle { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+
+        .sidebar-nav { padding: 1.25rem 1rem; flex-grow: 1; overflow-y: auto; }
+        .nav-section-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #475569; font-weight: 800; margin: 1.25rem 0.75rem 0.5rem; }
+
+        .sidebar-link {
+            display: flex; align-items: center; gap: 0.85rem;
+            padding: 0.7rem 0.9rem; color: #94a3b8; text-decoration: none;
+            border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+            transition: all 0.2s ease; margin-bottom: 0.25rem;
+        }
+
+        .sidebar-link:hover { color: #f8fafc; background-color: rgba(255, 255, 255, 0.06); transform: translateX(3px); }
+        .sidebar-link.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 3.5px solid #10b981;
+        }
+
+        .sidebar-footer { padding: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.08); background-color: rgba(0, 0, 0, 0.2); }
+        .user-chip { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+        .user-avatar { width: 34px; height: 34px; border-radius: 50%; background-color: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+        .user-name { color: #f1f5f9; font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .app-main { margin-left: var(--sidebar-width); flex-grow: 1; min-height: 100vh; display: flex; flex-direction: column; transition: margin-left 0.3s ease; }
+        .app-header {
+            height: 70px; background-color: var(--header-bg); border-bottom: 1px solid var(--border-card);
+            padding: 0 2rem; display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 1020; backdrop-filter: blur(10px);
+        }
+
+        .header-title-box { display: flex; align-items: center; gap: 1rem; }
+        .header-title { font-size: 1.25rem; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+        .content-area { padding: 1.5rem 2rem; max-width: 1400px; width: 100%; margin: 0 auto; flex-grow: 1; display: flex; flex-direction: column; }
+
+        /* Inbox Grid Layout */
+        .inbox-container {
+            display: flex;
+            height: calc(100vh - 120px);
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+        }
+
+        .chat-list-panel {
+            width: 340px;
+            border-right: 1px solid var(--border-card);
+            display: flex;
+            flex-direction: column;
+            background-color: rgba(0, 0, 0, 0.01);
+        }
+
+        .chat-list-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-card);
+        }
+
+        .chat-items {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .chat-item {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid var(--border-card);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .chat-item:hover {
+            background-color: rgba(16, 185, 129, 0.05);
+        }
+
+        .chat-item.active {
+            background-color: rgba(16, 185, 129, 0.12);
+            border-left: 4px solid #10b981;
+        }
+
+        .chat-view-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-card);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .messages-viewport {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            background-color: var(--bg-app);
+        }
+
+        .msg-bubble {
+            max-width: 65%;
+            padding: 0.75rem 1rem;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            position: relative;
+            word-break: break-word;
+        }
+
+        .msg-bubble.inbound {
+            align-self: flex-start;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-bottom-left-radius: 2px;
+        }
+
+        .msg-bubble.outbound {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .msg-time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .chat-input-bar {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-card);
+            display: flex;
+            gap: 0.75rem;
+            background-color: var(--bg-card);
+        }
+
+        @media (max-width: 991.98px) {
+            .app-sidebar { transform: translateX(-100%); }
+            .app-sidebar.show { transform: translateX(0); }
+            .app-main { margin-left: 0; }
+            .sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 1030; display: none; }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="/admin/dashboard.html" class="brand-box">
+                    <div class="brand-icon"><i class="bi bi-whatsapp"></i></div>
+                    <div>
+                        <div class="brand-title">WA Gateway</div>
+                        <div class="brand-subtitle">API Control v3.2</div>
+                    </div>
+                </a>
+                <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Core Modules</div>
+                <a href="/admin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+                <a href="/admin/campaigns.html" class="sidebar-link"><i class="bi bi-send-fill"></i><span>Campaigns</span></a>
+                <a href="/admin/auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i><span>Auto Replies</span></a>
+                <a href="/admin/ai-chatbot.html" class="sidebar-link"><i class="bi bi-cpu-fill"></i><span>AI Chatbot</span></a>
+                <a href="/admin/inbox.html" class="sidebar-link active"><i class="bi bi-chat-dots-fill"></i><span>Live Inbox</span></a>
+                <a href="/admin/users.html" class="sidebar-link" id="nav-users"><i class="bi bi-people-fill"></i><span>Users</span></a>
+                <a href="/admin/activities.html" class="sidebar-link" id="nav-activities"><i class="bi bi-activity"></i><span>Activities</span></a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUser">Loading...</div>
+                        <div class="small text-muted">Admin Account</div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-actions">
+                    <button class="btn btn-sm btn-outline-light w-50" id="theme-toggler" type="button"><i class="bi bi-sun-fill"></i> Mode</button>
+                    <button class="btn btn-sm btn-outline-danger w-50" onclick="logout()" type="button"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <header class="app-header">
+                <div class="header-title-box">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarOpenBtn"><i class="bi bi-list fs-5"></i></button>
+                    <h1 class="header-title">Live Customer Support Inbox</h1>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <div class="inbox-container">
+                    <!-- Left Chat List -->
+                    <div class="chat-list-panel">
+                        <div class="chat-list-header">
+                            <label class="form-label fw-bold small text-uppercase text-muted mb-2">Active Session</label>
+                            <select class="form-select form-select-sm" id="inboxSessionSelect" onchange="loadConversations()"></select>
+                        </div>
+                        <div class="chat-items" id="chatItemsList">
+                            <div class="text-center p-4 text-muted"><i class="bi bi-chat-square-dots fs-2 d-block mb-2"></i>Select session to load conversations</div>
+                        </div>
+                    </div>
+
+                    <!-- Right Active Chat View -->
+                    <div class="chat-view-panel" id="chatViewPanel">
+                        <div class="chat-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="user-avatar bg-primary" id="activeContactAvatar">?</div>
+                                <div>
+                                    <div class="fw-bold" id="activeContactName">Select a conversation</div>
+                                    <div class="small text-muted" id="activeContactJid">No active chat</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="messages-viewport" id="messagesViewport">
+                            <div class="text-center my-auto text-muted">
+                                <i class="bi bi-chat-text fs-1 d-block mb-2"></i>
+                                <span>Select a contact from the left list to start messaging</span>
+                            </div>
+                        </div>
+
+                        <div class="chat-input-bar">
+                            <button class="btn btn-outline-secondary" id="attachBtn" data-bs-toggle="modal" data-bs-target="#sendMediaModal" disabled title="Send image, document or audio">
+                                <i class="bi bi-paperclip fs-5"></i>
+                            </button>
+                            <input type="text" class="form-control" id="replyInput" placeholder="Type your reply message..." disabled>
+                            <button class="btn btn-primary px-4" id="sendBtn" onclick="sendReplyMessage()" disabled>
+                                <i class="bi bi-send-fill me-1"></i> Send
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Send Media Reply Modal -->
+    <div class="modal fade" id="sendMediaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-paperclip me-2 text-primary"></i>Attach & Send Media Reply</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Media Type</label>
+                        <select class="form-select" id="mediaTypeSelect">
+                            <option value="image">Image (JPEG / PNG)</option>
+                            <option value="document">Document (PDF / DOC / File)</option>
+                            <option value="audio">Audio Voice Note (MP3 / OGG / WAV)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Media URL (e.g., https://...)</label>
+                        <input type="text" class="form-control" id="mediaUrlInput" placeholder="https://example.com/image.jpg">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Caption (Optional)</label>
+                        <input type="text" class="form-control" id="mediaCaptionInput" placeholder="Optional text caption...">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="sendMediaReply()"><i class="bi bi-send-fill me-1"></i> Send Media</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', () => { appSidebar.classList.add('show'); sidebarOverlay.classList.add('show'); });
+        if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+
+        const themeToggler = document.getElementById('theme-toggler');
+        function initTheme() {
+            const savedTheme = localStorage.getItem('app-theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            if (themeToggler) {
+                themeToggler.innerHTML = savedTheme === 'dark' 
+                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
+                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
+            }
+        }
+
+        if (themeToggler) {
+            themeToggler.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('app-theme', newTheme);
+                initTheme();
+            });
+        }
+        initTheme();
+
+        let activeRemoteJid = null;
+        let conversations = [];
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/admin/me');
+                if (!res.ok) { window.location.href = '/admin/login.html'; return; }
+                const result = await res.json();
+                const user = result.data;
+                document.getElementById('currentUser').textContent = `${user.email}`;
+                if (document.getElementById('userAvatar')) {
+                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+                }
+
+                if (user.role === 'admin') {
+                    const uNav = document.getElementById('nav-users') || document.getElementById('usersNavItem');
+                    const aNav = document.getElementById('nav-activities') || document.getElementById('activitiesNavItem');
+                    if (uNav) uNav.style.display = 'flex';
+                    if (aNav) aNav.style.display = 'flex';
+                }
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function loadSessions() {
+            try {
+                const res = await fetch('/api/v1/sessions');
+                const sessions = await res.json();
+                const select = document.getElementById('inboxSessionSelect');
+                select.innerHTML = '<option value="">Select session...</option>';
+                const sessionList = Array.isArray(sessions) ? sessions : (sessions.data || []);
+                sessionList.forEach(s => {
+                    if (s.status === 'CONNECTED') {
+                        const opt = document.createElement('option');
+                        opt.value = s.sessionId;
+                        opt.textContent = s.sessionId;
+                        select.appendChild(opt);
+                    }
+                });
+                if (select.options.length > 1) {
+                    select.selectedIndex = 1;
+                    loadConversations();
+                }
+            } catch (e) { console.error('Error loading sessions:', e); }
+        }
+
+        async function loadConversations() {
+            const sessionId = document.getElementById('inboxSessionSelect').value;
+            if (!sessionId) return;
+            try {
+                const res = await fetch(`/api/v1/chats?sessionId=${sessionId}`);
+                const result = await res.json();
+                conversations = result.data || [];
+                renderConversationsList();
+            } catch (e) { console.error('Error loading conversations:', e); }
+        }
+
+        function renderMessageContent(m) {
+            const text = escapeHtml(m.body || '');
+            const mediaUrl = m.media_url ? escapeHtml(m.media_url) : null;
+
+            switch (m.message_type) {
+                case 'image':
+                    if (mediaUrl) {
+                        return `
+                            <div class="mb-1"><img src="${mediaUrl}" class="img-fluid rounded border shadow-sm" style="max-height: 250px; object-fit: contain;" alt="Image"></div>
+                            <div>${text}</div>
+                        `;
+                    }
+                    return `<div class="p-2 border rounded bg-body-tertiary mb-1"><i class="bi bi-image text-primary me-2"></i><strong>[Photo / Image]</strong></div><div>${text}</div>`;
+
+                case 'video':
+                    if (mediaUrl) {
+                        return `
+                            <div class="mb-1"><video src="${mediaUrl}" controls class="w-100 rounded border shadow-sm" style="max-height: 250px;"></video></div>
+                            <div>${text}</div>
+                        `;
+                    }
+                    return `<div class="p-2 border rounded bg-body-tertiary mb-1"><i class="bi bi-film text-danger me-2"></i><strong>[Video]</strong></div><div>${text}</div>`;
+
+                case 'audio':
+                    if (mediaUrl) {
+                        return `
+                            <div class="mb-1"><audio src="${mediaUrl}" controls class="w-100"></audio></div>
+                            <small class="text-muted"><i class="bi bi-mic-fill me-1"></i>Voice / Audio Message</small>
+                        `;
+                    }
+                    return `<div class="p-2 border rounded bg-body-tertiary mb-1"><i class="bi bi-mic-fill text-warning me-2"></i><strong>[Voice / Audio Message]</strong></div>`;
+
+                case 'document':
+                    if (mediaUrl) {
+                        return `
+                            <div class="p-2 border rounded bg-body-tertiary mb-1 d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-file-earmark-text-fill fs-3 text-primary"></i>
+                                    <div>
+                                        <div class="fw-bold small text-truncate" style="max-width: 200px;">${text || 'Document'}</div>
+                                    </div>
+                                </div>
+                                <a href="${mediaUrl}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i></a>
+                            </div>
+                        `;
+                    }
+                    return `<div class="p-2 border rounded bg-body-tertiary mb-1"><i class="bi bi-file-earmark-text text-info me-2"></i><strong>${text || '[Document Attachment]'}</strong></div>`;
+
+                case 'location':
+                    return `
+                        <div class="p-2 border rounded bg-body-tertiary mb-1">
+                            <i class="bi bi-geo-alt-fill text-danger me-2"></i><strong>${text || '[Location Shared]'}</strong>
+                        </div>
+                    `;
+
+                case 'contact':
+                    return `
+                        <div class="p-2 border rounded bg-body-tertiary mb-1">
+                            <i class="bi bi-person-lines-fill text-success me-2"></i><strong>${text || '[Contact Card]'}</strong>
+                        </div>
+                    `;
+
+                case 'sticker':
+                    if (mediaUrl) {
+                        return `<img src="${mediaUrl}" class="img-fluid" style="width: 120px; height: 120px; object-fit: contain;" alt="Sticker">`;
+                    }
+                    return `<div class="p-2 border rounded bg-body-tertiary mb-1"><i class="bi bi-emoji-smile me-2"></i>[Sticker]</div>`;
+
+                default:
+                    return `<div class="text-break">${text.replace(/\n/g, '<br>')}</div>`;
+            }
+        }
+
+        function renderConversationsList() {
+            const listEl = document.getElementById('chatItemsList');
+            if (conversations.length === 0) {
+                listEl.innerHTML = '<div class="text-center p-4 text-muted">No conversations yet</div>';
+                return;
+            }
+
+            listEl.innerHTML = conversations.map(c => {
+                const name = c.sender_name || c.remote_jid.split('@')[0];
+                const isActive = c.remote_jid === activeRemoteJid;
+                const unreadBadge = c.unread_count > 0 ? `<span class="badge bg-success rounded-pill ms-auto">${c.unread_count}</span>` : '';
+
+                let preview = c.body || '';
+                if (c.message_type === 'image') preview = '📷 Photo';
+                else if (c.message_type === 'video') preview = '📹 Video';
+                else if (c.message_type === 'audio') preview = '🎵 Audio Voice Message';
+                else if (c.message_type === 'document') preview = '📄 Document';
+                else if (c.message_type === 'location') preview = '📍 Location';
+                else if (c.message_type === 'contact') preview = '👤 Contact Card';
+
+                return `
+                    <div class="chat-item ${isActive ? 'active' : ''}" onclick="selectConversation('${escapeHtml(c.remote_jid)}', '${escapeHtml(name)}')">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <strong class="text-truncate">${escapeHtml(name)}</strong>
+                            ${unreadBadge}
+                        </div>
+                        <div class="small text-muted text-truncate">${escapeHtml(preview)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function selectConversation(remoteJid, name) {
+            activeRemoteJid = remoteJid;
+            document.getElementById('activeContactName').textContent = name;
+            document.getElementById('activeContactJid').textContent = remoteJid;
+            document.getElementById('activeContactAvatar').textContent = name.charAt(0).toUpperCase();
+
+            document.getElementById('replyInput').disabled = false;
+            document.getElementById('sendBtn').disabled = false;
+            const attachBtn = document.getElementById('attachBtn');
+            if (attachBtn) attachBtn.disabled = false;
+
+            renderConversationsList();
+            await loadMessages();
+        }
+
+        async function loadMessages() {
+            const sessionId = document.getElementById('inboxSessionSelect').value;
+            if (!sessionId || !activeRemoteJid) return;
+            try {
+                const res = await fetch(`/api/v1/chats/${encodeURIComponent(activeRemoteJid)}/messages?sessionId=${sessionId}`);
+                const result = await res.json();
+                const messages = result.data || [];
+
+                const viewport = document.getElementById('messagesViewport');
+                viewport.innerHTML = messages.map(m => {
+                    const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `
+                        <div class="msg-bubble ${m.from_me ? 'outbound' : 'inbound'}">
+                            ${renderMessageContent(m)}
+                            <div class="msg-time">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                viewport.scrollTop = viewport.scrollHeight;
+            } catch (e) { console.error('Error loading messages:', e); }
+        }
+
+        async function sendReplyMessage() {
+            const input = document.getElementById('replyInput');
+            const text = input.value.trim();
+            const sessionId = document.getElementById('inboxSessionSelect').value;
+            if (!text || !sessionId || !activeRemoteJid) return;
+
+            input.value = '';
+            try {
+                const res = await fetch(`/api/v1/chats/${encodeURIComponent(activeRemoteJid)}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, message: text, type: 'text' })
+                });
+                if (res.ok) {
+                    await loadMessages();
+                    await loadConversations();
+                } else {
+                    alert('Failed to send message.');
+                }
+            } catch (e) { alert('Error sending message: ' + e.message); }
+        }
+
+        async function sendMediaReply() {
+            const sessionId = document.getElementById('inboxSessionSelect').value;
+            const mediaType = document.getElementById('mediaTypeSelect').value;
+            const mediaUrl = document.getElementById('mediaUrlInput').value.trim();
+            const caption = document.getElementById('mediaCaptionInput').value.trim();
+
+            if (!mediaUrl) {
+                alert('Please enter a valid media URL.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/v1/chats/${encodeURIComponent(activeRemoteJid)}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, type: mediaType, mediaUrl, message: caption })
+                });
+
+                if (res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('sendMediaModal')).hide();
+                    document.getElementById('mediaUrlInput').value = '';
+                    document.getElementById('mediaCaptionInput').value = '';
+                    await loadMessages();
+                    await loadConversations();
+                } else {
+                    alert('Failed to send media reply.');
+                }
+            } catch (e) { alert('Error sending media reply: ' + e.message); }
+        }
+
+        document.getElementById('replyInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendReplyMessage();
+        });
+
+        async function logout() {
+            try {
+                await fetch('/admin/logout', { method: 'POST' });
+                window.location.href = '/admin/login.html';
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        checkAuth().then(() => {
+            loadSessions();
+            setInterval(loadMessages, 5000);
+        });
+    </script>
+</body>
+</html>

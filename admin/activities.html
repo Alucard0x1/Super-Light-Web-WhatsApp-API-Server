@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Log - WhatsApp API</title>
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        :root {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --sidebar-width: 280px;
+            --brand-green: #10b981;
+            --brand-green-glow: rgba(16, 185, 129, 0.2);
+            
+            --bg-app: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --header-bg: #ffffff;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-sidebar: #090d16;
+            --text-sidebar: #64748b;
+            --bg-card: #151c2c;
+            --border-card: #1e293b;
+            --header-bg: #111827;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-app);
+            color: var(--bs-body-color);
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        .app-layout { display: flex; min-height: 100vh; width: 100vw; }
+
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex; flex-direction: column;
+            position: fixed; top: 0; bottom: 0; left: 0;
+            z-index: 1040;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-box { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: #ffffff; }
+        .brand-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: white;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .brand-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+        .brand-subtitle { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+
+        .sidebar-nav { padding: 1.25rem 1rem; flex-grow: 1; overflow-y: auto; }
+        .nav-section-title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #475569; font-weight: 800; margin: 1.25rem 0.75rem 0.5rem; }
+
+        .sidebar-link {
+            display: flex; align-items: center; gap: 0.85rem;
+            padding: 0.7rem 0.9rem; color: #94a3b8; text-decoration: none;
+            border-radius: 10px; font-size: 0.9rem; font-weight: 600;
+            transition: all 0.2s ease; margin-bottom: 0.25rem;
+        }
+
+        .sidebar-link:hover { color: #f8fafc; background-color: rgba(255, 255, 255, 0.06); transform: translateX(3px); }
+        .sidebar-link.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 3.5px solid #10b981;
+        }
+
+        .sidebar-footer { padding: 1.25rem; border-top: 1px solid rgba(255, 255, 255, 0.08); background-color: rgba(0, 0, 0, 0.2); }
+        .user-chip { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+        .user-avatar { width: 34px; height: 34px; border-radius: 50%; background-color: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; }
+        .user-name { color: #f1f5f9; font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .app-main { margin-left: var(--sidebar-width); flex-grow: 1; min-height: 100vh; display: flex; flex-direction: column; transition: margin-left 0.3s ease; }
+        .app-header {
+            height: 70px; background-color: var(--header-bg); border-bottom: 1px solid var(--border-card);
+            padding: 0 2rem; display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 1020; backdrop-filter: blur(10px);
+        }
+
+        .header-title-box { display: flex; align-items: center; gap: 1rem; }
+        .header-title { font-size: 1.25rem; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+        .content-area { padding: 2rem; max-width: 1400px; width: 100%; margin: 0 auto; }
+
+        .card { border: 1px solid var(--border-card); background-color: var(--bg-card); border-radius: 16px; box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03); }
+        .card-header { background-color: transparent !important; border-bottom: 1px solid var(--border-card); padding: 1.25rem 1.5rem; font-weight: 700; color: var(--bs-body-color) !important; }
+        .btn-primary { background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; font-weight: 700; box-shadow: 0 4px 12px var(--brand-green-glow); }
+        .form-control, .form-select { border-radius: 10px; padding: 0.6rem 0.9rem; border-color: var(--border-card); font-size: 0.9rem; }
+
+        @media (max-width: 991.98px) {
+            .app-sidebar { transform: translateX(-100%); }
+            .app-sidebar.show { transform: translateX(0); }
+            .app-main { margin-left: 0; }
+            .sidebar-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 1030; display: none; }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="/admin/dashboard.html" class="brand-box">
+                    <div class="brand-icon"><i class="bi bi-whatsapp"></i></div>
+                    <div>
+                        <div class="brand-title">WA Gateway</div>
+                        <div class="brand-subtitle">API Control v3.2</div>
+                    </div>
+                </a>
+                <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Core Modules</div>
+                <a href="/admin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+                <a href="/admin/campaigns.html" class="sidebar-link"><i class="bi bi-send-fill"></i><span>Campaigns</span></a>
+                <a href="/admin/auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i><span>Auto Replies</span></a>
+                <a href="/admin/ai-chatbot.html" class="sidebar-link"><i class="bi bi-cpu-fill"></i><span>AI Chatbot</span></a>
+                <a href="/admin/inbox.html" class="sidebar-link"><i class="bi bi-chat-dots-fill"></i><span>Live Inbox</span></a>
+                <a href="/admin/users.html" class="sidebar-link" id="nav-users"><i class="bi bi-people-fill"></i><span>Users</span></a>
+                <a href="/admin/activities.html" class="sidebar-link active" id="nav-activities"><i class="bi bi-activity"></i><span>Activities</span></a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUser">Loading...</div>
+                        <div class="small text-muted">Admin Account</div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-actions">
+                    <button class="btn btn-sm btn-outline-light w-50" id="theme-toggler" type="button"><i class="bi bi-sun-fill"></i> Mode</button>
+                    <button class="btn btn-sm btn-outline-danger w-50" onclick="logout()" type="button"><i class="bi bi-box-arrow-right"></i> Logout</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <header class="app-header">
+                <div class="header-title-box">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarOpenBtn"><i class="bi bi-list fs-5"></i></button>
+                    <h1 class="header-title">Activity Log</h1>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Activity Summary -->
+                <div class="row mb-4" id="activitySummaryRow" style="display: none;">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header"><h5 class="mb-0 fw-bold">Activity Summary (Last 7 Days)</h5></div>
+                            <div class="card-body">
+                                <div class="row text-center g-3">
+                                    <div class="col-md-3">
+                                        <h3 id="totalActivities" class="fw-bold text-primary">0</h3>
+                                        <p class="text-muted small m-0">Total Activities</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <h3 id="activeUsers" class="fw-bold text-success">0</h3>
+                                        <p class="text-muted small m-0">Active Users</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <h3 id="sessionsCreated" class="fw-bold text-info">0</h3>
+                                        <p class="text-muted small m-0">Sessions Created</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <h3 id="messagesSent" class="fw-bold text-warning">0</h3>
+                                        <p class="text-muted small m-0">Messages Sent</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Log -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card shadow-sm">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0 fw-bold"><i class="bi bi-activity text-primary me-2"></i>Activity Stream</h5>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-danger me-2" onclick="clearAllActivities()"><i class="bi bi-trash me-1"></i> Clear All</button>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="refreshActivities()"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th>Timestamp</th>
+                                                <th>User</th>
+                                                <th>Action</th>
+                                                <th>Details</th>
+                                                <th>IP Address</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="activitiesTableBody">
+                                            <tr><td colspan="5" class="text-center p-4">Loading activity logs...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', () => { appSidebar.classList.add('show'); sidebarOverlay.classList.add('show'); });
+        if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+
+        const themeToggler = document.getElementById('theme-toggler');
+        function initTheme() {
+            const savedTheme = localStorage.getItem('app-theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            if (themeToggler) {
+                themeToggler.innerHTML = savedTheme === 'dark' 
+                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
+                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
+            }
+        }
+
+        if (themeToggler) {
+            themeToggler.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('app-theme', newTheme);
+                initTheme();
+            });
+        }
+        initTheme();
+
+        let currentUserEmail = '';
+        let currentUserRole = '';
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/admin/me');
+                if (!res.ok) { window.location.href = '/admin/login.html'; return; }
+                const result = await res.json();
+                const user = result.data;
+                currentUserEmail = user.email;
+                currentUserRole = user.role;
+                document.getElementById('currentUser').textContent = `${user.email}`;
+                if (document.getElementById('userAvatar')) {
+                    document.getElementById('userAvatar').textContent = user.email.charAt(0).toUpperCase();
+                }
+
+                if (user.role === 'admin') {
+                    const uNav = document.getElementById('nav-users') || document.getElementById('usersNavItem');
+                    const aNav = document.getElementById('nav-activities') || document.getElementById('activitiesNavItem');
+                    if (uNav) uNav.style.display = 'flex';
+                    if (aNav) aNav.style.display = 'flex';
+                    document.getElementById('activitySummaryRow').style.display = 'block';
+                    loadActivitySummary();
+                }
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function loadActivities() {
+            try {
+                const response = await fetch('/api/v1/activities');
+                if (!response.ok) throw new Error('Failed to load activities');
+                const result = await response.json();
+                renderActivitiesTable(result.data || []);
+            } catch (error) {
+                console.error('Error loading activities:', error);
+                document.getElementById('activitiesTableBody').innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error loading activities</td></tr>`;
+            }
+        }
+
+        async function loadActivitySummary() {
+            try {
+                const response = await fetch('/api/v1/activities/summary');
+                if (!response.ok) return;
+                const result = await response.json();
+                const summary = result.data;
+                document.getElementById('totalActivities').textContent = summary.totalActivities || 0;
+                document.getElementById('activeUsers').textContent = summary.activeUsers || 0;
+                document.getElementById('sessionsCreated').textContent = summary.sessionsCreated || 0;
+                document.getElementById('messagesSent').textContent = summary.messagesSent || 0;
+            } catch (error) {
+                console.error('Error loading activity summary:', error);
+            }
+        }
+
+        function renderActivitiesTable(activities) {
+            const tbody = document.getElementById('activitiesTableBody');
+            if (activities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">No activities recorded yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = activities.map(act => {
+                let detailsText = '';
+                if (act.details) {
+                    try {
+                        const parsed = typeof act.details === 'string' ? JSON.parse(act.details) : act.details;
+                        detailsText = `<pre class="mb-0 small" style="max-width: 300px; white-space: pre-wrap;">${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>`;
+                    } catch (e) {
+                        detailsText = escapeHtml(act.details);
+                    }
+                }
+                return `
+                    <tr>
+                        <td><small>${new Date(act.timestamp).toLocaleString()}</small></td>
+                        <td><strong>${escapeHtml(act.userEmail)}</strong></td>
+                        <td><span class="badge bg-secondary">${escapeHtml(act.action)}</span></td>
+                        <td>${detailsText || 'N/A'}</td>
+                        <td><small class="font-monospace">${escapeHtml(act.ipAddress || 'N/A')}</small></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function refreshActivities() {
+            loadActivities();
+            if (currentUserRole === 'admin') loadActivitySummary();
+        }
+
+        async function clearAllActivities() {
+            if (currentUserRole !== 'admin') { alert('Admin access required'); return; }
+            if (!confirm('Are you sure you want to clear ALL activity logs?')) return;
+            try {
+                const response = await fetch('/api/v1/activities', { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to clear activities');
+                refreshActivities();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/admin/logout', { method: 'POST' });
+                window.location.href = '/admin/login.html';
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+
+        checkAuth().then(() => {
+            loadActivities();
+            setInterval(refreshActivities, 30000);
+        });
+    </script>
+</body>
+</html>

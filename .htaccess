@@ -1,0 +1,42 @@
+# Proxy requests to Node.js application
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Exclude static files from being proxied
+    RewriteCond %{REQUEST_URI} !^/media/
+    RewriteCond %{REQUEST_URI} !^/admin/js/
+    
+    # Proxy all other requests to Node.js app
+    RewriteRule ^(.*)$ http://localhost:3000/$1 [P,L]
+</IfModule>
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Protect sensitive files
+<FilesMatch "\.(env|enc|log|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect directories
+<Files ~ "^\.">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Disable directory browsing
+Options -Indexes
+
+# Set proper MIME types
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType application/json .json
+    AddType text/css .css
+    AddType text/html .html
+</IfModule> 

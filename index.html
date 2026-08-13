@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Gateway API Server</title>
+    <!-- Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #0b0f19;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f8fafc;
+            padding: 20px;
+        }
+        
+        .container {
+            background: #151c2c;
+            border: 1px solid #1e293b;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            padding: 50px 40px;
+            max-width: 680px;
+            width: 100%;
+            text-align: center;
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .logo {
+            width: 76px;
+            height: 76px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 2.2rem;
+            color: white;
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+        }
+        
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+            color: #ffffff;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.05rem;
+            margin-bottom: 36px;
+            font-weight: 400;
+        }
+        
+        .features {
+            text-align: left;
+            margin: 30px 0;
+            display: grid;
+            gap: 12px;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 14px;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        
+        .feature:hover {
+            transform: translateX(4px);
+            border-color: #10b981;
+            background: #111827;
+        }
+        
+        .feature-icon {
+            width: 38px;
+            height: 38px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 14px;
+            flex-shrink: 0;
+            font-size: 1.2rem;
+        }
+        
+        .feature-text {
+            flex: 1;
+        }
+        
+        .feature-title {
+            font-weight: 700;
+            color: #f1f5f9;
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+        }
+        
+        .feature-desc {
+            color: #64748b;
+            font-size: 0.83rem;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            margin-top: 36px;
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #334155;
+        }
+        
+        .btn-secondary:hover {
+            background: #334155;
+            transform: translateY(-2px);
+        }
+        
+        .status {
+            margin-top: 32px;
+            padding: 14px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 12px;
+            color: #10b981;
+            font-size: 0.88rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse 1.8s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        
+        @media (max-width: 600px) {
+            .container { padding: 36px 24px; }
+            h1 { font-size: 1.8em; }
+            .buttons { flex-direction: column; }
+            .btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <i class="bi bi-whatsapp"></i>
+        </div>
+        
+        <h1>WhatsApp Gateway Server</h1>
+        <p class="subtitle">Super lightweight multi-session WhatsApp Web API Gateway</p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon"><i class="bi bi-device-hdd"></i></div>
+                <div class="feature-text">
+                    <div class="feature-title">Multi-Session Engine</div>
+                    <div class="feature-desc">Handle multiple WhatsApp connections simultaneously</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon"><i class="bi bi-send"></i></div>
+                <div class="feature-text">
+                    <div class="feature-title">Bulk Campaign Manager</div>
+                    <div class="feature-desc">Create and schedule bulk WhatsApp campaigns with rate-limiting</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon"><i class="bi bi-people"></i></div>
+                <div class="feature-text">
+                    <div class="feature-title">Recipient Lists & CSV</div>
+                    <div class="feature-desc">Manage reusable contact lists with instant CSV file parsing</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon"><i class="bi bi-shield-lock"></i></div>
+                <div class="feature-text">
+                    <div class="feature-title">Role-Based Access</div>
+                    <div class="feature-desc">Multi-tenant access control with admin and standard user roles</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon"><i class="bi bi-terminal"></i></div>
+                <div class="feature-text">
+                    <div class="feature-title">Live Terminal & Activity Logs</div>
+                    <div class="feature-desc">Stream live WebSocket system logs and inspect detailed request history</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <a href="/admin/login.html" class="btn btn-primary"><i class="bi bi-grid-1x2-fill"></i> Admin Dashboard</a>
+            <a href="/api-documentation" class="btn btn-secondary"><i class="bi bi-book"></i> API Documentation</a>
+        </div>
+        
+        <div class="status">
+            <span class="status-dot"></span>
+            <span>API Server Online & Ready</span>
+        </div>
+    </div>
+</body>
+</html>

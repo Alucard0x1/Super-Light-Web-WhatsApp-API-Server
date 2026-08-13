@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Campaigns - Admin Dashboard</title>
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --sidebar-width: 280px;
+            --brand-green: #10b981;
+            --brand-green-hover: #059669;
+            --brand-green-glow: rgba(16, 185, 129, 0.2);
+            
+            /* Light mode tokens */
+            --bg-app: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --text-sidebar-active: #ffffff;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --header-bg: #ffffff;
+            --text-muted-custom: #64748b;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-sidebar: #090d16;
+            --text-sidebar: #64748b;
+            --text-sidebar-active: #38bdf8;
+            --bg-card: #151c2c;
+            --border-card: #1e293b;
+            --header-bg: #111827;
+            --text-muted-custom: #94a3b8;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-app);
+            color: var(--bs-body-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        /* App Layout Container */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            width: 100vw;
+        }
+
+        /* Sidebar Styling */
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; bottom: 0; left: 0;
+            z-index: 1040;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: white;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .brand-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .brand-subtitle {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+
+        .sidebar-nav {
+            padding: 1.25rem 1rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .nav-section-title {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #475569;
+            font-weight: 800;
+            margin: 1.25rem 0.75rem 0.5rem;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.7rem 0.9rem;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-link i {
+            font-size: 1.1rem;
+            transition: transform 0.2s ease;
+        }
+
+        .sidebar-link:hover {
+            color: #f8fafc;
+            background-color: rgba(255, 255, 255, 0.06);
+            transform: translateX(3px);
+        }
+
+        .sidebar-link.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 3.5px solid #10b981;
+        }
+
+        .sidebar-footer {
+            padding: 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .user-avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .user-info { overflow: hidden; }
+
+        .user-name {
+            color: #f1f5f9;
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar-footer-actions { display: flex; gap: 0.5rem; }
+
+        /* Main Content View */
+        .app-main {
+            margin-left: var(--sidebar-width);
+            flex-grow: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* Header Bar */
+        .app-header {
+            height: 70px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-card);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-title-box { display: flex; align-items: center; gap: 1rem; }
+        .header-title { font-size: 1.25rem; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.75rem;
+            background-color: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background-color: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse-ring 1.8s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .content-area {
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Card Styling */
+        .card {
+            border: 1px solid var(--border-card);
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-header {
+            background-color: transparent !important;
+            border-bottom: 1px solid var(--border-card);
+            padding: 1.25rem 1.5rem;
+            font-weight: 700;
+            color: var(--bs-body-color) !important;
+        }
+
+        .btn-primary, .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            font-weight: 700;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .btn-primary:hover, .btn-success:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+        }
+
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+            border-color: var(--border-card);
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+        }
+
+        /* Campaign Wizard Custom Styling */
+        .wizard-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+
+        .wizard-step {
+            flex: 1;
+            text-align: center;
+            padding: 0.75rem;
+            border-radius: 12px;
+            background: var(--bg-app);
+            border: 1px solid var(--border-card);
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--text-muted-custom);
+            transition: all 0.2s ease;
+        }
+
+        .wizard-step.active {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        .wizard-step.completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #059669;
+        }
+
+        .wizard-step .step-icon {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--border-card);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.35rem;
+            font-weight: 800;
+        }
+
+        .wizard-step.active .step-icon {
+            background: #10b981;
+            color: white;
+        }
+
+        .wizard-container { display: none; }
+        .wizard-container.active { display: block; }
+
+        #messageEditor {
+            height: 220px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 10px;
+        }
+
+        .progress-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 360px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            padding: 1.25rem;
+            display: none;
+            z-index: 1050;
+            border: 1px solid var(--border-card);
+        }
+
+        /* Premium Campaign Card Styles */
+        .campaign-card {
+            border: 1px solid var(--border-card);
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .campaign-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.08);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        .campaign-card-header {
+            padding: 1.25rem 1.5rem 1rem;
+            border-bottom: 1px solid var(--border-card);
+            background: rgba(255, 255, 255, 0.02);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .campaign-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin: 0 0 0.35rem 0;
+            color: var(--bs-body-color);
+            line-height: 1.3;
+        }
+
+        .campaign-meta {
+            font-size: 0.78rem;
+            color: var(--text-muted-custom);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .campaign-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .campaign-badge.draft { background: rgba(108, 117, 125, 0.15); color: #6c757d; }
+        .campaign-badge.ready, .campaign-badge.scheduled { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+        .campaign-badge.sending { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .campaign-badge.paused { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .campaign-badge.completed { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+
+        .campaign-body {
+            padding: 1.25rem 1.5rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .campaign-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+            background: var(--bg-app);
+            padding: 0.85rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-card);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 1.15rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: var(--bs-body-color);
+        }
+
+        .stat-lbl {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted-custom);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .campaign-progress-bar {
+            height: 8px;
+            border-radius: 10px;
+            background: var(--border-card);
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .campaign-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            transition: width 0.4s ease;
+        }
+
+        .campaign-card-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-card);
+            background: rgba(0, 0, 0, 0.015);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        @media (max-width: 991.98px) {
+            .app-sidebar { transform: translateX(-100%); }
+            .app-sidebar.show { transform: translateX(0); }
+            .app-main { margin-left: 0; }
+            .sidebar-overlay {
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 1030; display: none;
+            }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="/admin/dashboard.html" class="brand-box">
+                    <div class="brand-icon">
+                        <i class="bi bi-whatsapp"></i>
+                    </div>
+                    <div>
+                        <div class="brand-title">WA Gateway</div>
+                        <div class="brand-subtitle">API Control v3.2</div>
+                    </div>
+                </a>
+                <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Core Modules</div>
+                <a href="/admin/dashboard.html" class="sidebar-link">
+                    <i class="bi bi-grid-1x2-fill"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/admin/campaigns.html" class="sidebar-link active">
+                    <i class="bi bi-send-fill"></i>
+                    <span>Campaigns</span>
+                </a>
+                <a href="/admin/auto-replies.html" class="sidebar-link">
+                    <i class="bi bi-robot"></i>
+                    <span>Auto Replies</span>
+                </a>
+                <a href="/admin/ai-chatbot.html" class="sidebar-link">
+                    <i class="bi bi-cpu-fill"></i>
+                    <span>AI Chatbot</span>
+                </a>
+                <a href="/admin/inbox.html" class="sidebar-link">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Live Inbox</span>
+                </a>
+                <a href="/admin/users.html" class="sidebar-link" id="usersNavItem" style="display: none;">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Users</span>
+                </a>
+                <a href="/admin/activities.html" class="sidebar-link" id="activitiesNavItem" style="display: none;">
+                    <i class="bi bi-activity"></i>
+                    <span>Activities</span>
+                </a>
+
+                <div class="nav-section-title">Campaign Jump</div>
+                <a href="#" class="sidebar-link sub-link" onclick="switchCampaignTab('campaigns'); return false;">
+                    <i class="bi bi-megaphone"></i>
+                    <span>Bulk Campaigns</span>
+                </a>
+                <a href="#" class="sidebar-link sub-link" onclick="switchCampaignTab('lists'); return false;">
+                    <i class="bi bi-people"></i>
+                    <span>Recipient Lists</span>
+                </a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUserEmail">Loading...</div>
+                        <div class="small text-muted">Admin Account</div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-actions">
+                    <button class="btn btn-sm btn-outline-light w-50" id="theme-toggler" type="button" title="Toggle Theme">
+                        <i class="bi bi-sun-fill"></i> Mode
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger w-50" onclick="logout()" type="button">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content View -->
+        <main class="app-main">
+            <!-- Top Header Bar -->
+            <header class="app-header">
+                <div class="header-title-box">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" id="sidebarOpenBtn">
+                        <i class="bi bi-list fs-5"></i>
+                    </button>
+                    <h1 class="header-title">WhatsApp Campaigns</h1>
+                </div>
+
+                <div class="d-flex align-items-center gap-3">
+                    <div class="status-pill">
+                        <span class="pulse-dot"></span>
+                        <span>Campaign Engine Active</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Navigation Tabs -->
+                <ul class="nav nav-pills mb-4" id="mainTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="campaigns-tab" data-bs-toggle="tab" data-bs-target="#campaigns-content" type="button" role="tab">
+                            <i class="bi bi-megaphone me-1"></i> Campaigns
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="lists-tab" data-bs-toggle="tab" data-bs-target="#lists-content" type="button" role="tab" onclick="loadRecipientListsPage()">
+                            <i class="bi bi-people me-1"></i> Recipient Lists
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="mainTabContent">
+                    <!-- Campaigns Tab -->
+                    <div class="tab-pane fade show active" id="campaigns-content" role="tabpanel">
+                        <!-- Campaign List View -->
+                        <div id="campaignListView">
+                            <div class="row align-items-center mb-4">
+                                <div class="col">
+                                    <h3 class="fw-bold m-0">Bulk Campaigns</h3>
+                                    <p class="text-muted small m-0">Create and manage scheduled bulk messaging jobs</p>
+                                </div>
+                                <div class="col-auto d-flex gap-2">
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-outline-warning btn-sm" onclick="checkOverdueCampaigns()" title="Check overdue campaigns">
+                                            <i class="bi bi-clock-history me-1"></i> Overdue
+                                        </button>
+                                        <button class="btn btn-outline-info btn-sm" onclick="manuallyTriggerScheduler()" title="Trigger scheduler">
+                                            <i class="bi bi-play-circle me-1"></i> Run Scheduler
+                                        </button>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" onclick="showCreateCampaign()">
+                                        <i class="bi bi-plus-circle me-1"></i> New Campaign
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Campaign Filters -->
+                            <div class="row mb-4 g-3">
+                                <div class="col-md-5">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-body-tertiary border-end-0"><i class="bi bi-search"></i></span>
+                                        <input type="text" class="form-control border-start-0" id="searchCampaigns" placeholder="Search campaigns...">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <select class="form-select" id="filterStatus">
+                                        <option value="">All Statuses</option>
+                                        <option value="draft">Draft</option>
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="sending">Sending</option>
+                                        <option value="paused">Paused</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Campaigns Grid -->
+                            <div class="row g-4" id="campaignsGrid">
+                                <!-- Campaign cards will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Campaign Detail View -->
+                        <div id="campaignDetailView" style="display: none;">
+                            <!-- Campaign details will be loaded here -->
+                        </div>
+
+                        <!-- Create/Edit Campaign Wizard -->
+                        <div id="campaignWizard" style="display: none;">
+                            <div class="row">
+                                <div class="col-lg-10 mx-auto">
+                                    <div class="card shadow-sm">
+                                        <div class="card-body">
+                                            <h4 class="fw-bold mb-4" id="wizardTitle">Create New Campaign</h4>
+                                            
+                                            <!-- Wizard Steps -->
+                                            <div class="wizard-steps">
+                                                <div class="wizard-step active" data-step="1">
+                                                    <div class="step-icon">1</div>
+                                                    <div>Basic Info</div>
+                                                </div>
+                                                <div class="wizard-step" data-step="2">
+                                                    <div class="step-icon">2</div>
+                                                    <div>Recipients</div>
+                                                </div>
+                                                <div class="wizard-step" data-step="3">
+                                                    <div class="step-icon">3</div>
+                                                    <div>Message</div>
+                                                </div>
+                                                <div class="wizard-step" data-step="4">
+                                                    <div class="step-icon">4</div>
+                                                    <div>Review</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Step 1: Basic Info -->
+                                            <div class="wizard-container active" data-step="1">
+                                                <form id="basicInfoForm">
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold">Campaign Name</label>
+                                                        <input type="text" class="form-control" id="campaignName" placeholder="e.g. August Promo Blast" required>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold">WhatsApp Session</label>
+                                                        <select class="form-select" id="sessionId" required>
+                                                            <option value="">Select a session...</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold">Schedule Send (Optional)</label>
+                                                        <input type="datetime-local" class="form-control" id="scheduledAt">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-bold">Delay Between Messages (seconds)</label>
+                                                        <input type="number" class="form-control" id="delayBetweenMessages" value="3" min="1" max="60">
+                                                    </div>
+                                                </form>
+                                            </div>
+
+                                            <!-- Step 2: Recipients -->
+                                            <div class="wizard-container" data-step="2">
+                                                <div class="mb-4">
+                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                        <h5 class="fw-bold mb-0">Select Recipients</h5>
+                                                        <div class="d-flex gap-2">
+                                                            <button type="button" class="btn btn-primary btn-sm" onclick="showCreateListModal()">
+                                                                <i class="bi bi-plus-circle me-1"></i> Create List
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadRecipientLists()">
+                                                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="mb-4">
+                                                        <label class="form-label fw-semibold">Choose from existing lists:</label>
+                                                        <div id="recipientListsContainer"></div>
+                                                    </div>
+
+                                                    <div class="mb-4">
+                                                        <div class="card">
+                                                            <div class="card-header">
+                                                                <h6 class="mb-0 fw-bold">
+                                                                    <i class="bi bi-upload me-2"></i>Or Upload CSV
+                                                                    <button class="btn btn-sm btn-link p-0 ms-2 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#csvUploadCollapse">
+                                                                        <i class="bi bi-chevron-down"></i>
+                                                                    </button>
+                                                                </h6>
+                                                            </div>
+                                                            <div class="collapse" id="csvUploadCollapse">
+                                                                <div class="card-body">
+                                                                    <div class="alert alert-info">
+                                                                        <i class="bi bi-info-circle me-1"></i> CSV columns: WhatsApp Number, Name, Job Title, Company Name
+                                                                        <button type="button" class="btn btn-sm btn-info ms-3" onclick="downloadCSVTemplate()">
+                                                                            <i class="bi bi-download me-1"></i> Template
+                                                                        </button>
+                                                                    </div>
+                                                                    <input type="file" class="form-control mb-2" id="csvFile" accept=".csv">
+                                                                    <button type="button" class="btn btn-sm btn-warning" onclick="debugCSVUpload()">
+                                                                        <i class="bi bi-bug me-1"></i> Debug CSV Upload
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div id="selectedRecipientsPreview" style="display: none;">
+                                                        <h6 class="fw-bold">Selected Recipients</h6>
+                                                        <div class="alert alert-success">
+                                                            <i class="bi bi-check-circle me-1"></i> <span id="selectedRecipientCount">0</span> recipients selected
+                                                        </div>
+                                                        <div class="table-responsive" style="max-height: 350px;">
+                                                            <table class="table table-sm table-striped" id="selectedRecipientsTable">
+                                                                <thead>
+                                                                    <tr><th>Number</th><th>Name</th><th>Job Title</th><th>Company</th><th>Action</th></tr>
+                                                                </thead>
+                                                                <tbody id="selectedRecipientsBody"></tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Step 3: Message -->
+                                            <div class="wizard-container" data-step="3">
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">Message Type</label>
+                                                    <select class="form-select" id="messageType">
+                                                        <option value="text">Text Message</option>
+                                                        <option value="image">Image with Caption</option>
+                                                        <option value="document">Document</option>
+                                                    </select>
+                                                </div>
+                                                
+                                                <div id="mediaUploadSection" style="display: none;" class="mb-3">
+                                                    <label class="form-label fw-bold">Upload Media</label>
+                                                    <input type="file" class="form-control" id="mediaFile">
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-bold">Message Content</label>
+                                                    <div class="mb-2">
+                                                        <span class="small me-2 fw-semibold">Insert Placeholder:</span>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="insertPlaceholder('{{Name}}')">{{Name}}</button>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="insertPlaceholder('{{Company}}')">{{Company}}</button>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="insertPlaceholder('{{JobTitle}}')">{{Job Title}}</button>
+                                                    </div>
+                                                    <div id="messageEditor"></div>
+                                                </div>
+
+                                                <div class="mb-3">
+                                                    <h6 class="fw-bold">Preview with sample data:</h6>
+                                                    <div class="card">
+                                                        <div class="card-body" id="messagePreview"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Step 4: Review -->
+                                            <div class="wizard-container" data-step="4">
+                                                <h5 class="fw-bold mb-3">Campaign Summary</h5>
+                                                <div class="card mb-3">
+                                                    <div class="card-body">
+                                                        <dl class="row mb-0">
+                                                            <dt class="col-sm-3">Campaign Name:</dt>
+                                                            <dd class="col-sm-9" id="reviewName"></dd>
+                                                            <dt class="col-sm-3">WhatsApp Session:</dt>
+                                                            <dd class="col-sm-9" id="reviewSession"></dd>
+                                                            <dt class="col-sm-3">Recipients:</dt>
+                                                            <dd class="col-sm-9" id="reviewRecipients"></dd>
+                                                            <dt class="col-sm-3">Message Type:</dt>
+                                                            <dd class="col-sm-9" id="reviewMessageType"></dd>
+                                                            <dt class="col-sm-3">Schedule:</dt>
+                                                            <dd class="col-sm-9" id="reviewSchedule"></dd>
+                                                        </dl>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="alert alert-warning">
+                                                    <i class="bi bi-exclamation-triangle me-1"></i> Please review all details before launching.
+                                                </div>
+                                            </div>
+
+                                            <!-- Wizard Navigation -->
+                                            <div class="d-flex justify-content-between mt-4">
+                                                <div>
+                                                    <button class="btn btn-secondary me-2" onclick="previousStep()" id="prevBtn" style="display: none;">
+                                                        <i class="bi bi-arrow-left me-1"></i> Previous
+                                                    </button>
+                                                    <button class="btn btn-outline-secondary" onclick="saveDraft()" id="saveDraftBtn">
+                                                        <i class="bi bi-save me-1"></i> Save Draft
+                                                    </button>
+                                                </div>
+                                                <div>
+                                                    <button class="btn btn-primary" onclick="nextStep()" id="nextBtn">
+                                                        Next <i class="bi bi-arrow-right ms-1"></i>
+                                                    </button>
+                                                    <button class="btn btn-success" onclick="createCampaign()" id="createBtn" style="display: none;">
+                                                        <i class="bi bi-send me-1"></i> Launch Campaign
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recipient Lists Tab -->
+                    <div class="tab-pane fade" id="lists-content" role="tabpanel">
+                        <div class="row align-items-center mb-4">
+                            <div class="col">
+                                <h3 class="fw-bold m-0">Recipient Lists</h3>
+                                <p class="text-muted small m-0">Manage reusable contact lists for campaigns</p>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary btn-sm" onclick="showCreateListModal()">
+                                    <i class="bi bi-plus-circle me-1"></i> New List
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- List Filters -->
+                        <div class="row mb-4 g-3">
+                            <div class="col-md-5">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-body-tertiary border-end-0"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control border-start-0" id="searchLists" placeholder="Search lists..." onkeyup="filterRecipientLists()">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" id="filterTags" onchange="filterRecipientLists()">
+                                    <option value="">All Tags</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Lists Grid -->
+                        <div class="row g-4" id="recipientListsGrid"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Progress Container -->
+    <div class="progress-container shadow" id="progressContainer">
+        <h6 class="fw-bold mb-3"><i class="bi bi-send me-1 text-primary"></i>Campaign Progress</h6>
+        <div class="mb-2"><strong id="progressCampaignName"></strong></div>
+        <div class="progress mb-3" style="height: 10px;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" id="progressBar" style="width: 0%"></div>
+        </div>
+        <div class="small text-muted mb-3">
+            <div>Sent: <span id="progressSent" class="fw-bold">0</span> / <span id="progressTotal">0</span></div>
+            <div>Failed: <span id="progressFailed" class="text-danger fw-bold">0</span></div>
+            <div>Speed: <span id="progressSpeed">0</span> msgs/min</div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-warning w-50" onclick="pauseCampaign()"><i class="bi bi-pause"></i> Pause</button>
+            <button class="btn btn-sm btn-secondary w-50" onclick="hideProgress()"><i class="bi bi-x"></i> Hide</button>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Create Recipient List Modal -->
+    <div class="modal fade" id="createListModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Create Recipient List</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createListForm">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">List Name *</label>
+                                <input type="text" class="form-control" id="listName" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Tags</label>
+                                <input type="text" class="form-control" id="listTags" placeholder="e.g. leads, vip">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea class="form-control" id="listDescription" rows="2"></textarea>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0">Add Recipients</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRecipientRow()">
+                                <i class="bi bi-plus me-1"></i> Add Row
+                            </button>
+                        </div>
+                        <div id="recipientsContainer"></div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-3" onclick="addMultipleRecipients()">
+                            <i class="bi bi-people me-1"></i> Bulk Add
+                        </button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveRecipientList()"><i class="bi bi-save me-1"></i> Save List</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Recipient List Modal -->
+    <div class="modal fade" id="editListModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Edit Recipient List</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editListForm">
+                        <input type="hidden" id="editListId">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">List Name *</label>
+                                <input type="text" class="form-control" id="editListName" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Tags</label>
+                                <input type="text" class="form-control" id="editListTags">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Description</label>
+                            <textarea class="form-control" id="editListDescription" rows="2"></textarea>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0">Recipients</h6>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRecipientToEditList()"><i class="bi bi-plus"></i> Add Row</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addMultipleRecipientsToEditList()"><i class="bi bi-people"></i> Bulk Add</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshEditListRecipients()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead><tr><th>WhatsApp Number</th><th>Name</th><th>Job Title</th><th>Company</th><th>Actions</th></tr></thead>
+                                <tbody id="editListRecipientsBody"></tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="updateRecipientList()"><i class="bi bi-save me-1"></i> Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Multiple Recipients Modal -->
+    <div class="modal fade" id="addMultipleModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Add Multiple Recipients</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">Format: <code>Number, Name, Job Title, Company</code></p>
+                    <textarea class="form-control" id="bulkRecipientsText" rows="8" placeholder="628123456789, John Doe, Manager, ABC Corp"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="processBulkRecipients()"><i class="bi bi-plus-circle me-1"></i> Add Recipients</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="js/auth-check.js"></script>
+    <script src="js/campaigns.js"></script>
+
+    <script>
+        // Sidebar & Theme toggle logic
+        const appSidebar = document.getElementById('appSidebar');
+        const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
+        const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', () => { appSidebar.classList.add('show'); sidebarOverlay.classList.add('show'); });
+        if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
+
+        const themeToggler = document.getElementById('theme-toggler');
+        function initTheme() {
+            const savedTheme = localStorage.getItem('app-theme') || 'light';
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            if (themeToggler) {
+                themeToggler.innerHTML = savedTheme === 'dark' 
+                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
+                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
+            }
+        }
+
+        if (themeToggler) {
+            themeToggler.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('app-theme', newTheme);
+                initTheme();
+            });
+        }
+        initTheme();
+
+        function switchCampaignTab(tabName) {
+            if (tabName === 'campaigns') {
+                const tabEl = document.getElementById('campaigns-tab');
+                if (tabEl) { const tab = new bootstrap.Tab(tabEl); tab.show(); }
+            } else if (tabName === 'lists') {
+                const tabEl = document.getElementById('lists-tab');
+                if (tabEl) { const tab = new bootstrap.Tab(tabEl); tab.show(); loadRecipientListsPage(); }
+            }
+        }
+
+        async function logout() {
+            try {
+                await axios.post('/admin/logout');
+                window.location.href = '/admin/login.html';
+            } catch (e) {
+                window.location.href = '/admin/login.html';
+            }
+        }
+    </script>
+</body>
+</html>

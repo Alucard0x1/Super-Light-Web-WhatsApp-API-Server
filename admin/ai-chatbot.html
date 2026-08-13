@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot Settings - Admin Dashboard</title>
+    <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <style>
+        :root {
+            --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --sidebar-width: 280px;
+            --brand-green: #10b981;
+            --brand-green-hover: #059669;
+            --brand-green-glow: rgba(16, 185, 129, 0.2);
+            
+            --bg-app: #f8fafc;
+            --bg-sidebar: #0f172a;
+            --text-sidebar: #94a3b8;
+            --text-sidebar-active: #ffffff;
+            --bg-card: #ffffff;
+            --border-card: #e2e8f0;
+            --header-bg: #ffffff;
+            --text-muted-custom: #64748b;
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-app: #0b0f19;
+            --bg-sidebar: #090d16;
+            --text-sidebar: #64748b;
+            --text-sidebar-active: #38bdf8;
+            --bg-card: #151c2c;
+            --border-card: #1e293b;
+            --header-bg: #111827;
+            --text-muted-custom: #94a3b8;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-app);
+            color: var(--bs-body-color);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            width: 100vw;
+        }
+
+        .app-sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; bottom: 0; left: 0;
+            z-index: 1040;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-header {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            color: white;
+            box-shadow: 0 4px 12px var(--brand-green-glow);
+        }
+
+        .brand-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+
+        .brand-subtitle {
+            font-size: 0.7rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+        }
+
+        .sidebar-nav {
+            padding: 1.25rem 1rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .nav-section-title {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #475569;
+            font-weight: 800;
+            margin: 1.25rem 0.75rem 0.5rem;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.7rem 0.9rem;
+            color: #94a3b8;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-link i { font-size: 1.1rem; }
+
+        .sidebar-link:hover {
+            color: #f8fafc;
+            background-color: rgba(255, 255, 255, 0.06);
+            transform: translateX(3px);
+        }
+
+        .sidebar-link.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-left: 3.5px solid #10b981;
+        }
+
+        .sidebar-footer {
+            padding: 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .user-avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            background-color: #3b82f6;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .user-info { overflow: hidden; }
+
+        .user-name {
+            color: #f1f5f9;
+            font-size: 0.82rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .app-main {
+            margin-left: var(--sidebar-width);
+            flex-grow: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+        }
+
+        .app-header {
+            height: 70px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-card);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            backdrop-filter: blur(10px);
+        }
+
+        .content-area {
+            padding: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .card {
+            border: 1px solid var(--border-card);
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            background-color: transparent !important;
+            border-bottom: 1px solid var(--border-card);
+            padding: 1.25rem 1.5rem;
+            font-weight: 700;
+        }
+
+        .sandbox-viewport {
+            height: 320px;
+            overflow-y: auto;
+            padding: 1rem;
+            background: var(--bg-app);
+            border: 1px solid var(--border-card);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .sandbox-msg {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .sandbox-msg.user {
+            align-self: flex-end;
+            background-color: #10b981;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .sandbox-msg.ai {
+            align-self: flex-start;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-card);
+            color: var(--bs-body-color);
+            border-bottom-left-radius: 2px;
+        }
+
+        @media (max-width: 991.98px) {
+            .app-sidebar { transform: translateX(-100%); }
+            .app-sidebar.show { transform: translateX(0); }
+            .app-main { margin-left: 0; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="app-sidebar" id="appSidebar">
+            <div class="sidebar-header">
+                <a href="dashboard.html" class="brand-box">
+                    <div class="brand-icon"><i class="bi bi-whatsapp"></i></div>
+                    <div>
+                        <div class="brand-title">WA Gateway</div>
+                        <div class="brand-subtitle">Enterprise Suite</div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Core Management</div>
+                <a href="dashboard.html" class="sidebar-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
+                <a href="inbox.html" class="sidebar-link"><i class="bi bi-chat-left-text"></i> Live Inbox</a>
+                <a href="auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i> Auto Replies</a>
+                <a href="ai-chatbot.html" class="sidebar-link active"><i class="bi bi-cpu-fill"></i> AI Chatbot</a>
+                <a href="campaigns.html" class="sidebar-link"><i class="bi bi-megaphone"></i> Campaigns</a>
+                <a href="group-scraper.html" class="sidebar-link"><i class="bi bi-people"></i> Group Scraper</a>
+
+                <div class="nav-section-title">System & Analytics</div>
+                <a href="analytics.html" class="sidebar-link"><i class="bi bi-bar-chart-line"></i> Analytics</a>
+                <a href="system-logs.html" class="sidebar-link"><i class="bi bi-terminal"></i> System Logs</a>
+                <a href="activities.html" class="sidebar-link"><i class="bi bi-activity"></i> Audit Log</a>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <div class="user-avatar"><i class="bi bi-person"></i></div>
+                    <div class="user-info">
+                        <div class="user-name" id="currentUserEmail">admin@localhost</div>
+                        <div class="small text-muted">Administrator</div>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <button class="btn btn-sm btn-outline-danger w-100" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i> Logout</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content View -->
+        <div class="app-main">
+            <!-- Header Bar -->
+            <header class="app-header">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-sm btn-outline-secondary d-lg-none" onclick="toggleSidebar()"><i class="bi bi-list fs-5"></i></button>
+                    <h4 class="fw-bold m-0"><i class="bi bi-cpu-fill text-primary me-2"></i>AI Chatbot / LLM Assistant</h4>
+                </div>
+                <div class="form-check form-switch fs-5">
+                    <input class="form-check-input" type="checkbox" id="globalAiToggle" onchange="toggleAiGlobal(this.checked)">
+                    <label class="form-check-label fs-6 fw-bold ms-2" for="globalAiToggle" id="aiStatusLabel">AI Auto-Reply Disabled</label>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <main class="content-area">
+                <div class="row">
+                    <!-- Left Column: Settings Form -->
+                    <div class="col-lg-7">
+                        <div class="card">
+                            <div class="card-header fw-bold"><i class="bi bi-sliders me-2 text-primary"></i>LLM Provider & Credentials</div>
+                            <div class="card-body">
+                                <form id="aiConfigForm" onsubmit="saveAiConfig(event)">
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">LLM Provider</label>
+                                            <select class="form-select" id="aiProvider" onchange="handleProviderChange()">
+                                                <option value="openai">OpenAI (Official)</option>
+                                                <option value="deepseek">DeepSeek API</option>
+                                                <option value="openrouter">OpenRouter / Custom Endpoint</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Model</label>
+                                            <input type="text" class="form-control" id="aiModel" placeholder="e.g., gpt-4o-mini, deepseek-chat">
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">API Base URL</label>
+                                        <input type="text" class="form-control" id="aiBaseUrl" placeholder="https://api.openai.com/v1">
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">API Key</label>
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="aiApiKey" placeholder="sk-...">
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility()"><i class="bi bi-eye"></i></button>
+                                        </div>
+                                        <div class="form-text" id="maskedKeyHint"></div>
+                                    </div>
+
+                                    <hr>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">System Prompt / Persona & Business Context</label>
+                                        <textarea class="form-control" id="aiSystemPrompt" rows="6" placeholder="You are a helpful customer support assistant for ABC Store..."></textarea>
+                                        <div class="form-text">Instruct the AI on store policies, pricing, services, tone, and guidelines.</div>
+                                    </div>
+
+                                    <div class="row g-3 mb-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Temperature (Creativity): <span id="tempVal">0.7</span></label>
+                                            <input type="range" class="form-range" id="aiTemperature" min="0" max="1" step="0.1" value="0.7" oninput="document.getElementById('tempVal').textContent = this.value">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Max Output Tokens</label>
+                                            <input type="number" class="form-control" id="aiMaxTokens" value="500" min="50" max="2000">
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex justify-content-end">
+                                        <button type="submit" class="btn btn-primary px-4 fw-bold" id="saveConfigBtn">
+                                            <i class="bi bi-save me-1"></i> Save Configuration
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Interactive AI Sandbox Playground -->
+                    <div class="col-lg-5">
+                        <div class="card">
+                            <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-play-circle me-2 text-success"></i>Interactive AI Sandbox</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSandbox()"><i class="bi bi-trash me-1"></i>Clear</button>
+                            </div>
+                            <div class="card-body">
+                                <p class="small text-muted mb-3">Test your AI system prompt and model responses in real-time before activating for WhatsApp contacts.</p>
+
+                                <div class="sandbox-viewport" id="sandboxViewport">
+                                    <div class="sandbox-msg ai">
+                                        Hello! I am your AI assistant test sandbox. Type a sample customer message below to test my response!
+                                    </div>
+                                </div>
+
+                                <div class="input-group mt-3">
+                                    <input type="text" class="form-control" id="sandboxInput" placeholder="Ask a test question..." onkeydown="if(event.key === 'Enter') sendSandboxTest()">
+                                    <button class="btn btn-success fw-bold" id="sandboxSendBtn" onclick="sendSandboxTest()"><i class="bi bi-send-fill me-1"></i> Test</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadAiConfig();
+        });
+
+        async function loadAiConfig() {
+            try {
+                const res = await fetch('/api/v1/ai-config');
+                const result = await res.json();
+                if (result.status === 'success') {
+                    const d = result.data;
+                    document.getElementById('globalAiToggle').checked = d.isEnabled === 1;
+                    updateToggleLabel(d.isEnabled === 1);
+
+                    document.getElementById('aiProvider').value = d.provider || 'openai';
+                    document.getElementById('aiModel').value = d.model || 'gpt-4o-mini';
+                    document.getElementById('aiBaseUrl').value = d.apiBaseUrl || 'https://api.openai.com/v1';
+                    document.getElementById('aiSystemPrompt').value = d.systemPrompt || '';
+                    document.getElementById('aiTemperature').value = d.temperature || 0.7;
+                    document.getElementById('tempVal').textContent = d.temperature || 0.7;
+                    document.getElementById('aiMaxTokens').value = d.maxTokens || 500;
+
+                    if (d.apiKeyMasked) {
+                        document.getElementById('maskedKeyHint').textContent = `Configured Key: ${d.apiKeyMasked}`;
+                    }
+                }
+            } catch (e) { console.error('Error loading AI config:', e); }
+        }
+
+        function updateToggleLabel(isEnabled) {
+            const label = document.getElementById('aiStatusLabel');
+            if (isEnabled) {
+                label.textContent = 'AI Auto-Reply ACTIVE';
+                label.className = 'form-check-label fs-6 fw-bold ms-2 text-success';
+            } else {
+                label.textContent = 'AI Auto-Reply Disabled';
+                label.className = 'form-check-label fs-6 fw-bold ms-2 text-muted';
+            }
+        }
+
+        async function toggleAiGlobal(checked) {
+            updateToggleLabel(checked);
+            try {
+                await fetch('/api/v1/ai-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ isEnabled: checked ? 1 : 0 })
+                });
+            } catch (e) { alert('Error updating AI toggle state.'); }
+        }
+
+        function handleProviderChange() {
+            const provider = document.getElementById('aiProvider').value;
+            const baseUrlInput = document.getElementById('aiBaseUrl');
+            const modelInput = document.getElementById('aiModel');
+
+            if (provider === 'openai') {
+                baseUrlInput.value = 'https://api.openai.com/v1';
+                if (!modelInput.value || modelInput.value.includes('deepseek')) modelInput.value = 'gpt-4o-mini';
+            } else if (provider === 'deepseek') {
+                baseUrlInput.value = 'https://api.deepseek.com/v1';
+                modelInput.value = 'deepseek-chat';
+            } else if (provider === 'openrouter') {
+                baseUrlInput.value = 'https://openrouter.ai/api/v1';
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const keyInput = document.getElementById('aiApiKey');
+            keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+        }
+
+        async function saveAiConfig(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveConfigBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+            const payload = {
+                provider: document.getElementById('aiProvider').value,
+                model: document.getElementById('aiModel').value.trim(),
+                apiBaseUrl: document.getElementById('aiBaseUrl').value.trim(),
+                systemPrompt: document.getElementById('aiSystemPrompt').value.trim(),
+                temperature: parseFloat(document.getElementById('aiTemperature').value),
+                maxTokens: parseInt(document.getElementById('aiMaxTokens').value, 10)
+            };
+
+            const keyVal = document.getElementById('aiApiKey').value.trim();
+            if (keyVal) payload.apiKey = keyVal;
+
+            try {
+                const res = await fetch('/api/v1/ai-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    alert('AI Configuration saved successfully!');
+                    await loadAiConfig();
+                    document.getElementById('aiApiKey').value = '';
+                } else {
+                    alert('Failed to save AI config.');
+                }
+            } catch (err) {
+                alert('Error saving AI config: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-save me-1"></i> Save Configuration';
+            }
+        }
+
+        async function sendSandboxTest() {
+            const input = document.getElementById('sandboxInput');
+            const userText = input.value.trim();
+            if (!userText) return;
+
+            const viewport = document.getElementById('sandboxViewport');
+            viewport.innerHTML += `<div class="sandbox-msg user">${escapeHtml(userText)}</div>`;
+            input.value = '';
+            viewport.scrollTop = viewport.scrollHeight;
+
+            const btn = document.getElementById('sandboxSendBtn');
+            btn.disabled = true;
+
+            const payload = {
+                userPrompt: userText,
+                systemPrompt: document.getElementById('aiSystemPrompt').value.trim(),
+                model: document.getElementById('aiModel').value.trim(),
+                apiKey: document.getElementById('aiApiKey').value.trim() || undefined,
+                apiBaseUrl: document.getElementById('aiBaseUrl').value.trim(),
+                temperature: parseFloat(document.getElementById('aiTemperature').value)
+            };
+
+            try {
+                const res = await fetch('/api/v1/ai-chatbot/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                const aiReply = result.data?.response || result.message || 'No response generated.';
+                viewport.innerHTML += `<div class="sandbox-msg ai">${escapeHtml(aiReply)}</div>`;
+            } catch (err) {
+                viewport.innerHTML += `<div class="sandbox-msg ai text-danger">Error generating AI response: ${escapeHtml(err.message)}</div>`;
+            } finally {
+                btn.disabled = false;
+                viewport.scrollTop = viewport.scrollHeight;
+            }
+        }
+
+        function clearSandbox() {
+            document.getElementById('sandboxViewport').innerHTML = `
+                <div class="sandbox-msg ai">
+                    Hello! I am your AI assistant test sandbox. Type a sample customer message below to test my response!
+                </div>
+            `;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('appSidebar').classList.toggle('show');
+        }
+
+        async function logout() {
+            await fetch('/admin/logout', { method: 'POST' });
+            window.location.href = '/admin/login.html';
+        }
+    </script>
+</body>
+</html>

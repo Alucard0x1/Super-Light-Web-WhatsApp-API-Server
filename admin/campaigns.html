@@ -544,10 +544,14 @@
             </div>
 
             <div class="sidebar-nav">
-                <div class="nav-section-title">Core Modules</div>
+                <div class="nav-section-title">Main</div>
                 <a href="/admin/dashboard.html" class="sidebar-link">
                     <i class="bi bi-grid-1x2-fill"></i>
                     <span>Dashboard</span>
+                </a>
+                <a href="/admin/inbox.html" class="sidebar-link">
+                    <i class="bi bi-chat-dots-fill"></i>
+                    <span>Live Inbox</span>
                 </a>
                 <a href="/admin/campaigns.html" class="sidebar-link active">
                     <i class="bi bi-send-fill"></i>
@@ -561,24 +565,24 @@
                     <i class="bi bi-cpu-fill"></i>
                     <span>AI Chatbot</span>
                 </a>
-                <a href="/admin/inbox.html" class="sidebar-link">
-                    <i class="bi bi-chat-dots-fill"></i>
-                    <span>Live Inbox</span>
-                </a>
-                <a href="/admin/users.html" class="sidebar-link" id="usersNavItem" style="display: none;">
+
+                <div class="nav-section-title">Administration</div>
+                <a href="/admin/users.html" class="sidebar-link" id="nav-users" style="display: none;">
                     <i class="bi bi-people-fill"></i>
                     <span>Users</span>
                 </a>
-                <a href="/admin/activities.html" class="sidebar-link" id="activitiesNavItem" style="display: none;">
+                <a href="/admin/activities.html" class="sidebar-link" id="nav-activities" style="display: none;">
                     <i class="bi bi-activity"></i>
                     <span>Activities</span>
                 </a>
+
+                <div class="nav-section-title">Resources</div>
                 <a href="/api-documentation" class="sidebar-link">
                     <i class="bi bi-book"></i>
                     <span>API Docs</span>
                 </a>
 
-                <div class="nav-section-title">Campaign Jump</div>
+                <div class="nav-section-title">On This Page</div>
                 <a href="#" class="sidebar-link sub-link" onclick="switchCampaignTab('campaigns'); return false;">
                     <i class="bi bi-megaphone"></i>
                     <span>Bulk Campaigns</span>
@@ -1122,6 +1126,35 @@
                 if (tabEl) { const tab = new bootstrap.Tab(tabEl); tab.show(); loadRecipientListsPage(); }
             }
         }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/admin/me', { credentials: 'same-origin' });
+                if (res.status === 401) { window.location.href = '/admin/login.html'; return false; }
+                const user = (await res.json()).data;
+                if (!user) { window.location.href = '/admin/login.html'; return false; }
+
+                const emailEl = document.getElementById('currentUserEmail');
+                if (emailEl) emailEl.textContent = user.email;
+                const avatarEl = document.getElementById('userAvatar');
+                if (avatarEl) avatarEl.textContent = user.email.charAt(0).toUpperCase();
+
+                if (user.role === 'admin') {
+                    const uNav = document.getElementById('nav-users') || document.getElementById('usersNavItem');
+                    const aNav = document.getElementById('nav-activities') || document.getElementById('activitiesNavItem');
+                    if (uNav) uNav.style.display = 'flex';
+                    if (aNav) aNav.style.display = 'flex';
+                }
+                return true;
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+                return false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+        });
 
         async function logout() {
             try {

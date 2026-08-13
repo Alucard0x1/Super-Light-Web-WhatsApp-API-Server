@@ -302,26 +302,26 @@
             </div>
 
             <div class="sidebar-nav">
-                <div class="nav-section-title">Core Management</div>
-                <a href="dashboard.html" class="sidebar-link"><i class="bi bi-speedometer2"></i> Dashboard</a>
-                <a href="inbox.html" class="sidebar-link"><i class="bi bi-chat-left-text"></i> Live Inbox</a>
-                <a href="auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i> Auto Replies</a>
-                <a href="ai-chatbot.html" class="sidebar-link active"><i class="bi bi-cpu-fill"></i> AI Chatbot</a>
-                <a href="campaigns.html" class="sidebar-link"><i class="bi bi-megaphone"></i> Campaigns</a>
-                <a href="group-scraper.html" class="sidebar-link"><i class="bi bi-people"></i> Group Scraper</a>
+                <div class="nav-section-title">Main</div>
+                <a href="/admin/dashboard.html" class="sidebar-link"><i class="bi bi-grid-1x2-fill"></i><span>Dashboard</span></a>
+                <a href="/admin/inbox.html" class="sidebar-link"><i class="bi bi-chat-dots-fill"></i><span>Live Inbox</span></a>
+                <a href="/admin/campaigns.html" class="sidebar-link"><i class="bi bi-send-fill"></i><span>Campaigns</span></a>
+                <a href="/admin/auto-replies.html" class="sidebar-link"><i class="bi bi-robot"></i><span>Auto Replies</span></a>
+                <a href="/admin/ai-chatbot.html" class="sidebar-link active"><i class="bi bi-cpu-fill"></i><span>AI Chatbot</span></a>
 
-                <div class="nav-section-title">System & Analytics</div>
-                <a href="analytics.html" class="sidebar-link"><i class="bi bi-bar-chart-line"></i> Analytics</a>
-                <a href="system-logs.html" class="sidebar-link"><i class="bi bi-terminal"></i> System Logs</a>
-                <a href="activities.html" class="sidebar-link"><i class="bi bi-activity"></i> Audit Log</a>
-                <a href="/api-documentation" class="sidebar-link"><i class="bi bi-book"></i> API Docs</a>
+                <div class="nav-section-title">Administration</div>
+                <a href="/admin/users.html" class="sidebar-link" id="nav-users" style="display: none;"><i class="bi bi-people-fill"></i><span>Users</span></a>
+                <a href="/admin/activities.html" class="sidebar-link" id="nav-activities" style="display: none;"><i class="bi bi-activity"></i><span>Activities</span></a>
+
+                <div class="nav-section-title">Resources</div>
+                <a href="/api-documentation" class="sidebar-link"><i class="bi bi-book"></i><span>API Docs</span></a>
             </div>
 
             <div class="sidebar-footer">
                 <div class="user-chip">
-                    <div class="user-avatar"><i class="bi bi-person"></i></div>
+                    <div class="user-avatar" id="userAvatar">A</div>
                     <div class="user-info">
-                        <div class="user-name" id="currentUserEmail">admin@localhost</div>
+                        <div class="user-name" id="currentUserEmail">Loading...</div>
                         <div class="small text-muted">Administrator</div>
                     </div>
                 </div>
@@ -364,8 +364,22 @@
                                             </select>
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label fw-bold">Model</label>
-                                            <input type="text" class="form-control" id="aiModel" placeholder="e.g., gpt-4o-mini, deepseek-chat">
+                                            <label class="form-label fw-bold">Model Name</label>
+                                            <div class="input-group">
+                                                <select class="form-select" id="aiModelSelect" onchange="onModelSelectChange()">
+                                                    <option value="gpt-4o-mini">gpt-4o-mini (OpenAI Fast)</option>
+                                                    <option value="gpt-4o">gpt-4o (OpenAI Flagship)</option>
+                                                    <option value="o3-mini">o3-mini (OpenAI Reasoning)</option>
+                                                    <option value="o1">o1 (OpenAI Deep Reasoning)</option>
+                                                    <option value="deepseek-chat">deepseek-chat (DeepSeek V3)</option>
+                                                    <option value="deepseek-reasoner">deepseek-reasoner (DeepSeek R1)</option>
+                                                    <option value="anthropic/claude-3.7-sonnet">anthropic/claude-3.7-sonnet (OpenRouter)</option>
+                                                    <option value="google/gemini-2.0-flash">google/gemini-2.0-flash (OpenRouter)</option>
+                                                    <option value="meta-llama/llama-3.3-70b-instruct">meta-llama/llama-3.3-70b-instruct (OpenRouter)</option>
+                                                    <option value="custom">Custom Model ID...</option>
+                                                </select>
+                                                <input type="text" class="form-control" id="aiModel" placeholder="Model ID..." style="display: none;">
+                                            </div>
                                         </div>
                                     </div>
 
@@ -606,6 +620,35 @@
         function toggleSidebar() {
             document.getElementById('appSidebar').classList.toggle('show');
         }
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/admin/me', { credentials: 'same-origin' });
+                if (res.status === 401) { window.location.href = '/admin/login.html'; return false; }
+                const user = (await res.json()).data;
+                if (!user) { window.location.href = '/admin/login.html'; return false; }
+
+                const emailEl = document.getElementById('currentUserEmail');
+                if (emailEl) emailEl.textContent = user.email;
+                const avatarEl = document.getElementById('userAvatar');
+                if (avatarEl) avatarEl.textContent = user.email.charAt(0).toUpperCase();
+
+                if (user.role === 'admin') {
+                    const uNav = document.getElementById('nav-users') || document.getElementById('usersNavItem');
+                    const aNav = document.getElementById('nav-activities') || document.getElementById('activitiesNavItem');
+                    if (uNav) uNav.style.display = 'flex';
+                    if (aNav) aNav.style.display = 'flex';
+                }
+                return true;
+            } catch (error) {
+                window.location.href = '/admin/login.html';
+                return false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+        });
 
         async function logout() {
             await fetch('/admin/logout', { method: 'POST' });

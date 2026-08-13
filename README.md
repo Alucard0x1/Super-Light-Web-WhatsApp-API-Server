@@ -126,7 +126,7 @@ All incoming media messages sent to any connected WhatsApp session are automatic
 
    *For cPanel or environments without Python build tools:*
    ```bash
-   npm run install:smart
+   npm run fix:sqlite
    ```
 
 ---

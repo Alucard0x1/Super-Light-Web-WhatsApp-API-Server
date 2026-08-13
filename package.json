@@ -7,7 +7,6 @@
     "start": "bun ./index.js",
     "dev": "nodemon index.js",
     "test": "jest",
-    "install:smart": "node install-dependencies.js",
     "start-production": "npm run start:prod",
     "start:prod:unix": "bash start-production.sh",
     "start:prod:windows": "start-production.bat",

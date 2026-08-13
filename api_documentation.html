@@ -390,6 +390,10 @@
                 <li><a href="#message-management" class="nav-link">Message Management</a></li>
                 <li><a href="#campaign-management" class="nav-link">Campaign Management</a></li>
                 <li><a href="#recipient-lists" class="nav-link">Recipient Lists</a></li>
+                <li><a href="#chats-api" class="nav-link">Chats (Live Inbox)</a></li>
+                <li><a href="#auto-replies-api" class="nav-link">Auto Replies</a></li>
+                <li><a href="#analytics-api" class="nav-link">Analytics</a></li>
+                <li><a href="#ai-chatbot-api" class="nav-link">AI Chatbot</a></li>
                 <li><a href="#user-management" class="nav-link">User Management</a></li>
                 <li><a href="#activity-logs" class="nav-link">Activity Logs</a></li>
                 <li><a href="#legacy-api" class="nav-link">Legacy API</a></li>
@@ -427,22 +431,22 @@
                         <tr>
                             <td><strong>Local Development</strong></td>
                             <td><code>http://localhost:3000/api/v1</code></td>
-                            <td><code>http://localhost:3000/api</code></td>
+                            <td><code>http://localhost:3000/api/v1/legacy</code></td>
                         </tr>
                         <tr>
                             <td><strong>cPanel (HTTP)</strong></td>
                             <td><code>http://yourdomain.com/api/v1</code></td>
-                            <td><code>http://yourdomain.com/api</code></td>
+                            <td><code>http://yourdomain.com/api/v1/legacy</code></td>
                         </tr>
                         <tr>
                             <td><strong>cPanel (HTTPS)</strong></td>
                             <td><code>https://yourdomain.com/api/v1</code></td>
-                            <td><code>https://yourdomain.com/api</code></td>
+                            <td><code>https://yourdomain.com/api/v1/legacy</code></td>
                         </tr>
                         <tr>
                             <td><strong>Custom Port</strong></td>
                             <td><code>http://yourdomain.com:8080/api/v1</code></td>
-                            <td><code>http://yourdomain.com:8080/api</code></td>
+                            <td><code>http://yourdomain.com:8080/api/v1/legacy</code></td>
                         </tr>
                     </tbody>
                 </table>
@@ -488,7 +492,7 @@
 
                 <div class="alert alert-warning">
                     <span class="alert-icon">⚠️</span>
-                    <p>Legacy endpoints at <code>/api/*</code> do not require authentication.</p>
+                    <p>Legacy endpoints have moved to <code>/api/v1/legacy/*</code> and now <strong>require Bearer token authentication</strong>.</p>
                 </div>
 
                 <h4>cURL Example</h4>
@@ -635,6 +639,37 @@
                     <div class="code-block">curl -X DELETE 'http://localhost:3000/api/v1/sessions/mySession' \
                         -H 'Authorization: Bearer your_api_token'</div>
                 </div>
+
+                <!-- Session QR -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/sessions/:sessionId/qr</span>
+                    </div>
+
+                    <h4>Get Session QR Code</h4>
+                    <p>Returns the current pairing QR code for a session that is waiting to be linked.
+                        <strong>Requires authentication.</strong></p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/sessions/mySession/qr' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Session Groups -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/sessions/:id/groups</span>
+                    </div>
+
+                    <h4>List Session Groups</h4>
+                    <p>Lists the WhatsApp groups the session is a member of. <strong>Requires authentication.</strong></p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET 'http://localhost:3000/api/v1/sessions/mySession/groups' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
             </section>
 
             <!-- Webhook Management -->
@@ -722,6 +757,52 @@
                         -d '{
                         "sessionId": "mySession"
                         }'</div>
+                </div>
+
+                <!-- Webhook Events -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">Webhook Events (inbound to your URL)</span>
+                    </div>
+
+                    <h4>Webhook Event Payloads</h4>
+                    <p>When a webhook URL is configured for a session, the server sends JSON events to it. Each event
+                        has this envelope:</p>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "event": "session.update | message.received",
+                        "sessionId": "mySession",
+                        "data": { ... },
+                        "timestamp": "2024-12-20T10:00:00.000Z"
+                        }
+                    </div>
+
+                    <h5><code>session.update</code> — <code>data</code>:</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "status": "CONNECTED",
+                        "detail": "Connected as John Doe"
+                        }
+                    </div>
+
+                    <h5><code>message.received</code> — <code>data</code>:</h5>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "from": "6281234567890@s.whatsapp.net",
+                        "text": "Hello!",
+                        "type": "conversation"
+                        }
+                    </div>
+
+                    <div class="alert alert-info">
+                        <span class="alert-icon">💡</span>
+                        <p>Deliveries are retried up to 3 times with exponential backoff. Webhook URLs must be HTTPS
+                            and may not point at private/local addresses (SSRF-guarded).</p>
+                    </div>
                 </div>
             </section>
 
@@ -1061,7 +1142,7 @@
                 <div class="endpoint">
                     <div class="endpoint-header">
                         <span class="method post">POST</span>
-                        <span class="endpoint-path">/campaigns/:campaignId/start</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/send</span>
                     </div>
 
                     <h4>Start Campaign</h4>
@@ -1069,7 +1150,7 @@
 
                     <h5>cURL Example:</h5>
                     <div class="code-block">curl -X POST
-                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/start' \
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/send' \
                         -H 'Authorization: Bearer your_api_token'</div>
                 </div>
 
@@ -1118,6 +1199,93 @@
                     <div class="code-block">curl -X DELETE
                         'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123' \
                         -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Export Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/export</span>
+                    </div>
+
+                    <h4>Export Campaign Results (CSV)</h4>
+                    <p>Downloads the campaign's recipient delivery results as a CSV file. Cell values are
+                        formula-injection safe.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/export' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Campaign Status -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/status</span>
+                    </div>
+
+                    <h4>Get Campaign Status</h4>
+                    <p>Returns the campaign's live status, progress and recipient statistics.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X GET
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/status' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- Retry Campaign -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/:campaignId/retry</span>
+                    </div>
+
+                    <h4>Retry Failed Recipients</h4>
+                    <p>Re-queues recipients whose delivery failed so the campaign can attempt them again.</p>
+
+                    <h5>cURL Example:</h5>
+                    <div class="code-block">curl -X POST
+                        'http://localhost:3000/api/v1/campaigns/campaign_1234567890_abc123/retry' \
+                        -H 'Authorization: Bearer your_api_token'</div>
+                </div>
+
+                <!-- CSV Template + Preview -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/csv-template</span>
+                    </div>
+                    <h4>Download CSV Template</h4>
+                    <p>Downloads a template CSV for bulk recipient import.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/campaigns/preview-csv</span>
+                    </div>
+                    <h4>Preview CSV Upload</h4>
+                    <p>Uploads a CSV (form-data field <code>file</code>) and returns parsed recipients with validation
+                        errors, without creating a campaign.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/check-scheduled</span>
+                    </div>
+                    <h4>Check Scheduled Campaigns</h4>
+                    <p>Returns campaigns whose scheduled time has passed and are ready to start.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/campaigns/overdue</span>
+                    </div>
+                    <h4>Overdue Campaigns</h4>
+                    <p>Lists campaigns that missed their scheduled start.</p>
                 </div>
             </section>
 
@@ -1325,6 +1493,243 @@
                         "newName": "VIP Customers Copy"
                         }'</div>
                 </div>
+
+                <!-- Search Recipient Lists -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/recipient-lists/search/:query</span>
+                    </div>
+                    <h4>Search Recipients</h4>
+                    <p>Searches all accessible lists for recipients matching a number, name, company or job title.</p>
+                </div>
+
+                <!-- Recipient List Stats -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/recipient-lists-stats</span>
+                    </div>
+                    <h4>Recipient List Statistics</h4>
+                    <p>Returns aggregate statistics: total lists, total recipients, total usage and average list size.</p>
+                </div>
+
+                <!-- Mark Used -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/recipient-lists/:listId/mark-used</span>
+                    </div>
+                    <h4>Mark List as Used</h4>
+                    <p>Records usage of a list (increments <code>usageCount</code>, updates <code>lastUsed</code>).</p>
+                </div>
+
+                <!-- Recipients Sub-resource -->
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/recipient-lists/:listId/recipients</span>
+                    </div>
+                    <h4>Add Recipient</h4>
+                    <p>Adds a single recipient to a list.</p>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "number": "6281234567890",
+                        "name": "John Doe",
+                        "jobTitle": "CEO",
+                        "companyName": "Tech Corp"
+                        }
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method put">PUT</span>
+                        <span class="endpoint-path">/recipient-lists/:listId/recipients/:number</span>
+                    </div>
+                    <h4>Update Recipient</h4>
+                    <p>Updates the name, job title, company or custom fields of a specific recipient.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/recipient-lists/:listId/recipients/:number</span>
+                    </div>
+                    <h4>Remove Recipient</h4>
+                    <p>Removes a specific recipient from a list.</p>
+                </div>
+            </section>
+
+            <!-- Chats API -->
+            <section class="section" id="chats-api">
+                <h2>Chats (Live Inbox)</h2>
+                <p>Message history and reply endpoints used by the Live Inbox dashboard. Mounted at
+                    <code>/api/v1/chats</code>.</p>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/chats?sessionId=&lt;session_id&gt;</span>
+                    </div>
+                    <h4>List Conversations</h4>
+                    <p>Returns recent conversations for a session with unread counts.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/chats/:remoteJid/messages?sessionId=&lt;session_id&gt;</span>
+                    </div>
+                    <h4>Chat History</h4>
+                    <p>Returns the message history with a specific contact (JID).</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/chats/:remoteJid/send</span>
+                    </div>
+                    <h4>Send Reply</h4>
+                    <p>Sends a reply message to a contact from the inbox.</p>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession",
+                        "message": "Hello!",
+                        "type": "text"
+                        }
+                    </div>
+                </div>
+            </section>
+
+            <!-- Auto Replies API -->
+            <section class="section" id="auto-replies-api">
+                <h2>Auto Replies</h2>
+                <p>Keyword-triggered auto-response rules. Mounted at <code>/api/v1/auto-replies</code>.</p>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/auto-replies</span>
+                    </div>
+                    <h4>List Rules</h4>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/auto-replies</span>
+                    </div>
+                    <h4>Create Rule</h4>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "sessionId": "mySession",
+                        "keyword": "PROMO",
+                        "matchType": "contains",
+                        "responseType": "text",
+                        "responsePayload": "Get 50% off today!"
+                        }
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method put">PUT</span>
+                        <span class="endpoint-path">/auto-replies/:id</span>
+                    </div>
+                    <h4>Update Rule</h4>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method delete">DELETE</span>
+                        <span class="endpoint-path">/auto-replies/:id</span>
+                    </div>
+                    <h4>Delete Rule</h4>
+                </div>
+            </section>
+
+            <!-- Analytics API -->
+            <section class="section" id="analytics-api">
+                <h2>Analytics</h2>
+                <p>Dashboard statistics. Mounted at <code>/api/v1/analytics</code>.</p>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/analytics/summary</span>
+                    </div>
+                    <h4>Summary</h4>
+                    <p>Total sessions, campaigns, auto-replies, recipient lists and chat messages.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/analytics/trends</span>
+                    </div>
+                    <h4>Trends</h4>
+                    <p>Activity trends over time.</p>
+                </div>
+            </section>
+
+            <!-- AI Chatbot API -->
+            <section class="section" id="ai-chatbot-api">
+                <h2>AI Chatbot</h2>
+                <p>Configuration and sandbox testing for the AI auto-reply assistant.</p>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/ai-config</span>
+                    </div>
+                    <h4>Get AI Settings</h4>
+                    <p>Returns the current AI configuration (API key excluded).</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/ai-config</span>
+                    </div>
+                    <h4>Update AI Settings</h4>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "isEnabled": true,
+                        "provider": "openai",
+                        "model": "gpt-4o-mini",
+                        "apiKey": "sk-...",
+                        "systemPrompt": "You are a helpful assistant",
+                        "temperature": 0.7,
+                        "maxTokens": 500,
+                        "autoReplyUnmatched": true
+                        }
+                    </div>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="endpoint-path">/ai-chatbot/test</span>
+                    </div>
+                    <h4>Test Playground</h4>
+                    <p>Generates an AI response with the given settings without saving them.</p>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "userPrompt": "Hello",
+                        "systemPrompt": "You are a helpful assistant",
+                        "model": "gpt-4o-mini",
+                        "apiKey": "sk-...",
+                        "apiBaseUrl": "https://api.openai.com/v1",
+                        "temperature": 0.7
+                        }
+                    </div>
+                </div>
             </section>
 
             <!-- User Management -->
@@ -1359,6 +1764,23 @@
                         }
                     </div>
                 </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method put">PUT</span>
+                        <span class="endpoint-path">/users/:email</span>
+                    </div>
+                    <h4>Update User</h4>
+                    <p>Updates a user's <code>role</code>, <code>is_active</code> or <code>password</code>.
+                        <strong>Admin only.</strong></p>
+                    <div class="code-block json">
+                        <span class="code-lang">JSON</span>
+                        {
+                        "role": "admin",
+                        "is_active": true
+                        }
+                    </div>
+                </div>
             </section>
 
             <!-- Activity Logs -->
@@ -1373,6 +1795,15 @@
                     </div>
                     <h4>List Activities</h4>
                     <p>Retrieves recent system activities.</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method get">GET</span>
+                        <span class="endpoint-path">/activities/summary</span>
+                    </div>
+                    <h4>Activity Summary</h4>
+                    <p>Aggregated totals and per-action/per-user breakdown for the dashboard.</p>
                 </div>
             </section>
 

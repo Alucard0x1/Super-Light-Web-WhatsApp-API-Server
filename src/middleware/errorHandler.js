@@ -10,6 +10,12 @@ const response = require('../utils/response');
  * Should be registered last in the middleware chain
  */
 function errorHandler(err, req, res, next) {
+    // Never try to write a response once headers were already sent (e.g. a
+    // downstream session-store failure after the response started)
+    if (res.headersSent) {
+        return next(err);
+    }
+
     // Log the error
     console.error('[Error]', {
         message: err.message,

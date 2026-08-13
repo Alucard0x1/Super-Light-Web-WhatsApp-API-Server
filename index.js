@@ -107,7 +107,9 @@ if (!fs.existsSync(sessionsDir)) {
 const sessionStore = new FileStore({
     path: sessionsDir,
     ttl: sessionTtlSeconds,
-    retries: 0,
+    // Windows: rename collisions with concurrent reads return EPERM; retry
+    // instead of surfacing 500s (retries: 0 caused intermittent request failures)
+    retries: 5,
     secret: sessionSecret,
     logFn: () => { }
 });

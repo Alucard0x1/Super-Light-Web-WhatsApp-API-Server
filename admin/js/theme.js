@@ -23,20 +23,35 @@
     }
 
     function updateToggleButtons(theme) {
+        const isDark = theme === 'dark';
+        const titleText = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+
         // Handle sidebar footer theme toggle (#theme-toggler)
         const sidebarToggler = document.getElementById('theme-toggler');
         if (sidebarToggler) {
-            sidebarToggler.innerHTML = theme === 'dark'
-                ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light'
-                : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
+            sidebarToggler.setAttribute('title', titleText);
+            sidebarToggler.setAttribute('aria-label', titleText);
+            const darkSpan = sidebarToggler.querySelector('.theme-icon-dark');
+            const lightSpan = sidebarToggler.querySelector('.theme-icon-light');
+            if (!darkSpan || !lightSpan) {
+                sidebarToggler.innerHTML = isDark
+                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light'
+                    : '<i class="bi bi-moon-stars-fill text-info me-1"></i> Dark';
+            }
         }
 
         // Handle standalone login page toggle (#themeToggler)
         const loginToggler = document.getElementById('themeToggler');
         if (loginToggler) {
-            loginToggler.innerHTML = theme === 'dark'
-                ? '<i class="bi bi-sun-fill text-warning"></i>'
-                : '<i class="bi bi-moon-stars-fill text-primary"></i>';
+            loginToggler.setAttribute('title', titleText);
+            loginToggler.setAttribute('aria-label', titleText);
+            const darkSpan = loginToggler.querySelector('.theme-icon-dark');
+            const lightSpan = loginToggler.querySelector('.theme-icon-light');
+            if (!darkSpan || !lightSpan) {
+                loginToggler.innerHTML = isDark
+                    ? '<i class="bi bi-sun-fill text-warning"></i>'
+                    : '<i class="bi bi-moon-stars-fill text-info"></i>';
+            }
         }
     }
 

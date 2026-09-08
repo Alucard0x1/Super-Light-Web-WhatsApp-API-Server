@@ -233,6 +233,44 @@
         .sidebar-footer-actions {
             display: flex;
             gap: 0.5rem;
+            align-items: center;
+        }
+
+        .sidebar-footer-actions .btn {
+            flex: 1 1 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.45rem 0.5rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+            border-radius: 8px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        #theme-toggler {
+            background-color: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+        }
+
+        #theme-toggler:hover {
+            background-color: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+        }
+
+        [data-bs-theme="dark"] .theme-icon-light,
+        :root:not([data-bs-theme="dark"]) .theme-icon-dark {
+            display: none !important;
+        }
+
+        [data-bs-theme="dark"] .theme-icon-dark,
+        :root:not([data-bs-theme="dark"]) .theme-icon-light {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
         }
 
         /* Main Content View */
@@ -632,11 +670,12 @@
                     </div>
                 </div>
                 <div class="sidebar-footer-actions">
-                    <button class="btn btn-sm btn-outline-light w-50" id="theme-toggler" type="button" title="Toggle Theme">
-                        <i class="bi bi-sun-fill"></i> Mode
+                    <button class="btn btn-sm w-50" id="theme-toggler" type="button" title="Toggle Theme" aria-label="Toggle Theme">
+                        <span class="theme-icon-dark"><i class="bi bi-sun-fill text-warning me-1"></i> Light</span>
+                        <span class="theme-icon-light"><i class="bi bi-moon-stars-fill text-info me-1"></i> Dark</span>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger w-50" id="logout-btn" type="button">
-                        <i class="bi bi-box-arrow-right"></i> Logout
+                    <button class="btn btn-sm btn-outline-danger w-50" id="logout-btn" type="button" title="Logout">
+                        <i class="bi bi-box-arrow-right me-1"></i> Logout
                     </button>
                 </div>
             </div>

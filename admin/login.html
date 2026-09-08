@@ -141,11 +141,26 @@
             padding: 0.4rem;
             border-radius: 8px;
             transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .theme-toggle-btn:hover {
             color: var(--bs-body-color);
             background: rgba(0, 0, 0, 0.05);
+        }
+
+        [data-bs-theme="dark"] .theme-icon-light,
+        :root:not([data-bs-theme="dark"]) .theme-icon-dark {
+            display: none !important;
+        }
+
+        [data-bs-theme="dark"] .theme-icon-dark,
+        :root:not([data-bs-theme="dark"]) .theme-icon-light {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -153,8 +168,9 @@
 <body>
     <div class="login-wrapper">
         <div class="login-card">
-            <button class="theme-toggle-btn" id="themeToggler" title="Toggle Theme">
-                <i class="bi bi-sun-fill"></i>
+            <button class="theme-toggle-btn" id="themeToggler" type="button" title="Toggle Theme" aria-label="Toggle Theme">
+                <span class="theme-icon-dark"><i class="bi bi-sun-fill text-warning"></i></span>
+                <span class="theme-icon-light"><i class="bi bi-moon-stars-fill text-info"></i></span>
             </button>
 
             <div class="brand-header">

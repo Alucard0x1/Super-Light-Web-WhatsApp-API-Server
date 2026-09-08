@@ -12,6 +12,64 @@ const path = require('path');
 const fs = require('fs');
 const CampaignManager = require('../../src/services/campaigns');
 
+describe('CampaignManager sending regressions', () => {
+    let manager;
+    let stored;
+
+    beforeEach(() => {
+        manager = Object.create(CampaignManager.prototype);
+        manager.saveCampaign = campaign => { stored = structuredClone(campaign); };
+        manager.loadCampaign = () => structuredClone(stored);
+        manager.createCampaign({
+            name: 'Regression',
+            sessionId: 'test',
+            message: 'Hello {{JobTitle}} at {{Company}} {{Code}}',
+            recipients: [
+                { number: '6281111111111', name: 'Alice', jobTitle: 'Engineer',
+                    companyName: 'Acme', customFields: { Code: 'ABC' } },
+                { number: '6281111111111', name: 'Alice duplicate' }
+            ]
+        });
+    });
+
+    test('preserves personalization through campaign creation', () => {
+        expect(manager.processTemplate(stored.message.content, stored.recipients[0]))
+            .toBe('Hello Engineer at Acme ABC');
+    });
+
+    test('one successful delivery resolves all rows for the same number', () => {
+        const [recipient] = manager.getPendingRecipients('test', 1);
+        manager.updateRecipientStatus('test', recipient.number, 'sent');
+        expect(manager.getPendingRecipients('test', 1)).toEqual([]);
+        expect(stored.recipients.map(r => r.status)).toEqual(['sent', 'sent']);
+        expect(stored.statistics).toEqual({ total: 2, sent: 2, failed: 0, pending: 0 });
+    });
+
+    test('duplicate failures stop at the retry limit and can be manually retried', () => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const [recipient] = manager.getPendingRecipients('test', 1);
+            expect(recipient).toBeDefined();
+            manager.updateRecipientStatus('test', recipient.number, 'failed', 'Unavailable');
+        }
+        expect(manager.getPendingRecipients('test', 1)).toEqual([]);
+        expect(stored.statistics).toEqual({ total: 2, sent: 0, failed: 2, pending: 0 });
+        manager.markForRetry('test', '6281111111111');
+        manager.markForRetry('test', '6281111111111');
+        expect(stored.recipients.map(r => r.status)).toEqual(['pending', 'pending']);
+        expect(stored.statistics).toEqual({ total: 2, sent: 0, failed: 0, pending: 2 });
+        manager.updateRecipientStatus('test', '6281111111111', 'sent');
+        expect(manager.getPendingRecipients('test', 1)).toEqual([]);
+    });
+
+    test('disabled automatic retries still allow explicit manual retries', () => {
+        stored.settings.retryFailedMessages = false;
+        manager.updateRecipientStatus('test', '6281111111111', 'failed', 'Unavailable');
+        expect(manager.getPendingRecipients('test', 1)).toEqual([]);
+        manager.markForRetry('test', '6281111111111');
+        expect(manager.getPendingRecipients('test', 1)).toHaveLength(1);
+    });
+});
+
 describe('CampaignManager exportResults', () => {
     let manager;
     const testId = `test_camp_${Date.now()}`;

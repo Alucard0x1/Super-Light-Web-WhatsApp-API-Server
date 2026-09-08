@@ -155,6 +155,9 @@ class CampaignManager {
             return {
                 number: obj.number || String(item),
                 name: obj.name || '',
+                jobTitle: obj.jobTitle || '',
+                companyName: obj.companyName || '',
+                customFields: obj.customFields || {},
                 status: obj.status || 'pending',
                 sentAt: obj.sentAt || null,
                 error: obj.error || null,
@@ -454,8 +457,9 @@ class CampaignManager {
         const campaign = this.loadCampaign(campaignId);
         if (!campaign) return;
 
-        const recipient = campaign.recipients.find(r => r.number === recipientNumber);
-        if (recipient) {
+        // A delivery belongs to the number, including duplicate rows in saved campaigns.
+        const recipients = campaign.recipients.filter(r => r.number === recipientNumber);
+        for (const recipient of recipients) {
             const oldStatus = recipient.status;
             recipient.status = status;
             recipient.error = error;
@@ -479,9 +483,8 @@ class CampaignManager {
                 else if (status === 'failed') campaign.statistics.failed++;
                 else if (status === 'pending') campaign.statistics.pending++;
             }
-
-            this.saveCampaign(campaign);
         }
+        if (recipients.length) this.saveCampaign(campaign);
     }
 
     // Update campaign status
@@ -513,7 +516,8 @@ class CampaignManager {
                 r.status === 'pending' ||
                 r.status === undefined ||
                 r.status === null ||
-                (r.status === 'failed' && (!r.retryCount || r.retryCount < campaign.settings.maxRetries))
+                (r.status === 'failed' && campaign.settings.retryFailedMessages !== false &&
+                    (!r.retryCount || r.retryCount < campaign.settings.maxRetries))
             )
             .slice(0, limit);
 
@@ -525,8 +529,8 @@ class CampaignManager {
         const campaign = this.loadCampaign(campaignId);
         if (!campaign) return;
 
-        const recipient = campaign.recipients.find(r => r.number === recipientNumber);
-        if (recipient) {
+        const recipients = campaign.recipients.filter(r => r.number === recipientNumber && r.status === 'failed');
+        for (const recipient of recipients) {
             recipient.retryCount = (recipient.retryCount || 0) + 1;
             recipient.status = 'pending';
             recipient.error = null;
@@ -534,9 +538,8 @@ class CampaignManager {
             // Update statistics
             campaign.statistics.failed--;
             campaign.statistics.pending++;
-
-            this.saveCampaign(campaign);
         }
+        if (recipients.length) this.saveCampaign(campaign);
     }
 
     // Export campaign results to CSV (quote-escaped + formula-injection safe)
@@ -572,4 +575,4 @@ class CampaignManager {
     }
 }
 
-module.exports = CampaignManager; 
+module.exports = CampaignManager;

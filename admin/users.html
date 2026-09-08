@@ -5,6 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management - WhatsApp API</title>
+    <script>
+        (function() {
+            try {
+                const theme = localStorage.getItem('app-theme') || 'light';
+                document.documentElement.setAttribute('data-bs-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
     <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -332,6 +340,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/admin/js/toast.js"></script>
+    <script src="/admin/js/theme.js"></script>
     <script>
         const appSidebar = document.getElementById('appSidebar');
         const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
@@ -341,28 +350,6 @@
         if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', () => { appSidebar.classList.add('show'); sidebarOverlay.classList.add('show'); });
         if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
         if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => { appSidebar.classList.remove('show'); sidebarOverlay.classList.remove('show'); });
-
-        const themeToggler = document.getElementById('theme-toggler');
-        function initTheme() {
-            const savedTheme = localStorage.getItem('app-theme') || 'light';
-            document.documentElement.setAttribute('data-bs-theme', savedTheme);
-            if (themeToggler) {
-                themeToggler.innerHTML = savedTheme === 'dark' 
-                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
-                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
-            }
-        }
-
-        if (themeToggler) {
-            themeToggler.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', newTheme);
-                localStorage.setItem('app-theme', newTheme);
-                initTheme();
-            });
-        }
-        initTheme();
 
         let users = [];
         let currentUserEmail = '';

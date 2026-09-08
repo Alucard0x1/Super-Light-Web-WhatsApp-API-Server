@@ -708,4 +708,13 @@ process.on('SIGINT', () => {
     }, 10000);
 });
 
+// Process resilience guards against intermittent Baileys/network disconnects
+process.on('uncaughtException', (err) => {
+    console.error('[SYSTEM] Uncaught Exception:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('[SYSTEM] Unhandled Rejection:', reason?.message || reason);
+});
+
 module.exports = { app, server, wss };

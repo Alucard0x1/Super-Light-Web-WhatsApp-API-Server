@@ -5,6 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WhatsApp Gateway Dashboard</title>
+    <script>
+        (function() {
+            try {
+                const theme = localStorage.getItem('app-theme') || 'light';
+                document.documentElement.setAttribute('data-bs-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
     <!-- Fonts: Plus Jakarta Sans & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -978,6 +986,7 @@
     <!-- Scripts section -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="/admin/js/toast.js"></script>
+    <script src="/admin/js/theme.js"></script>
     <script src="/admin/js/qrcode.min.js"></script>
     <script>
         function sanitize(str) {
@@ -1005,33 +1014,6 @@
         if (sidebarOpenBtn) sidebarOpenBtn.addEventListener('click', openSidebar);
         if (sidebarCloseBtn) sidebarCloseBtn.addEventListener('click', closeSidebar);
         if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebar);
-
-        // Theme Toggle logic
-        const themeToggler = document.getElementById('theme-toggler');
-        function initTheme() {
-            const savedTheme = localStorage.getItem('app-theme') || 'light';
-            document.documentElement.setAttribute('data-bs-theme', savedTheme);
-            updateThemeTogglerIcon(savedTheme);
-        }
-
-        function updateThemeTogglerIcon(theme) {
-            if (themeToggler) {
-                themeToggler.innerHTML = theme === 'dark' 
-                    ? '<i class="bi bi-sun-fill text-warning me-1"></i> Light' 
-                    : '<i class="bi bi-moon-stars-fill text-primary me-1"></i> Dark';
-            }
-        }
-
-        if (themeToggler) {
-            themeToggler.addEventListener('click', () => {
-                const currentTheme = document.documentElement.getAttribute('data-bs-theme') || 'light';
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', newTheme);
-                localStorage.setItem('app-theme', newTheme);
-                updateThemeTogglerIcon(newTheme);
-            });
-        }
-        initTheme();
 
         // State variables
         let currentUserEmail = '';

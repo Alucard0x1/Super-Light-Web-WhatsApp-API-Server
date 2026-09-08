@@ -128,3 +128,34 @@ describe('CampaignManager exportResults', () => {
         expect(fs.existsSync(path.join(__dirname, '../../package.json'))).toBe(true);
     });
 });
+
+describe('CampaignManager listing cache (DDoS mitigation H6)', () => {
+    test('caches the listing within the TTL and invalidates on mutation', () => {
+        const manager = new CampaignManager('a'.repeat(64)); // valid 64-hex key
+        const id = `camp_cache_${Date.now()}`;
+        manager.saveCampaign({
+            id,
+            name: 'Cached',
+            createdBy: 'admin@example.com',
+            recipients: [],
+            status: 'draft'
+        });
+
+        let loadCount = 0;
+        const origLoad = manager.loadCampaign.bind(manager);
+        manager.loadCampaign = (...args) => { loadCount++; return origLoad(...args); };
+
+        // First call loads from disk and caches.
+        expect(manager.getAllCampaigns()).toHaveLength(1);
+        // Second call within the TTL must NOT reload from disk.
+        expect(manager.getAllCampaigns()).toHaveLength(1);
+        expect(loadCount).toBe(1);
+
+        // A mutation must invalidate the cache so the next read is fresh.
+        manager.saveCampaign({ id, name: 'Cached2', createdBy: 'admin@example.com', recipients: [], status: 'draft' });
+        expect(manager.getAllCampaigns()).toHaveLength(1);
+        expect(loadCount).toBe(2);
+
+        manager.deleteCampaign(id);
+    });
+});

@@ -11,6 +11,11 @@ class CampaignManager {
         this.encryptionKey = encryptionKey;
         this.campaignsDir = path.join(__dirname, 'campaigns');
         this.campaignMediaDir = path.join(__dirname, 'campaign_media');
+        // Listing cache: avoids re-reading + decrypting every campaign file on
+        // every GET /campaigns and every scheduler tick (CPU/I-O amplification
+        // under many campaigns). Invalidated on any campaign mutation.
+        this._listCache = null;
+        this._listCacheAt = 0;
         this.ensureDirectories();
     }
 
@@ -70,6 +75,7 @@ class CampaignManager {
             console.error(`[CampaignManager] Invalid campaign ID during save: ${campaign.id}`);
             throw new Error('Invalid campaign ID');
         }
+        this._listCache = null; // invalidate the listing cache
         const filePath = this._campaignFilePath(campaign.id);
         console.log(`[CampaignManager] Writing to: ${filePath}`);
 
@@ -111,34 +117,44 @@ class CampaignManager {
 
     // Get all campaigns
     getAllCampaigns(userEmail = null, isAdmin = false) {
+        // Serve from a short-lived cache to avoid re-reading + decrypting every
+        // campaign file on each call. Invalidated by any campaign mutation.
+        const now = Date.now();
+        if (this._listCache && (now - this._listCacheAt) < 2000) {
+            return this._filterCampaignList(this._listCache, userEmail, isAdmin);
+        }
         try {
             const files = fs.readdirSync(this.campaignsDir);
-            const campaigns = [];
+            const loaded = [];
 
             for (const file of files) {
                 if (file.endsWith('.json')) {
                     const campaign = this.loadCampaign(file.replace('.json', ''));
                     if (campaign) {
-                        // Filter by user if not admin
-                        if (isAdmin || !userEmail || campaign.createdBy === userEmail) {
-                            // Don't include full recipient list in listing
-                            const summary = {
-                                ...campaign,
-                                recipients: undefined,
-                                recipientCount: campaign.recipients ? campaign.recipients.length : 0
-                            };
-                            campaigns.push(summary);
-                        }
+                        // Don't include full recipient list in listing
+                        loaded.push({
+                            ...campaign,
+                            recipients: undefined,
+                            recipientCount: campaign.recipients ? campaign.recipients.length : 0
+                        });
                     }
                 }
             }
 
-            // Sort by creation date (newest first)
-            return campaigns.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            this._listCache = loaded;
+            this._listCacheAt = now;
+            return this._filterCampaignList(loaded, userEmail, isAdmin);
         } catch (error) {
             console.error('Error getting campaigns:', error);
             return [];
         }
+    }
+
+    // Apply the owner/role filter + sort to a list of campaign summaries.
+    _filterCampaignList(campaigns, userEmail, isAdmin) {
+        const filtered = campaigns.filter(c => isAdmin || !userEmail || c.createdBy === userEmail);
+        // Sort by creation date (newest first)
+        return filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
     // Create new campaign
@@ -261,6 +277,7 @@ class CampaignManager {
         if (!require('../utils/validation').isValidId(campaignId)) {
             return false;
         }
+        this._listCache = null; // invalidate the listing cache
         try {
             const filePath = this._campaignFilePath(campaignId);
             if (fs.existsSync(filePath)) {

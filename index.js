@@ -63,14 +63,37 @@ if (!ENCRYPTION_KEY || !isValidKey(ENCRYPTION_KEY)) {
 
 // Initialize Express
 const app = express();
-app.set('trust proxy', 1);
+
+// ONLY trust proxy headers (X-Forwarded-For) when explicitly sitting behind a
+// reverse proxy (TRUST_PROXY=true). Blindly trusting them lets an attacker
+// spoof req.ip to rotate identities and bypass per-IP rate limits and the login
+// brute-force lockout (a DoS / brute-force driver). When behind a proxy, ensure
+// it overwrites X-Forwarded-For (e.g. proxy_set_header X-Forwarded-For $remote_addr).
+const trustProxy = process.env.TRUST_PROXY === 'true'
+    ? (Number.parseInt(process.env.TRUST_PROXY_HOPS || '1', 10) || 1)
+    : false;
+app.set('trust proxy', trustProxy);
+
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+// Explicit HTTP timeouts to mitigate Slowloris / stalled-connection DoS.
+// headersTimeout must exceed keepAliveTimeout (Node throws otherwise).
+server.headersTimeout = 10000;
+server.requestTimeout = 30000;
+server.keepAliveTimeout = 5000;
+server.maxRequestsPerSocket = 1000;
+// Hardened WebSocket: disable permessage-deflate (compression-bomb DoS) and
+// cap the max single-frame payload at 64KB.
+const wss = new WebSocketServer({
+    server,
+    perMessageDeflate: false,
+    maxPayload: 64 * 1024
+});
 
 // API bearer tokens are retained only for legacy token-authenticated routes.
 // They are never used to authenticate dashboard WebSockets.
 const sessionTokens = new Map();
-// WebSocket clients map
+// WebSocket clients map (bounded below to prevent connection-exhaustion DoS).
+const MAX_WS_CLIENTS = 200;
 const wsClients = new Map();
 
 // Session configuration
@@ -273,6 +296,13 @@ wss.on('connection', (ws, req) => {
                 ws.close(1008, 'Unauthorized');
                 return;
             }
+            // Bound the number of authenticated dashboard sockets so a single
+            // (or misbehaving) client cannot exhaust memory by opening
+            // unbounded connections (DoS).
+            if (wsClients.size >= MAX_WS_CLIENTS) {
+                ws.close(1013, 'Too many connections');
+                return;
+            }
             wsClients.set(ws, userInfo);
         }).catch((err) => {
             console.error('[WebSocket] Session validation error:', err.message);
@@ -339,8 +369,56 @@ app.use('/api/v1/analytics', require('./src/routes/analytics'));
 
 const { requireAuth } = require('./src/middleware/auth');
 
-// System log history persistence (dashboard "System Log History" UI)
+// System log history persistence (dashboard "System Log History" UI).
+// Logs are held in an in-memory ring buffer and flushed to disk on a debounced
+// timer, so the hot path (every API request calls log()) never does synchronous
+// read-modify-write of the JSON file — that blocked the event loop under load.
 const systemLogFile = path.join(__dirname, 'logs', 'system_logs.json');
+const SYSTEM_LOG_NORMALIZE = (log) => ({
+    type: 'log',
+    timestamp: typeof log.timestamp === 'string' ? log.timestamp.slice(0, 40) : new Date().toISOString(),
+    sessionId: typeof log.sessionId === 'string' ? log.sessionId.slice(0, 128) : 'SYSTEM',
+    message: typeof log.message === 'string' ? log.message.slice(0, 4000) : '',
+    level: ['INFO', 'WARN', 'ERROR', 'DEBUG'].includes(log.level) ? log.level : 'INFO',
+    details: log.details && typeof log.details === 'object' ? log.details : null
+});
+let logBuffer = [];
+let logBufferInitialized = false;
+let logFlushTimer = null;
+const LOG_BUFFER_MAX = 5000;
+const LOG_FLUSH_INTERVAL = 2000; // ms — coalesce log writes
+
+function initLogBuffer() {
+    if (logBufferInitialized) return;
+    logBufferInitialized = true;
+    try {
+        if (fs.existsSync(systemLogFile)) {
+            const parsed = JSON.parse(fs.readFileSync(systemLogFile, 'utf-8'));
+            if (Array.isArray(parsed)) logBuffer = parsed.slice(-LOG_BUFFER_MAX);
+        }
+    } catch (e) {
+        logBuffer = [];
+    }
+}
+
+function scheduleLogFlush() {
+    if (logFlushTimer) return;
+    logFlushTimer = setTimeout(() => {
+        logFlushTimer = null;
+        try {
+            const logsDir = path.dirname(systemLogFile);
+            if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+            // Persist a snapshot; worst case is losing <2s of recent logs.
+            fs.writeFileSync(systemLogFile, JSON.stringify(logBuffer, null, 2));
+            if (process.platform !== 'win32') {
+                try { fs.chmodSync(systemLogFile, 0o600); } catch (e) { /* best effort */ }
+            }
+        } catch (err) {
+            console.error('[SystemLog] Failed to persist log:', err.message);
+        }
+    }, LOG_FLUSH_INTERVAL);
+    if (typeof logFlushTimer.unref === 'function') logFlushTimer.unref();
+}
 
 // requireAuth re-syncs req.session.userRole from the users table, so a demoted
 // admin loses access to these routes on the next request.
@@ -348,16 +426,10 @@ app.get('/admin/logs', requireAuth, (req, res) => {
     if (req.session.userRole !== 'admin') {
         return response.forbidden(res, 'Admin access required');
     }
-    try {
-        if (fs.existsSync(systemLogFile)) {
-            const logs = JSON.parse(fs.readFileSync(systemLogFile, 'utf-8'));
-            res.json({ status: 'success', logs: Array.isArray(logs) ? logs : [] });
-        } else {
-            res.json({ status: 'success', logs: [] });
-        }
-    } catch (err) {
-        res.json({ status: 'success', logs: [] });
-    }
+    // Serve from the in-memory buffer (complete and always current) instead of
+    // reading/parsing the file on every request.
+    initLogBuffer();
+    res.json({ status: 'success', logs: logBuffer });
 });
 
 app.post('/admin/update-logs', requireAuth, (req, res) => {
@@ -368,28 +440,11 @@ app.post('/admin/update-logs', requireAuth, (req, res) => {
     if (!Array.isArray(logs)) {
         return response.error(res, 'logs must be an array', 400);
     }
-    // Cap size and normalize entries before persisting
-    const safeLogs = logs.slice(-5000).map(log => ({
-        type: 'log',
-        timestamp: typeof log.timestamp === 'string' ? log.timestamp.slice(0, 40) : new Date().toISOString(),
-        sessionId: typeof log.sessionId === 'string' ? log.sessionId.slice(0, 128) : 'SYSTEM',
-        message: typeof log.message === 'string' ? log.message.slice(0, 4000) : '',
-        level: ['INFO', 'WARN', 'ERROR', 'DEBUG'].includes(log.level) ? log.level : 'INFO',
-        details: log.details && typeof log.details === 'object' ? log.details : null
-    }));
-    try {
-        const logsDir = path.dirname(systemLogFile);
-        if (!fs.existsSync(logsDir)) {
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-        fs.writeFileSync(systemLogFile, JSON.stringify(safeLogs));
-        if (process.platform !== 'win32') {
-            try { fs.chmodSync(systemLogFile, 0o600); } catch (err) { /* best effort */ }
-        }
-        res.json({ status: 'success' });
-    } catch (err) {
-        res.status(500).json({ status: 'error', message: 'Failed to write log file' });
-    }
+    // Cap size and normalize entries, then update the in-memory buffer.
+    initLogBuffer();
+    logBuffer = logs.slice(-LOG_BUFFER_MAX).map(SYSTEM_LOG_NORMALIZE);
+    scheduleLogFlush();
+    res.json({ status: 'success' });
 });
 
 // Static pages
@@ -447,24 +502,12 @@ app.use('/media', express.static(path.join(__dirname, 'media'), {
 }));
 
 const saveLogToDisk = (logObject) => {
-    try {
-        const logsDir = path.dirname(systemLogFile);
-        if (!fs.existsSync(logsDir)) {
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-        let logs = [];
-        if (fs.existsSync(systemLogFile)) {
-            try {
-                logs = JSON.parse(fs.readFileSync(systemLogFile, 'utf-8'));
-                if (!Array.isArray(logs)) logs = [];
-            } catch (e) { logs = []; }
-        }
-        logs.push(logObject);
-        if (logs.length > 5000) logs = logs.slice(-5000);
-        fs.writeFileSync(systemLogFile, JSON.stringify(logs, null, 2));
-    } catch (err) {
-        console.error('[SystemLog] Failed to persist log:', err.message);
-    }
+    // Push into the in-memory ring buffer and schedule one debounced flush.
+    // No synchronous read/write in the request hot path (DoS-safe).
+    initLogBuffer();
+    logBuffer.push(logObject);
+    if (logBuffer.length > LOG_BUFFER_MAX) logBuffer = logBuffer.slice(-LOG_BUFFER_MAX);
+    scheduleLogFlush();
 };
 
 const log = (message, context, details, level) => {

@@ -293,17 +293,14 @@ async function connectImpl(sessionId, onUpdate, onMessage) {
             textBody = msg.message.contactMessage?.displayName || '[Contact Card]';
         }
 
-        // Auto-download media files locally for 100% reliable Live Support Inbox rendering
+        // Auto-download media files locally for 100% reliable Live Support Inbox rendering.
+        // Streamed to disk (not fully buffered in RAM) and capped by size, so
+        // oversized/abusive incoming media cannot exhaust the 1GB heap or fill
+        // the disk (DoS).
         const isMedia = ['image', 'video', 'audio', 'document', 'sticker'].includes(messageType);
         if (isMedia) {
+            let localFilePath = null;
             try {
-                const buffer = await downloadMediaMessage(
-                    msg,
-                    'buffer',
-                    {},
-                    { logger, reuploadRequest: sock.updateMediaMessage }
-                );
-
                 let ext = 'bin';
                 if (messageType === 'image') ext = 'jpg';
                 else if (messageType === 'video') ext = 'mp4';
@@ -318,11 +315,47 @@ async function connectImpl(sessionId, onUpdate, onMessage) {
                 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
 
                 const localFileName = `${Date.now()}_${msg.key.id}.${ext}`;
-                const localFilePath = path.join(mediaDir, localFileName);
-                fs.writeFileSync(localFilePath, buffer);
+                localFilePath = path.join(mediaDir, localFileName);
+
+                const maxMediaBytes = 25 * 1024 * 1024; // 25MB cap (matches upload limit)
+                const stream = await downloadMediaMessage(
+                    msg,
+                    'stream',
+                    {},
+                    { logger, reuploadRequest: sock.updateMediaMessage }
+                );
+
+                await new Promise((resolve, reject) => {
+                    const out = fs.createWriteStream(localFilePath);
+                    let size = 0;
+                    let aborted = false;
+                    stream.on('error', (e) => { if (!aborted) { aborted = true; out.destroy(); reject(e); } });
+                    out.on('error', (e) => { if (!aborted) { aborted = true; reject(e); } });
+                    out.on('drain', () => { if (!aborted) stream.resume(); });
+                    stream.on('data', (chunk) => {
+                        size += chunk.length;
+                        if (size > maxMediaBytes) {
+                            aborted = true;
+                            stream.destroy();
+                            out.destroy();
+                            reject(new Error('Media exceeds size cap'));
+                            return;
+                        }
+                        if (!out.write(chunk)) stream.pause();
+                    });
+                    stream.on('end', () => {
+                        if (aborted) return;
+                        out.end(() => resolve());
+                    });
+                });
+
                 mediaUrl = `/media/${localFileName}`;
             } catch (mediaErr) {
                 console.error(`[WhatsApp] Media download failed for msg ${msg.key.id}:`, mediaErr.message);
+                // Remove any partial/oversized file so the disk is not filled.
+                if (localFilePath && fs.existsSync(localFilePath)) {
+                    try { fs.unlinkSync(localFilePath); } catch (e) { /* ignore */ }
+                }
                 mediaUrl = msg.message[messageType + 'Message']?.url || null;
             }
         }

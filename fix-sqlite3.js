@@ -29,11 +29,9 @@ console.log(`Node.js version: ${process.version}`);
 // Check if better-sqlite3 exists
 const sqlitePath = path.join(__dirname, 'node_modules', 'better-sqlite3');
 if (!fs.existsSync(sqlitePath)) {
-    console.log('\n⚠️  better-sqlite3 not found. Running npm install...');
-    if (!run('npm install', 'Installing dependencies')) {
-        console.error('\n❌ Failed to install dependencies');
-        process.exit(1);
-    }
+    console.error('\n❌ better-sqlite3 not found in node_modules.');
+    console.error('   Please run `npm install better-sqlite3` first.');
+    process.exit(1);
 }
 
 // Check for prebuilt binaries

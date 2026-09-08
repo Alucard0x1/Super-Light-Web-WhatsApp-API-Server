@@ -1,6 +1,6 @@
 {
   "name": "super-light-web-whatsapp-api-server",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "A super lightweight web server for WhatsApp API using @whiskeysockets/baileys",
   "main": "index.js",
   "scripts": {
@@ -11,8 +11,7 @@
     "start:prod:unix": "bash start-production.sh",
     "start:prod:windows": "start-production.bat",
     "start:prod": "node -r dotenv/config index.js",
-    "fix:sqlite": "node fix-sqlite3.js",
-    "postinstall": "npm run fix:sqlite || true"
+    "fix:sqlite": "node fix-sqlite3.js"
   },
   "author": "Alucard0x1",
   "license": "MIT",

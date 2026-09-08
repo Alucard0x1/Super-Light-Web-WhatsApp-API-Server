@@ -42,6 +42,33 @@ const activeQrCodes = new Map();
 const retryCounters = new Map();
 const reconnectTimeouts = new Map();
 
+// Per-session connect mutex: serializes connect() calls for the same session so
+// two overlapping connects cannot both create a socket (double-connect / stale
+// close clobber). A concurrent connect() returns the in-flight promise instead
+// of starting a second socket. This closes the TOCTOU window between the
+// "clean up existing socket" check and activeSockets.set() where awaits
+// (useMultiFileAuthState / fetchLatestWaWebVersion) let another connect interleave.
+const connectInProgress = new Map(); // sessionId -> Promise<Socket|null>
+
+/**
+ * Guarded connect entry point. Deduplicates concurrent connects for the same
+ * session and surfaces a single in-flight promise.
+ * @returns {Promise<object|null>} Socket connection (or null on failure)
+ */
+function connect(sessionId, onUpdate, onMessage) {
+    if (connectInProgress.has(sessionId)) {
+        return connectInProgress.get(sessionId);
+    }
+    const p = connectImpl(sessionId, onUpdate, onMessage)
+        .catch((err) => {
+            console.error(`[${sessionId}] connect failed:`, err?.message || err);
+            return null;
+        })
+        .finally(() => connectInProgress.delete(sessionId));
+    connectInProgress.set(sessionId, p);
+    return p;
+}
+
 // Auth directory
 const AUTH_DIR = path.join(__dirname, '../../auth_info_baileys');
 
@@ -61,7 +88,7 @@ function ensureAuthDir() {
  * @param {function} onMessage - Callback for incoming messages
  * @returns {object} Socket connection
  */
-async function connect(sessionId, onUpdate, onMessage) {
+async function connectImpl(sessionId, onUpdate, onMessage) {
     if (!require('../utils/validation').isValidId(sessionId)) {
         throw new Error('Invalid session ID');
     }
@@ -131,14 +158,34 @@ async function connect(sessionId, onUpdate, onMessage) {
         getMessage: async () => ({ conversation: 'hello' })
     });
 
+    // Mark this socket as the current one for this session. Any later 'close'
+    // from a superseded socket is ignored because isCurrentSocket() becomes
+    // false once a newer connect has claimed the activeSockets slot (R1
+    // stale-close clobber / phantom-disconnect protection).
+    const isCurrentSocket = () => activeSockets.get(sessionId) === sock;
+
     // Store socket reference
     activeSockets.set(sessionId, sock);
+
+    // R2 defense: if the session row was deleted (e.g. concurrent
+    // deleteSessionData) while we were waiting on the auth-state/version awaits,
+    // do not retain a zombie socket that is connected but has no DB record.
+    if (!Session.findById(sessionId)) {
+        console.log(`[${sessionId}] Session deleted during connect; aborting socket`);
+        try { sock.end(); } catch (e) { /* already closed */ }
+        activeSockets.delete(sessionId);
+        return sock;
+    }
 
     // Handle credentials update
     sock.ev.on('creds.update', saveCreds);
 
     // Handle connection updates
     sock.ev.on('connection.update', async (update) => {
+        // A superseded socket (from an older/unfinished connect) must never
+        // mutate shared state or session status. Bail out entirely.
+        if (!isCurrentSocket()) return;
+
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
@@ -411,10 +458,12 @@ function disconnect(sessionId) {
     }
     const sock = activeSockets.get(sessionId);
     if (sock) {
+        // Remove from the map BEFORE ending so the socket's late 'close' event
+        // sees isCurrentSocket() === false and does not schedule a reconnect.
+        activeSockets.delete(sessionId);
         try {
             sock.end();
         } catch (e) {}
-        activeSockets.delete(sessionId);
     }
     activeQrCodes.delete(sessionId);
     retryCounters.delete(sessionId);

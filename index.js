@@ -604,14 +604,21 @@ app.use('/api/v1', apiRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Campaign scheduler: auto-start campaigns whose scheduledAt has passed
+// Campaign scheduler: auto-start campaigns whose scheduledAt has passed.
+// A `running` flag chains ticks so a slow tick is never overlapped by the next
+// one (which would re-read the same 'ready' campaigns mid-start and race them).
+let schedulerRunning = false;
 const schedulerInterval = setInterval(async () => {
+    if (schedulerRunning) return;
+    schedulerRunning = true;
     try {
         if (apiRouter && typeof apiRouter.checkAndStartScheduledCampaigns === 'function') {
             await apiRouter.checkAndStartScheduledCampaigns();
         }
     } catch (err) {
         console.error('[Scheduler] check error:', err.message);
+    } finally {
+        schedulerRunning = false;
     }
 }, 60 * 1000);
 if (typeof schedulerInterval.unref === 'function') schedulerInterval.unref();

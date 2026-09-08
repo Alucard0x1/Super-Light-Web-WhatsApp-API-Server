@@ -620,7 +620,14 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
                     const createdBy = campaign.createdBy || 'scheduler';
 
                     // Start the campaign
-                    await campaignSender.startCampaign(campaign.id, createdBy);
+                    const startResult = await campaignSender.startCampaign(campaign.id, createdBy);
+
+                    // Idempotency: a concurrent scheduler tick / manual /send /
+                    // /retry may have already started it — do not log as started.
+                    if (startResult && startResult.status === 'already-running') {
+                        console.log(`⏭️ Campaign ${campaign.name} already running; skipping`);
+                        continue;
+                    }
 
                     log(`Scheduled campaign started: ${campaign.name}`, 'SCHEDULER', {
                         event: 'campaign-auto-start',

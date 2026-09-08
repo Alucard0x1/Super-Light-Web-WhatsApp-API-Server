@@ -43,9 +43,16 @@ class CampaignSender extends EventEmitter {
             throw new Error('Campaign not found or could not be loaded');
         }
 
-        // Check if campaign is already running
+        // Check if campaign is already running (idempotent: return the existing
+        // queue rather than throwing, so the 60s scheduler and a manual
+        // /send or /retry racing it do not double-start or spam error logs).
         if (this.activeQueues.has(campaignId)) {
-            throw new Error('Campaign is already running');
+            const existing = this.activeQueues.get(campaignId);
+            return {
+                campaignId,
+                status: existing.status === 'running' ? 'already-running' : existing.status,
+                message: 'Campaign is already active'
+            };
         }
 
         // Check if session exists and is connected

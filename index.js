@@ -63,6 +63,7 @@ if (!ENCRYPTION_KEY || !isValidKey(ENCRYPTION_KEY)) {
 
 // Initialize Express
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
@@ -534,7 +535,8 @@ const getSessionsDetailsWrapper = (ownerEmail, isAdmin = false) => (
         const details = {
             ...session,
             sessionId: session.id,
-            isConnected: whatsappService.isConnected(session.id)
+            isConnected: whatsappService.isConnected(session.id),
+            qr: whatsappService.getQr(session.id) || null
         };
         // Public listings (no owner filter, not admin) must never expose bearer tokens
         if (!ownerEmail && !isAdmin) {

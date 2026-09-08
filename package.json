@@ -1,10 +1,10 @@
 {
   "name": "super-light-web-whatsapp-api-server",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "A super lightweight web server for WhatsApp API using @whiskeysockets/baileys",
   "main": "index.js",
   "scripts": {
-    "start": "bun ./index.js",
+    "start": "node -r dotenv/config index.js",
     "dev": "nodemon index.js",
     "test": "jest",
     "start-production": "npm run start:prod",

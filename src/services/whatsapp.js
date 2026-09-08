@@ -38,6 +38,7 @@ const logger = pino({ level: process.env.LOG_LEVEL || defaultLogLevel });
 
 // Active socket connections (in-memory)
 const activeSockets = new Map();
+const activeQrCodes = new Map();
 const retryCounters = new Map();
 const reconnectTimeouts = new Map();
 
@@ -141,6 +142,7 @@ async function connect(sessionId, onUpdate, onMessage) {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
+            activeQrCodes.set(sessionId, qr);
             Session.updateStatus(sessionId, 'GENERATING_QR', 'Scan QR code');
             if (onUpdate) onUpdate(sessionId, 'GENERATING_QR', 'Scan QR code', qr);
         }
@@ -152,6 +154,7 @@ async function connect(sessionId, onUpdate, onMessage) {
 
         if (connection === 'open') {
             console.log(`[${sessionId}] Connected!`);
+            activeQrCodes.delete(sessionId);
             retryCounters.delete(sessionId);
 
             const name = sock.user?.name || 'Unknown';
@@ -408,9 +411,12 @@ function disconnect(sessionId) {
     }
     const sock = activeSockets.get(sessionId);
     if (sock) {
-        sock.end();
+        try {
+            sock.end();
+        } catch (e) {}
         activeSockets.delete(sessionId);
     }
+    activeQrCodes.delete(sessionId);
     retryCounters.delete(sessionId);
 }
 
@@ -421,6 +427,15 @@ function disconnect(sessionId) {
  */
 function getSocket(sessionId) {
     return activeSockets.get(sessionId) || null;
+}
+
+/**
+ * Get active QR code string for a session
+ * @param {string} sessionId - Session ID
+ * @returns {string|null} QR code or null
+ */
+function getQr(sessionId) {
+    return activeQrCodes.get(sessionId) || null;
 }
 
 /**
@@ -443,6 +458,7 @@ function deleteSessionData(sessionId) {
     }
 
     disconnect(sessionId);
+    activeQrCodes.delete(sessionId);
 
     const sessionDir = path.join(AUTH_DIR, sessionId);
     if (fs.existsSync(sessionDir)) {
@@ -500,6 +516,7 @@ module.exports = {
     connect,
     disconnect,
     getSocket,
+    getQr,
     isConnected,
     deleteSessionData,
     getActiveSessions,

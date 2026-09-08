@@ -143,6 +143,9 @@ class AiChatbotService {
             throw new Error('API Key is required to test the AI sandbox.');
         }
 
+        const { validateExternalUrl } = require('./webhook');
+        await validateExternalUrl(baseUrlToUse);
+
         const endpoint = `${baseUrlToUse.replace(/\/$/, '')}/chat/completions`;
 
         const response = await axios.post(

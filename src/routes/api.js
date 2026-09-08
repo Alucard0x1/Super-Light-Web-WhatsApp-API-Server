@@ -852,6 +852,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
         }
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
         try {
             const cloned = campaignManager.cloneCampaign(req.params.id, req.currentUser.email);
             res.status(201).json(cloned);
@@ -863,6 +870,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.post('/campaigns/:id/send', checkCampaignAccess, async (req, res) => {
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
         }
         try {
             console.log(`Starting campaign ${req.params.id} via API request by ${req.currentUser.email}`);
@@ -883,6 +897,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
         }
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
         const result = campaignSender.pauseCampaign(req.params.id);
         if (result) {
             await activityLogger.logCampaignPause(
@@ -900,6 +921,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
         }
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
         try {
             const result = await campaignSender.resumeCampaign(req.params.id, req.currentUser.email);
             res.json({ status: 'success', message: 'Campaign resumed' });
@@ -912,6 +940,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
         }
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
+        }
         try {
             const result = await campaignSender.retryFailed(req.params.id, req.currentUser.email);
             res.json(result);
@@ -923,6 +958,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
     router.get('/campaigns/:id/status', checkCampaignAccess, (req, res) => {
         if (!isValidId(req.params.id)) {
             return res.status(400).json({ status: 'error', message: 'Invalid campaign ID format' });
+        }
+        const campaign = campaignManager.loadCampaign(req.params.id);
+        if (!campaign) {
+            return res.status(404).json({ status: 'error', message: 'Campaign not found' });
+        }
+        if (req.currentUser.role !== 'admin' && campaign.createdBy !== req.currentUser.email) {
+            return res.status(403).json({ status: 'error', message: 'Access denied' });
         }
         const status = campaignSender.getCampaignStatus(req.params.id);
         if (!status) {
@@ -1074,6 +1116,13 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             return res.status(400).json({ status: 'error', message: 'Invalid list ID format' });
         }
         try {
+            const list = recipientListManager.loadList(req.params.id);
+            if (!list) {
+                return res.status(404).json({ status: 'error', message: 'Recipient list not found' });
+            }
+            if (req.currentUser.role !== 'admin' && list.createdBy !== req.currentUser.email) {
+                return res.status(403).json({ status: 'error', message: 'Access denied' });
+            }
             const cloned = recipientListManager.cloneList(req.params.id, req.currentUser.email, req.body.name);
             res.status(201).json(cloned);
         } catch (error) {
@@ -1210,6 +1259,103 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         res.json(debugInfo);
     });
 
+    // AI Chatbot Configuration Endpoints
+    const aiChatbot = require('../services/aiChatbot');
+
+    router.get('/ai-config', checkCampaignAccess, (req, res) => {
+        try {
+            const settings = aiChatbot.getSettings();
+            // Mask API key for client display security
+            const maskedKey = settings.apiKey ? (settings.apiKey.substring(0, 7) + '...' + settings.apiKey.slice(-4)) : '';
+            res.json({
+                status: 'success',
+                data: {
+                    ...settings,
+                    apiKeyMasked: maskedKey
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ status: 'error', message: error.message });
+        }
+    });
+
+    router.post('/ai-config', checkCampaignAccess, (req, res) => {
+        try {
+            const updated = aiChatbot.updateSettings(req.body);
+            res.json({ status: 'success', message: 'AI Chatbot configuration updated', data: updated });
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+
+    router.post('/ai-chatbot/test', checkCampaignAccess, async (req, res) => {
+        try {
+            const { userPrompt, systemPrompt, model, apiKey, apiBaseUrl, temperature } = req.body;
+            if (!userPrompt) {
+                return res.status(400).json({ status: 'error', message: 'userPrompt is required' });
+            }
+            const output = await aiChatbot.testPlayground({
+                userPrompt,
+                systemPrompt,
+                model,
+                apiKey,
+                apiBaseUrl,
+                temperature
+            });
+            res.json({ status: 'success', data: { response: output } });
+        } catch (error) {
+            res.status(400).json({ status: 'error', message: error.message });
+        }
+    });
+
+    // Hardened media upload endpoint: accepts either dashboard session auth OR API bearer token.
+    // Magic-byte signature verification determines the real file type and extension.
+    router.post('/media', upload.single('file'), (req, res) => {
+        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
+
+        // Authenticate: require active dashboard session OR valid API bearer token
+        const currentUser = resolveCurrentUser(req);
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];
+        const isValidToken = token && Array.from(sessionTokens.values()).includes(token);
+
+        if (!currentUser && !isValidToken) {
+            if (req.file && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            return res.status(401).json({ status: 'error', message: 'Authentication required' });
+        }
+
+        if (!req.file) {
+            log('API error', 'SYSTEM', { event: 'api-error', error: 'No file uploaded or invalid file type.', endpoint: req.originalUrl });
+            return res.status(400).json({ status: 'error', message: 'No file uploaded or invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF, DOC, DOCX, XLS, XLSX. Max size: 25MB.' });
+        }
+        try {
+            const detected = mediaTypeFromSignature(req.file.path, req.file.mimetype);
+            if (!detected) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ status: 'error', message: 'File content does not match an allowed file type.' });
+            }
+            const finalName = `${req.file.filename}${detected.extension}`;
+            fs.renameSync(req.file.path, path.join(mediaDir, finalName));
+
+            const mediaId = finalName;
+            log('File uploaded', mediaId, { event: 'file-uploaded', mediaId });
+            res.status(201).json({
+                status: 'success',
+                message: 'File uploaded successfully.',
+                mediaId: mediaId,
+                url: `/media/${mediaId}`
+            });
+        } catch (err) {
+            if (req.file && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            log('API error', 'SYSTEM', { event: 'api-error', error: err.message, endpoint: req.originalUrl });
+            res.status(500).json({ status: 'error', message: 'Failed to process upload' });
+        }
+    });
+
     // All routes below this are protected by token
     router.use(validateToken);
 
@@ -1305,89 +1451,6 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
         res.status(200).json({ status: 'success', message: `Webhook for session ${sessionId} deleted.` });
     });
 
-    // AI Chatbot Configuration Endpoints
-    const aiChatbot = require('../services/aiChatbot');
-
-    router.get('/ai-config', checkCampaignAccess, (req, res) => {
-        try {
-            const settings = aiChatbot.getSettings();
-            // Mask API key for client display security
-            const maskedKey = settings.apiKey ? (settings.apiKey.substring(0, 7) + '...' + settings.apiKey.slice(-4)) : '';
-            res.json({
-                status: 'success',
-                data: {
-                    ...settings,
-                    apiKeyMasked: maskedKey
-                }
-            });
-        } catch (error) {
-            res.status(500).json({ status: 'error', message: error.message });
-        }
-    });
-
-    router.post('/ai-config', checkCampaignAccess, (req, res) => {
-        try {
-            const updated = aiChatbot.updateSettings(req.body);
-            res.json({ status: 'success', message: 'AI Chatbot configuration updated', data: updated });
-        } catch (error) {
-            res.status(400).json({ status: 'error', message: error.message });
-        }
-    });
-
-    router.post('/ai-chatbot/test', checkCampaignAccess, async (req, res) => {
-        try {
-            const { userPrompt, systemPrompt, model, apiKey, apiBaseUrl, temperature } = req.body;
-            if (!userPrompt) {
-                return res.status(400).json({ status: 'error', message: 'userPrompt is required' });
-            }
-            const output = await aiChatbot.testPlayground({
-                userPrompt,
-                systemPrompt,
-                model,
-                apiKey,
-                apiBaseUrl,
-                temperature
-            });
-            res.json({ status: 'success', data: { response: output } });
-        } catch (error) {
-            res.status(400).json({ status: 'error', message: error.message });
-        }
-    });
-
-    // Hardened media upload endpoint: magic-byte signature verification
-    // determines the real file type and extension (client MIME never trusted)
-    router.post('/media', upload.single('file'), (req, res) => {
-        log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, body: req.body });
-        if (!req.file) {
-            log('API error', 'SYSTEM', { event: 'api-error', error: 'No file uploaded or invalid file type.', endpoint: req.originalUrl });
-            return res.status(400).json({ status: 'error', message: 'No file uploaded or invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF, DOC, DOCX, XLS, XLSX. Max size: 25MB.' });
-        }
-        try {
-            const detected = mediaTypeFromSignature(req.file.path, req.file.mimetype);
-            if (!detected) {
-                fs.unlinkSync(req.file.path);
-                return res.status(400).json({ status: 'error', message: 'File content does not match an allowed file type.' });
-            }
-            const finalName = `${req.file.filename}${detected.extension}`;
-            fs.renameSync(req.file.path, path.join(mediaDir, finalName));
-
-            const mediaId = finalName;
-            log('File uploaded', mediaId, { event: 'file-uploaded', mediaId });
-            res.status(201).json({
-                status: 'success',
-                message: 'File uploaded successfully.',
-                mediaId: mediaId,
-                url: `/media/${mediaId}`
-            });
-        } catch (err) {
-            if (req.file && fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
-            }
-            log('API error', 'SYSTEM', { event: 'api-error', error: err.message, endpoint: req.originalUrl });
-            res.status(500).json({ status: 'error', message: 'Failed to process upload' });
-        }
-    });
-
     // Main message sending endpoint
     router.post('/messages', async (req, res) => {
         log('API request', 'SYSTEM', { event: 'api-request', method: req.method, endpoint: req.originalUrl, query: req.query });
@@ -1480,7 +1543,7 @@ function initializeApi(sessions, sessionTokens, createSession, getSessionsDetail
             if (recipient_type === 'group') {
                 destination = to.endsWith('@g.us') ? to : `${to}@g.us`;
             } else {
-                destination = `${to.replace(/[@s.whatsapp.net]/g, '')}@s.whatsapp.net`;
+                destination = jidNormalizedUser(to.includes('@') ? to : `${to.replace(/^\+/, '')}@s.whatsapp.net`);
             }
 
             let messagePayload;

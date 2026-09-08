@@ -32,6 +32,7 @@ A powerful, lightweight, multi-session, and enterprise-grade WhatsApp API server
 - **Persistent Connection Engine**: Automatic background socket reconnection after server restarts or network interruptions.
 - **Live Support Inbox**: Interactive 2-way live chat thread interface with session scoping and multi-media support.
 - **Auto-Reply Keyword Engine**: Rule-based automated responses supporting `exact`, `contains`, `startsWith`, and `regex` matching.
+- **AI Chatbot Assistant**: OpenAI-compatible AI auto-responder integration with custom system prompts, temperature controls, sandbox testing, and automated context replies.
 - **Broadcast Campaigns & Spintax**: Multi-recipient messaging with dynamic Spintax variations (`{Hi|Hello|Hey}`) and variable placeholders (`{name}`, `{number}`).
 - **Group Participant Scraper**: Scrape joined WhatsApp groups, filter participants, export to CSV/JSON, or convert directly into campaign target lists.
 - **Analytics & Throughput Dashboard**: Live delivery metrics, message throughput, active session stats, and trend analytics.
@@ -48,15 +49,15 @@ Access the Admin Dashboard by navigating to `http://localhost:3000/admin/dashboa
 | Tool / Module | Web URL | Description |
 | :--- | :--- | :--- |
 | **Main Dashboard** | `/admin/dashboard.html` | Central hub for session lifecycle, QR code scanning, and live log stream. |
-| **API Control Center** | `/admin/dashboard.html#api-control-center` | Interactive visual API testing tool with button feedback and dynamic `cURL` generators. |
+| **API Control Center** | `/admin/dashboard.html#api-control` | Interactive visual API testing tool with button feedback and dynamic `cURL` generators. |
 | **Live Support Inbox** | `/admin/inbox.html` | 2-way real-time chat interface with active session selection & media player controls. |
+| **Campaigns & Lists** | `/admin/campaigns.html` | Campaign builder with Spintax support, delay scheduling, recipient list manager, and progress tracking. |
 | **Auto-Replies Engine** | `/admin/auto-replies.html` | Rule configuration, session scope, and interactive keyword match sandbox. |
-| **Campaign Dispatcher** | `/admin/campaigns.html` | Campaign builder with Spintax support, delay scheduling, and progress tracking. |
-| **Group Scraper** | `/admin/group-scraper.html` | Group discovery, participant scraping, and list export. |
-| **Analytics Dashboard** | `/admin/analytics.html` | Message statistics, active session breakdown, and throughput performance. |
-| **System Log History** | `/admin/system-logs.html` | Searchable log archive with level filtering (`INFO`, `WARN`, `ERROR`). |
+| **AI Chatbot Assistant** | `/admin/ai-chatbot.html` | OpenAI-compatible AI prompt engineering playground, model configuration, and auto-responder setup. |
 | **User Management** | `/admin/users.html` | Admin control panel for managing system users and roles. |
 | **Activity Audit Logs** | `/admin/activities.html` | User audit log tracking logins, campaign creations, and session changes. |
+| **System Log History** | `/admin/dashboard.html#system-log-history` | Searchable log archive with level filtering (`INFO`, `WARN`, `ERROR`). |
+| **API Documentation** | `/api-documentation` | Comprehensive interactive API reference and endpoint documentation. |
 
 ---
 
@@ -177,16 +178,20 @@ Authorization: Bearer <your_session_token>
 
 | Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/sessions` | Create a new WhatsApp session. | Master Key |
+| `POST` | `/api/v1/sessions` | Create a new WhatsApp session. | Master Key / Cookie |
 | `GET` | `/api/v1/sessions` | List active sessions and statuses. | Bearer / Cookie |
 | `DELETE` | `/api/v1/sessions/:id` | Delete a specific session. | Bearer / Cookie |
 | `POST` | `/api/v1/messages` | Send text/image/document message. | Bearer Token |
+| `POST` | `/api/v1/media` | Upload media attachment (JPEG, PNG, PDF, etc.). | Bearer / Cookie |
 | `GET` | `/api/v1/chats` | Get active conversation threads for session. | Bearer / Cookie |
 | `GET` | `/api/v1/chats/:jid/messages` | Get message history for a contact. | Bearer / Cookie |
 | `POST` | `/api/v1/chats/:jid/send` | Send live inbox reply (text/media). | Bearer / Cookie |
 | `GET` | `/api/v1/auto-replies` | Get all auto-reply rules. | Bearer / Cookie |
 | `POST` | `/api/v1/auto-replies` | Create auto-reply rule. | Bearer / Cookie |
 | `POST` | `/api/v1/auto-replies/test` | Test keyword matching in sandbox. | Bearer / Cookie |
+| `GET` | `/api/v1/ai-config` | Get AI Chatbot settings and model configs. | Bearer / Cookie |
+| `POST` | `/api/v1/ai-config` | Update AI Chatbot settings and prompts. | Bearer / Cookie |
+| `POST` | `/api/v1/ai-chatbot/test` | Test AI prompt response in sandbox playground. | Bearer / Cookie |
 | `GET` | `/api/v1/recipient-lists` | Get recipient lists. | Bearer / Cookie |
 | `POST` | `/api/v1/recipient-lists` | Create a recipient list. | Bearer / Cookie |
 | `GET` | `/api/v1/campaigns` | Get campaigns list. | Bearer / Cookie |
@@ -194,7 +199,10 @@ Authorization: Bearer <your_session_token>
 | `POST` | `/api/v1/campaigns/:id/send` | Dispatch a broadcast campaign. | Bearer / Cookie |
 | `GET` | `/api/v1/sessions/:id/groups` | Scrape joined WhatsApp groups. | Bearer / Cookie |
 | `GET` | `/api/v1/groups/:jid/participants` | Get group participant list. | Bearer / Cookie |
-| `GET` | `/api/v1/analytics/stats` | Get server metrics & throughput stats. | Bearer / Cookie |
+| `GET` | `/api/v1/sessions/:id/webhook` | Get configured webhook for session. | Bearer / Cookie |
+| `POST` | `/api/v1/sessions/:id/webhook` | Set or update webhook for session. | Bearer / Cookie |
+| `DELETE` | `/api/v1/sessions/:id/webhook` | Remove webhook for session. | Bearer / Cookie |
+| `GET` | `/api/v1/analytics/summary` | Get aggregated server metrics and stats. | Bearer / Cookie |
 | `GET` | `/api/v1/system-logs` | Query persistent log history. | Bearer / Cookie |
 
 ---

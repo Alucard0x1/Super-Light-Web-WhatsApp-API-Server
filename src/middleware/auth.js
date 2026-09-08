@@ -17,7 +17,7 @@ function requireAuth(req, res, next) {
     }
 
     // Legacy admin session (no user row) — keep as-is
-    if (req.session.userId === 'legacy-admin') {
+    if (req.session.userId === 'legacy-admin' || !req.session.userEmail) {
         return next();
     }
 
@@ -44,15 +44,12 @@ function requireAuth(req, res, next) {
  * Used for admin-only operations
  */
 function requireAdmin(req, res, next) {
-    if (!req.session || !req.session.adminAuthed) {
-        return response.unauthorized(res, 'Login required');
-    }
-
-    if (req.session.userRole !== 'admin') {
-        return response.forbidden(res, 'Admin access required');
-    }
-
-    next();
+    requireAuth(req, res, () => {
+        if (req.session.userRole !== 'admin') {
+            return response.forbidden(res, 'Admin access required');
+        }
+        next();
+    });
 }
 
 /**

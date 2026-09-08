@@ -438,9 +438,12 @@ class CampaignSender extends EventEmitter {
             // Log activity
             await this.activityLogger.logCampaignRetry(userEmail, campaignId, campaign.name, retryCount);
 
-            // Start sending if not already running
-            if (!this.activeQueues.has(campaignId)) {
+            // Start sending if not already running, or resume if paused
+            const queue = this.activeQueues.get(campaignId);
+            if (!queue) {
                 return this.startCampaign(campaignId, userEmail);
+            } else if (queue.status === 'paused') {
+                await this.resumeCampaign(campaignId, userEmail);
             }
         }
 

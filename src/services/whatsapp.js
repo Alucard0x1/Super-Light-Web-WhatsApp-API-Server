@@ -313,7 +313,42 @@ async function connect(sessionId, onUpdate, onMessage) {
                         replyPayload = JSON.parse(rule.response_payload);
                     } catch (e) {}
 
-                    if (rule.response_type === 'text') {
+                    if (rule.response_type === 'image') {
+                        const imgUrl = typeof replyPayload === 'object' ? (replyPayload.url || replyPayload.link) : String(replyPayload);
+                        const caption = typeof replyPayload === 'object' ? (replyPayload.caption || replyPayload.body || '') : '';
+                        const resolvedUrl = (typeof imgUrl === 'string' && imgUrl.startsWith('/media/')) ? path.join(__dirname, '../../media', path.basename(imgUrl)) : imgUrl;
+                        if (resolvedUrl) {
+                            await sock.sendMessage(remoteJid, { image: { url: resolvedUrl }, caption }, { quoted: msg });
+                            const ChatMessage = require('../models/ChatMessage');
+                            ChatMessage.save({
+                                sessionId,
+                                remoteJid,
+                                senderName: 'AutoResponder',
+                                fromMe: 1,
+                                messageType: 'image',
+                                body: caption || '[Image]',
+                                mediaUrl: imgUrl
+                            });
+                        }
+                    } else if (rule.response_type === 'document') {
+                        const docUrl = typeof replyPayload === 'object' ? (replyPayload.url || replyPayload.link) : String(replyPayload);
+                        const fileName = typeof replyPayload === 'object' ? (replyPayload.fileName || replyPayload.filename || 'document') : 'document';
+                        const caption = typeof replyPayload === 'object' ? (replyPayload.caption || replyPayload.body || '') : '';
+                        const resolvedUrl = (typeof docUrl === 'string' && docUrl.startsWith('/media/')) ? path.join(__dirname, '../../media', path.basename(docUrl)) : docUrl;
+                        if (resolvedUrl) {
+                            await sock.sendMessage(remoteJid, { document: { url: resolvedUrl }, fileName, caption }, { quoted: msg });
+                            const ChatMessage = require('../models/ChatMessage');
+                            ChatMessage.save({
+                                sessionId,
+                                remoteJid,
+                                senderName: 'AutoResponder',
+                                fromMe: 1,
+                                messageType: 'document',
+                                body: fileName || caption || '[Document]',
+                                mediaUrl: docUrl
+                            });
+                        }
+                    } else {
                         const replyText = typeof replyPayload === 'object' ? (replyPayload.body || replyPayload.text || String(replyPayload)) : String(replyPayload);
                         await sock.sendMessage(remoteJid, { text: replyText }, { quoted: msg });
                         

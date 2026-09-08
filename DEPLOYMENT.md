@@ -13,6 +13,7 @@ Complete guide for deploying the WhatsApp API Server to cPanel.
   ADMIN_DASHBOARD_PASSWORD=your_secure_password
   TOKEN_ENCRYPTION_KEY=<64 hex characters>
   SESSION_SECRET=<32+ characters>
+  MASTER_API_KEY=<secure random string>
   MAX_SESSIONS=3
   ```
 - [ ] Delete `node_modules/` and `.git/` folders
@@ -22,8 +23,11 @@ Complete guide for deploying the WhatsApp API Server to cPanel.
 # TOKEN_ENCRYPTION_KEY (64 hex chars)
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
-# SESSION_SECRET (32 chars)
-node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
+# SESSION_SECRET (32+ chars)
+node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+
+# MASTER_API_KEY (32+ chars)
+node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
 ```
 
 ---
@@ -53,6 +57,7 @@ node -e "console.log(require('crypto').randomBytes(16).toString('hex'))"
    ADMIN_DASHBOARD_PASSWORD=your_password
    TOKEN_ENCRYPTION_KEY=your_64_char_key
    SESSION_SECRET=your_32_char_key
+   MASTER_API_KEY=your_master_api_key
    MAX_SESSIONS=3
    COOKIE_SECURE=true  # Set to true only if using HTTPS
    ```

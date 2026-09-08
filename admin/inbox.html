@@ -270,7 +270,7 @@
                     <div class="brand-icon"><i class="bi bi-whatsapp"></i></div>
                     <div>
                         <div class="brand-title">WA Gateway</div>
-                        <div class="brand-subtitle">API Control v3.2</div>
+                        <div class="brand-subtitle">API Control v1.2.7</div>
                     </div>
                 </a>
                 <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
@@ -381,9 +381,19 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
+                        <label class="form-label fw-bold">Attach Local File</label>
+                        <input type="file" class="form-control" id="mediaFileInput" onchange="handleMediaFileSelect(this)">
+                        <div class="form-text">Choose an image, document, or audio file directly from your computer (Max 25MB).</div>
+                    </div>
+                    <div class="d-flex align-items-center my-3">
+                        <hr class="flex-grow-1 my-0">
+                        <span class="px-2 text-muted small fw-bold">OR ENTER URL</span>
+                        <hr class="flex-grow-1 my-0">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label fw-bold">Media Type</label>
                         <select class="form-select" id="mediaTypeSelect">
-                            <option value="image">Image (JPEG / PNG)</option>
+                            <option value="image">Image (JPEG / PNG / WebP)</option>
                             <option value="document">Document (PDF / DOC / File)</option>
                             <option value="audio">Audio Voice Note (MP3 / OGG / WAV)</option>
                         </select>
@@ -396,16 +406,26 @@
                         <label class="form-label fw-bold">Caption (Optional)</label>
                         <input type="text" class="form-control" id="mediaCaptionInput" placeholder="Optional text caption...">
                     </div>
+                    <div id="mediaUploadProgress" class="d-none mb-2">
+                        <div class="d-flex justify-content-between small text-muted mb-1">
+                            <span>Uploading file to server...</span>
+                            <span id="mediaUploadPercent">0%</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div id="mediaUploadProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="sendMediaReply()"><i class="bi bi-send-fill me-1"></i> Send Media</button>
+                    <button type="button" class="btn btn-primary" id="sendMediaBtn" onclick="sendMediaReply()"><i class="bi bi-send-fill me-1"></i> Send Media</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/admin/js/toast.js"></script>
     <script>
         const appSidebar = document.getElementById('appSidebar');
         const sidebarOpenBtn = document.getElementById('sidebarOpenBtn');
@@ -622,6 +642,8 @@
             await loadMessages();
         }
 
+        let pendingMessages = [];
+
         async function loadMessages() {
             const sessionId = document.getElementById('inboxSessionSelect').value;
             if (!sessionId || !activeRemoteJid) return;
@@ -631,16 +653,29 @@
                 const messages = result.data || [];
 
                 const viewport = document.getElementById('messagesViewport');
-                viewport.innerHTML = messages.map(m => {
+                let html = messages.map(m => {
                     const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     return `
                         <div class="msg-bubble ${m.from_me ? 'outbound' : 'inbound'}">
                             ${renderMessageContent(m)}
-                            <div class="msg-time">${time}</div>
+                            <div class="msg-time">${time} ${m.from_me ? '<i class="bi bi-check2-all text-white-50 ms-1"></i>' : ''}</div>
                         </div>
                     `;
                 }).join('');
 
+                if (pendingMessages.length > 0) {
+                    html += pendingMessages.map(p => `
+                        <div class="msg-bubble outbound" id="${p.id}" style="opacity: 0.85;">
+                            <div>${escapeHtml(p.text)}</div>
+                            <div class="msg-time d-flex align-items-center justify-content-end gap-1">
+                                <span>${p.time}</span>
+                                <i class="bi bi-clock-history text-white-50 status-icon" title="Sending..."></i>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                viewport.innerHTML = html;
                 viewport.scrollTop = viewport.scrollHeight;
             } catch (e) { console.error('Error loading messages:', e); }
         }
@@ -652,6 +687,25 @@
             if (!text || !sessionId || !activeRemoteJid) return;
 
             input.value = '';
+
+            const tempId = 'msg-pending-' + Date.now();
+            const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const pendingItem = { id: tempId, text: text, time: nowTime };
+            pendingMessages.push(pendingItem);
+
+            const viewport = document.getElementById('messagesViewport');
+            const pendingBubbleHtml = `
+                <div class="msg-bubble outbound" id="${tempId}" style="opacity: 0.85;">
+                    <div>${escapeHtml(text)}</div>
+                    <div class="msg-time d-flex align-items-center justify-content-end gap-1">
+                        <span>${nowTime}</span>
+                        <i class="bi bi-clock-history text-white-50 status-icon" title="Sending..."></i>
+                    </div>
+                </div>
+            `;
+            viewport.insertAdjacentHTML('beforeend', pendingBubbleHtml);
+            viewport.scrollTop = viewport.scrollHeight;
+
             try {
                 const res = await fetch(`/api/v1/chats/${encodeURIComponent(activeRemoteJid)}/send`, {
                     method: 'POST',
@@ -659,24 +713,118 @@
                     body: JSON.stringify({ sessionId, message: text, type: 'text' })
                 });
                 if (res.ok) {
+                    const bubbleEl = document.getElementById(tempId);
+                    if (bubbleEl) {
+                        bubbleEl.style.opacity = '1';
+                        const icon = bubbleEl.querySelector('.status-icon');
+                        if (icon) {
+                            icon.className = 'bi bi-check2 text-white ms-1';
+                            icon.title = 'Sent';
+                        }
+                    }
+                    pendingMessages = pendingMessages.filter(p => p.id !== tempId);
                     await loadMessages();
                     await loadConversations();
                 } else {
-                    alert('Failed to send message.');
+                    pendingMessages = pendingMessages.filter(p => p.id !== tempId);
+                    const bubbleEl = document.getElementById(tempId);
+                    if (bubbleEl) {
+                        bubbleEl.style.border = '1px solid #ef4444';
+                        const icon = bubbleEl.querySelector('.status-icon');
+                        if (icon) {
+                            icon.className = 'bi bi-exclamation-circle-fill text-danger ms-1';
+                            icon.title = 'Failed to send';
+                        }
+                    }
+                    showToast('Failed to send message.', 'error');
                 }
-            } catch (e) { alert('Error sending message: ' + e.message); }
+            } catch (e) {
+                pendingMessages = pendingMessages.filter(p => p.id !== tempId);
+                const bubbleEl = document.getElementById(tempId);
+                if (bubbleEl) {
+                    bubbleEl.style.border = '1px solid #ef4444';
+                    const icon = bubbleEl.querySelector('.status-icon');
+                    if (icon) {
+                        icon.className = 'bi bi-exclamation-circle-fill text-danger ms-1';
+                        icon.title = 'Failed to send: ' + e.message;
+                    }
+                }
+                showToast('Error sending message: ' + e.message, 'error');
+            }
+        }
+
+        function handleMediaFileSelect(input) {
+            if (input.files && input.files.length > 0) {
+                const file = input.files[0];
+                const typeSelect = document.getElementById('mediaTypeSelect');
+                const urlInput = document.getElementById('mediaUrlInput');
+
+                if (file.type.startsWith('image/')) {
+                    typeSelect.value = 'image';
+                } else if (file.type.startsWith('audio/')) {
+                    typeSelect.value = 'audio';
+                } else {
+                    typeSelect.value = 'document';
+                }
+                urlInput.placeholder = `(Attached: ${file.name})`;
+            }
         }
 
         async function sendMediaReply() {
             const sessionId = document.getElementById('inboxSessionSelect').value;
-            const mediaType = document.getElementById('mediaTypeSelect').value;
-            const mediaUrl = document.getElementById('mediaUrlInput').value.trim();
+            let mediaType = document.getElementById('mediaTypeSelect').value;
+            let mediaUrl = document.getElementById('mediaUrlInput').value.trim();
             const caption = document.getElementById('mediaCaptionInput').value.trim();
+            const fileInput = document.getElementById('mediaFileInput');
+            const sendBtn = document.getElementById('sendMediaBtn');
+            const progressEl = document.getElementById('mediaUploadProgress');
+            const progressBar = document.getElementById('mediaUploadProgressBar');
+            const progressPercent = document.getElementById('mediaUploadPercent');
 
-            if (!mediaUrl) {
-                alert('Please enter a valid media URL.');
+            if (!sessionId || !activeRemoteJid) {
+                showToast('Please select an active session and conversation first.', 'warning');
                 return;
             }
+
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+
+                sendBtn.disabled = true;
+                sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Uploading...';
+                progressEl.classList.remove('d-none');
+                progressBar.style.width = '40%';
+                progressPercent.textContent = '40%';
+
+                try {
+                    const uploadRes = await fetch('/api/v1/media', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const uploadData = await uploadRes.json();
+                    if (!uploadRes.ok || uploadData.status !== 'success') {
+                        throw new Error(uploadData.message || 'File upload failed');
+                    }
+                    mediaUrl = uploadData.url || `/media/${uploadData.mediaId}`;
+                    progressBar.style.width = '100%';
+                    progressPercent.textContent = '100%';
+                } catch (uploadErr) {
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = '<i class="bi bi-send-fill me-1"></i> Send Media';
+                    progressEl.classList.add('d-none');
+                    showToast('Media upload failed: ' + uploadErr.message, 'error');
+                    return;
+                }
+            }
+
+            if (!mediaUrl) {
+                showToast('Please select a local file or enter a valid media URL.', 'warning');
+                return;
+            }
+
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Sending...';
 
             try {
                 const res = await fetch(`/api/v1/chats/${encodeURIComponent(activeRemoteJid)}/send`, {
@@ -686,15 +834,31 @@
                 });
 
                 if (res.ok) {
-                    bootstrap.Modal.getInstance(document.getElementById('sendMediaModal')).hide();
+                    const modalEl = document.getElementById('sendMediaModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    if (fileInput) fileInput.value = '';
                     document.getElementById('mediaUrlInput').value = '';
+                    document.getElementById('mediaUrlInput').placeholder = 'https://example.com/image.jpg';
                     document.getElementById('mediaCaptionInput').value = '';
+                    progressEl.classList.add('d-none');
+                    progressBar.style.width = '0%';
+                    progressPercent.textContent = '0%';
+
+                    showToast('Media sent successfully!', 'success');
                     await loadMessages();
                     await loadConversations();
                 } else {
-                    alert('Failed to send media reply.');
+                    const errData = await res.json().catch(() => ({}));
+                    showToast(errData.message || 'Failed to send media reply.', 'error');
                 }
-            } catch (e) { alert('Error sending media reply: ' + e.message); }
+            } catch (e) {
+                showToast('Error sending media reply: ' + e.message, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="bi bi-send-fill me-1"></i> Send Media';
+            }
         }
 
         document.getElementById('replyInput').addEventListener('keydown', (e) => {

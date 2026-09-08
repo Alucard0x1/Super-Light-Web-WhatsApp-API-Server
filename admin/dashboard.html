@@ -454,6 +454,31 @@
             background: #ffffff;
             margin: 0 auto;
         }
+        .qr-code-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 0 auto;
+        }
+        .qr-code-expired-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(4px);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            text-align: center;
+            z-index: 5;
+        }
+        [data-bs-theme="dark"] .qr-code-expired-overlay {
+            background: rgba(15, 23, 42, 0.94);
+        }
         /* Sidebar sub-menus */
         .nav-parent {
             cursor: pointer;
@@ -504,7 +529,7 @@
                     </div>
                     <div>
                         <div class="brand-title">WA Gateway</div>
-                        <div class="brand-subtitle">API Control v3.2</div>
+                        <div class="brand-subtitle">API Control v1.2.7</div>
                     </div>
                 </a>
                 <button class="btn-close btn-close-white d-lg-none" id="sidebarCloseBtn" aria-label="Close"></button>
@@ -952,6 +977,7 @@
 
     <!-- Scripts section -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="/admin/js/toast.js"></script>
     <script src="/admin/js/qrcode.min.js"></script>
     <script>
         function sanitize(str) {
@@ -1068,13 +1094,76 @@
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <button class="btn btn-sm btn-outline-primary get-qr-btn w-100" onclick="getQrCode('${session.sessionId}')" id="btn-qr-${session.sessionId}"><i class="bi bi-qr-code me-1"></i>Get QR Code</button>
                         </div>
-                        <div class="qr-code-container" id="qr-container-${session.sessionId}" style="display: none;">
-                            <div class="qr-code" id="qr-${session.sessionId}"></div>
+                        <div class="qr-code-container text-center" id="qr-container-${session.sessionId}" style="display: none;">
+                            <div class="qr-code-wrapper position-relative d-inline-block">
+                                <div class="qr-code" id="qr-${session.sessionId}"></div>
+                                <div class="qr-code-expired-overlay d-none" id="qr-expired-${session.sessionId}">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning fs-1 mb-2"></i>
+                                    <div class="fw-bold small mb-2">QR Code Expired</div>
+                                    <button class="btn btn-sm btn-primary" onclick="getQrCode('${session.sessionId}')">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh QR
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mt-2" id="qr-timer-wrapper-${session.sessionId}">
+                                <div class="progress mb-1 mx-auto" style="height: 4px; max-width: 220px;">
+                                    <div class="progress-bar bg-success" id="qr-progress-${session.sessionId}" style="width: 100%; transition: width 1s linear;"></div>
+                                </div>
+                                <small class="text-muted"><i class="bi bi-stopwatch me-1"></i>Expires in <span id="qr-countdown-${session.sessionId}" class="fw-bold">60</span>s</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
             return card;
+        }
+
+        const qrTimers = new Map();
+
+        function startQrTimer(sessionId) {
+            stopQrTimer(sessionId);
+            let secondsLeft = 60;
+            const overlay = document.getElementById(`qr-expired-${sessionId}`);
+            const countdown = document.getElementById(`qr-countdown-${sessionId}`);
+            const progressBar = document.getElementById(`qr-progress-${sessionId}`);
+            const timerWrapper = document.getElementById(`qr-timer-wrapper-${sessionId}`);
+
+            if (overlay) overlay.classList.add('d-none');
+            if (timerWrapper) timerWrapper.classList.remove('d-none');
+            if (countdown) countdown.textContent = '60';
+            if (progressBar) {
+                progressBar.style.width = '100%';
+                progressBar.className = 'progress-bar bg-success';
+            }
+
+            const intervalId = setInterval(() => {
+                secondsLeft--;
+                if (countdown) countdown.textContent = secondsLeft;
+                if (progressBar) {
+                    const pct = Math.max(0, (secondsLeft / 60) * 100);
+                    progressBar.style.width = `${pct}%`;
+                    if (secondsLeft <= 15) {
+                        progressBar.className = 'progress-bar bg-danger';
+                    } else if (secondsLeft <= 30) {
+                        progressBar.className = 'progress-bar bg-warning';
+                    }
+                }
+
+                if (secondsLeft <= 0) {
+                    stopQrTimer(sessionId);
+                    if (overlay) overlay.classList.remove('d-none');
+                    if (timerWrapper) timerWrapper.classList.add('d-none');
+                }
+            }, 1000);
+
+            qrTimers.set(sessionId, intervalId);
+        }
+
+        function stopQrTimer(sessionId) {
+            if (qrTimers.has(sessionId)) {
+                clearInterval(qrTimers.get(sessionId));
+                qrTimers.delete(sessionId);
+            }
         }
 
         function updateSessionCards(sessions, isFullSync = false) {
@@ -1117,10 +1206,12 @@
                     statusEl.classList.add('bg-success');
                     getQrBtn.style.display = 'none';
                     qrContainer.style.display = 'none';
+                    stopQrTimer(session.sessionId);
                 } else if (session.status === 'DISCONNECTED') {
                     statusEl.classList.add('bg-danger');
                     getQrBtn.style.display = 'block';
                     qrContainer.style.display = 'none';
+                    stopQrTimer(session.sessionId);
                 } else {
                     statusEl.classList.add('bg-warning', 'text-dark');
                     getQrBtn.style.display = 'block';
@@ -1131,6 +1222,7 @@
                     getQrBtn.style.display = 'none';
                     qrCodeEl.innerHTML = '';
                     new QRCode(qrCodeEl, { text: session.qr, width: 200, height: 200 });
+                    startQrTimer(session.sessionId);
                 } else if (session.status !== 'CONNECTED') {
                     qrContainer.style.display = 'none';
                 }
@@ -1168,6 +1260,7 @@
                             if (getQrBtn) getQrBtn.style.display = 'none';
                             qrCodeEl.innerHTML = '';
                             new QRCode(qrCodeEl, { text: result.qr, width: 200, height: 200 });
+                            startQrTimer(sessionId);
                         }
                     }
                     fetchSessions();
@@ -1182,6 +1275,7 @@
         }
 
         async function deleteSession(sessionId) {
+            stopQrTimer(sessionId);
             if (!confirm(`Are you sure you want to delete session ${sessionId}?`)) return;
             const token = sessionsData.get(sessionId)?.token;
             if (!token) {

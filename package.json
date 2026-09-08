@@ -1,6 +1,6 @@
 {
   "name": "super-light-web-whatsapp-api-server",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "A super lightweight web server for WhatsApp API using @whiskeysockets/baileys",
   "main": "index.js",
   "scripts": {

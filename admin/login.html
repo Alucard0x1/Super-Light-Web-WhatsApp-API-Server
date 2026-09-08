@@ -170,7 +170,10 @@
                     <label for="password" class="form-label">Password</label>
                     <div class="input-group">
                         <span class="input-group-text bg-body-tertiary border-end-0 rounded-start-3"><i class="bi bi-lock text-muted"></i></span>
-                        <input type="password" class="form-control border-start-0" id="password" placeholder="••••••••" required>
+                        <input type="password" class="form-control border-start-0 border-end-0" id="password" placeholder="••••••••" required>
+                        <button class="btn btn-outline-secondary border-start-0 rounded-end-3" type="button" id="togglePasswordBtn" title="Toggle password visibility">
+                            <i class="bi bi-eye" id="togglePasswordIcon"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -182,7 +185,7 @@
             <div id="loginError" class="alert alert-danger mt-3 d-none" role="alert"></div>
 
             <div class="text-center mt-4">
-                <small class="text-muted">WhatsApp API Server v3.2 &bull; Multi-Session</small>
+                <small class="text-muted">WhatsApp API Server v1.2.7 &bull; Multi-Session</small>
             </div>
         </div>
     </div>
@@ -209,6 +212,17 @@
             });
         }
         initTheme();
+
+        const toggleBtn = document.getElementById('togglePasswordBtn');
+        const passInput = document.getElementById('password');
+        const passIcon = document.getElementById('togglePasswordIcon');
+        if (toggleBtn && passInput) {
+            toggleBtn.addEventListener('click', () => {
+                const isPassword = passInput.type === 'password';
+                passInput.type = isPassword ? 'text' : 'password';
+                passIcon.className = isPassword ? 'bi bi-eye-slash' : 'bi bi-eye';
+            });
+        }
 
         document.getElementById('loginForm').addEventListener('submit', async function (e) {
             e.preventDefault();
